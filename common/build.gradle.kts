@@ -1,6 +1,7 @@
 import com.google.protobuf.gradle.id
 
 plugins {
+    `java-library`
     id("java")
     id("com.google.protobuf") version "0.9.4"
 }
@@ -14,11 +15,11 @@ repositories {
 
 //TODO Extract common versions variables for gRPC
 dependencies {
-    implementation("io.grpc:grpc-netty-shaded:1.71.0")
-    implementation("io.grpc:grpc-protobuf:1.71.0")
-    implementation("io.grpc:grpc-stub:1.71.0")
+    api("io.grpc:grpc-netty-shaded:1.71.0")
+    api("io.grpc:grpc-protobuf:1.71.0")
+    api("io.grpc:grpc-stub:1.71.0")
 
-    implementation("com.google.protobuf:protobuf-java:4.30.1")
+    api("com.google.protobuf:protobuf-java:4.30.1")
 
     compileOnly("javax.annotation:javax.annotation-api:1.3.2")
 
@@ -59,15 +60,21 @@ protobuf {
     protoc {
         artifact = "com.google.protobuf:protoc:4.30.1"
     }
+
     plugins {
         id("grpc") {
             artifact = "io.grpc:protoc-gen-grpc-java:1.71.0"
         }
     }
+
     generateProtoTasks {
         all().configureEach {
             plugins {
                 id("grpc")
+            }
+
+            doFirst {
+                delete(generatedFilesBaseDir)
             }
         }
     }
