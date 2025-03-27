@@ -2,24 +2,17 @@ package vk.itmo.teamgray.sharded.storage.node;
 
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.AddServerRequest;
-import vk.itmo.teamgray.sharded.storage.AddServerResponse;
-import vk.itmo.teamgray.sharded.storage.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.ChangeShardCountResponse;
-import vk.itmo.teamgray.sharded.storage.DeleteServerRequest;
-import vk.itmo.teamgray.sharded.storage.DeleteServerResponse;
-import vk.itmo.teamgray.sharded.storage.HeartbeatRequest;
-import vk.itmo.teamgray.sharded.storage.HeartbeatResponse;
-import vk.itmo.teamgray.sharded.storage.SetFromFileRequest;
-import vk.itmo.teamgray.sharded.storage.SetFromFileResponse;
-import vk.itmo.teamgray.sharded.storage.SetKeyRequest;
-import vk.itmo.teamgray.sharded.storage.SetKeyResponse;
-import vk.itmo.teamgray.sharded.storage.ShardedStorageGrpc;
+import vk.itmo.teamgray.sharded.storage.*;
 
 public class ShardedStorageImpl extends ShardedStorageGrpc.ShardedStorageImplBase {
     private static final Logger log = LoggerFactory.getLogger(ShardedStorageImpl.class);
+
+    private Map<String, String> storage = new ConcurrentHashMap<>();
 
     @Override
     public void addServer(AddServerRequest request, StreamObserver<AddServerResponse> responseObserver) {
@@ -65,15 +58,49 @@ public class ShardedStorageImpl extends ShardedStorageGrpc.ShardedStorageImplBas
 
     @Override
     public void setKey(SetKeyRequest request, StreamObserver<SetKeyResponse> responseObserver) {
-        // TODO: Implement key-value storage logic
+        boolean success = true;
+        try {
+            storage.put(request.getKey(), request.getValue());
+        } catch (Exception e) {
+            success = false;
+        } finally {
+            responseObserver.onNext(
+                SetKeyResponse.newBuilder()
+                    .setSuccess(success)
+                    .build()
+            );
+            responseObserver.onCompleted();
+        }
+    }
 
+    @Override
+    public void containsKey(ContainsKeyRequest request, StreamObserver<ContainsKeyResponse> responseObserver) {
         responseObserver.onNext(
-            SetKeyResponse.newBuilder()
-                .setSuccess(true)
+            ContainsKeyResponse.newBuilder()
+                .setResult(storage.containsKey(request.getKey()))
                 .build()
         );
-
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getValueByKey(GetValueByKeyRequest request, StreamObserver<GetValueByKeyResponse> responseObserver) {
+        boolean success = true;
+        var value = "";
+        
+        try {
+            value = storage.get(request.getKey());
+        } catch (NullPointerException ex) {
+            success = false;
+        } finally {
+            responseObserver.onNext(
+                GetValueByKeyResponse.newBuilder()
+                    .setSuccess(success)
+                    .setValue(value)
+                    .build()
+            );
+            responseObserver.onCompleted();
+        }
     }
 
     @Override

@@ -12,6 +12,10 @@ service ShardedStorage {
 
   rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
 
+  rpc GetValueByKey (GetValueByKeyRequest) returns (GetValueByKeyResponse);
+
+  rpc ContainsKey (ContainsKeyRequest) returns (ContainsKeyResponse);
+
   rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
 
   rpc SetFromFile (SetFromFileRequest) returns (SetFromFileResponse);
@@ -49,6 +53,23 @@ message ChangeShardCountRequest {
 message ChangeShardCountResponse {
   bool success = 1;
   string message = 2;
+}
+
+message GetValueByKeyRequest {
+  string key = 1;
+}
+
+message GetValueByKeyResponse {
+  bool success = 1;
+  string value = 2;
+}
+
+message ContainsKeyRequest {
+  string key = 1;
+}
+
+message ContainsKeyResponse {
+  bool result = 1;
 }
 
 message SetKeyRequest {
