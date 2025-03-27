@@ -4,30 +4,42 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import vk.itmo.teamgray.sharded.storage.AddServerRequest;
-import vk.itmo.teamgray.sharded.storage.AddServerResponse;
-import vk.itmo.teamgray.sharded.storage.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.ChangeShardCountResponse;
-import vk.itmo.teamgray.sharded.storage.DeleteServerRequest;
-import vk.itmo.teamgray.sharded.storage.DeleteServerResponse;
-import vk.itmo.teamgray.sharded.storage.HeartbeatRequest;
-import vk.itmo.teamgray.sharded.storage.HeartbeatResponse;
-import vk.itmo.teamgray.sharded.storage.SetFromFileRequest;
-import vk.itmo.teamgray.sharded.storage.SetFromFileResponse;
-import vk.itmo.teamgray.sharded.storage.SetKeyRequest;
-import vk.itmo.teamgray.sharded.storage.ShardedStorageGrpc;
+import vk.itmo.teamgray.sharded.storage.master.AddServerRequest;
+import vk.itmo.teamgray.sharded.storage.master.AddServerResponse;
+import vk.itmo.teamgray.sharded.storage.master.ChangeShardCountRequest;
+import vk.itmo.teamgray.sharded.storage.master.ChangeShardCountResponse;
+import vk.itmo.teamgray.sharded.storage.master.DeleteServerRequest;
+import vk.itmo.teamgray.sharded.storage.master.DeleteServerResponse;
+import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatRequest;
+import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatResponse;
+import vk.itmo.teamgray.sharded.storage.master.ShardedStorageMasterServiceGrpc;
 
-public class ShardedStorageClient {
+public class ShardedStorageMasterClient {
     private final ManagedChannel channel;
 
-    private final ShardedStorageGrpc.ShardedStorageBlockingStub blockingStub;
+    private final ShardedStorageMasterServiceGrpc.ShardedStorageMasterServiceBlockingStub blockingStub;
 
-    public ShardedStorageClient(String host, int port) {
+    private final String host;
+
+    private final int port;
+
+    public ShardedStorageMasterClient(String host, int port) {
+        this.host = host;
+        this.port = port;
+
         this.channel = ManagedChannelBuilder.forAddress(host, port)
             .usePlaintext()
             .build();
 
-        this.blockingStub = ShardedStorageGrpc.newBlockingStub(channel);
+        this.blockingStub = ShardedStorageMasterServiceGrpc.newBlockingStub(channel);
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public int getPort() {
+        return port;
     }
 
     public void shutdown() throws InterruptedException {
@@ -64,29 +76,11 @@ public class ShardedStorageClient {
         return blockingStub.changeShardCount(request);
     }
 
-    public boolean setKey(String key, String value) {
-        SetKeyRequest request = SetKeyRequest.newBuilder()
-            .setKey(key)
-            .setValue(value)
-            .build();
-
-        return blockingStub.setKey(request).getSuccess();
-    }
-
     //TODO Return POJO class instead of gRPC response
-    public SetFromFileResponse setFromFile(String filePath) {
-        SetFromFileRequest request = SetFromFileRequest.newBuilder()
-            .setFilePath(filePath)
-            .build();
-
-        return blockingStub.setFromFile(request);
-    }
-
-    //TODO Return POJO class instead of gRPC response
-    public HeartbeatResponse sendHeartbeat() {
+    public MasterHeartbeatResponse sendHeartbeat() {
         return blockingStub
             .heartbeat(
-                HeartbeatRequest.newBuilder()
+                MasterHeartbeatRequest.newBuilder()
                     .setTimestamp(Instant.now().toEpochMilli())
                     .build()
             );

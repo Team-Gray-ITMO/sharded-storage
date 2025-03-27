@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.node;
+package vk.itmo.teamgray.sharded.storage.master;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -8,17 +8,17 @@ import org.slf4j.LoggerFactory;
 
 import static vk.itmo.teamgray.sharded.storage.common.Utils.getServerPort;
 
-public class NodeApplication {
-    private static final Logger log = LoggerFactory.getLogger(NodeApplication.class);
+public class MasterApplication {
+    private static final Logger log = LoggerFactory.getLogger(MasterApplication.class);
 
     private final int port;
 
     private final Server server;
 
-    public NodeApplication(int port) {
+    public MasterApplication(int port) {
         this.port = port;
         this.server = ServerBuilder.forPort(port)
-            .addService(new ShardedStorageNodeService())
+            .addService(new ShardedStorageMasterService())
             .build();
     }
 
@@ -34,7 +34,7 @@ public class NodeApplication {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.error("Shutting down gRPC server");
 
-            NodeApplication.this.stop();
+            MasterApplication.this.stop();
 
             log.error("Server shut down");
         }));
@@ -47,9 +47,9 @@ public class NodeApplication {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        int port = getServerPort("node");
+        int port = getServerPort("master");
 
-        NodeApplication storageService = new NodeApplication(port);
+        MasterApplication storageService = new MasterApplication(port);
         storageService.start();
         storageService.getServer().awaitTermination();
     }

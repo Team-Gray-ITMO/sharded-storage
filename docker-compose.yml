@@ -6,3 +6,9 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - "9001:9001"
+  master:
+    build:
+      context: ./master
+      dockerfile: ./Dockerfile
+    ports:
+      - "9002:9002"

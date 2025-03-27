@@ -15,18 +15,29 @@ public class ClientApplication {
     private static final Logger log = LoggerFactory.getLogger(ClientApplication.class);
 
     public static void main(String[] args) throws InterruptedException {
-        ShardedStorageClient client = new ShardedStorageClient(getServerHost(), getServerPort());
+        ShardedStorageNodeClient nodeClient = new ShardedStorageNodeClient(getServerHost("node"), getServerPort("node"));
+        ShardedStorageMasterClient masterClient = new ShardedStorageMasterClient(getServerHost("master"), getServerPort("master"));
 
         //TODO: Test logic to check gRPC, later remove
-        scheduleHeartbeat(client);
+        scheduleHeartbeat(masterClient);
+        scheduleHeartbeat(nodeClient);
     }
 
-    private static void scheduleHeartbeat(ShardedStorageClient client) throws InterruptedException {
+    //TODO: Remove later
+    private static void scheduleHeartbeat(ShardedStorageNodeClient client) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(10);
 
         try (ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor()) {
             scheduler.scheduleAtFixedRate(() -> {
-                sendHeartbeat(client);
+                log.info("Heartbeat to {}:{} sent at {}", client.getHost(), client.getPort(), Instant.now());
+
+                var response = client.sendHeartbeat();
+
+                log.info("Heartbeat to {}:{} returned. Healthy: {}, Timestamp: {} ",
+                    client.getHost(),
+                    client.getPort(),
+                    response.getHealthy(),
+                    Instant.ofEpochMilli(response.getServerTimestamp()));
                 latch.countDown();
             }, 0, 1, TimeUnit.SECONDS);
 
@@ -34,12 +45,26 @@ public class ClientApplication {
         }
     }
 
-    private static void sendHeartbeat(ShardedStorageClient client) {
-        log.info("Heartbeat sent at {}", Instant.now());
+    //TODO: Remove later
+    private static void scheduleHeartbeat(ShardedStorageMasterClient client) throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(10);
 
-        var response = client.sendHeartbeat();
+        try (ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor()) {
+            scheduler.scheduleAtFixedRate(() -> {
+                log.info("Heartbeat to {}:{} sent at {}", client.getHost(), client.getPort(), Instant.now());
 
-        log.info("Heartbeat Success. Healthy: {}, Timestamp: {} ", response.getHealthy(),
-            Instant.ofEpochMilli(response.getServerTimestamp()));
+                var response = client.sendHeartbeat();
+
+                log.info("Heartbeat to {}:{} returned. Healthy: {}, Timestamp: {} ",
+                    client.getHost(),
+                    client.getPort(),
+                    response.getHealthy(),
+                    Instant.ofEpochMilli(response.getServerTimestamp()));
+                latch.countDown();
+            }, 0, 1, TimeUnit.SECONDS);
+
+            latch.await();
+        }
     }
+
 }

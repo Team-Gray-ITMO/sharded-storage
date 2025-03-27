@@ -26,17 +26,19 @@ public class Utils {
         return properties;
     }
 
-    public static int getServerPort() {
+    //TODO Implement something more fancy later.
+    public static int getServerPort(String serverType) {
         Properties properties = getProperties();
 
-        return Optional.ofNullable(properties.getProperty("grpc.port"))
+        return Optional.ofNullable(properties.getProperty(serverType + ".grpc.port"))
             .map(Integer::parseInt)
             .orElseThrow();
     }
 
-    public static String getServerHost() {
+    //TODO Implement something more fancy later.
+    public static String getServerHost(String serverType) {
         Properties properties = getProperties();
 
-        return properties.getProperty("grpc.host");
+        return properties.getProperty(serverType + ".grpc.host");
     }
 }

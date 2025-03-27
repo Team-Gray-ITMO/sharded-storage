@@ -1,24 +1,18 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "vk.itmo.teamgray.sharded.storage";
+option java_package = "vk.itmo.teamgray.sharded.storage.master";
 
 package vk.itmo.teamgray.sharded.storage;
 
-service ShardedStorage {
+service ShardedStorageMasterService {
   rpc AddServer (AddServerRequest) returns (AddServerResponse);
 
   rpc DeleteServer (DeleteServerRequest) returns (DeleteServerResponse);
 
   rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
 
-  rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
-
-  rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
-
-  rpc SetFromFile (SetFromFileRequest) returns (SetFromFileResponse);
-
-  rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
+  rpc Heartbeat (MasterHeartbeatRequest) returns (MasterHeartbeatResponse);
 }
 
 message AddServerRequest {
@@ -53,40 +47,11 @@ message ChangeShardCountResponse {
   string message = 2;
 }
 
-message SetKeyRequest {
-  string key = 1;
-  string value = 2;
+message MasterHeartbeatRequest {
+  int64 timestamp = 1;
 }
 
-message SetKeyResponse {
-  bool success = 1;
-}
-
-message GetKeyRequest {
-  string key = 1;
-}
-
-message GetKeyResponse {
-  bool found = 1;
-  string value = 2;
-}
-
-message SetFromFileRequest {
-  //TODO Negotiate format
-  string filePath = 1;
-}
-
-message SetFromFileResponse {
-  //TODO Negotiate format
-  bool success = 1;
-  string message = 2;
-}
-
-message HeartbeatRequest {
-  int64 timestamp = 2;
-}
-
-message HeartbeatResponse {
+message MasterHeartbeatResponse {
   bool healthy = 1;
   int64 server_timestamp = 2;
   string status_message = 3;
