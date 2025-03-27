@@ -17,8 +17,10 @@ jobs:
       - name: Build and test server project
         run: ./gradlew :node:test
       - name: Generate Jacoco report for server project tests
+        if: always()
         run: ./gradlew :node:jacocoTestReport
       - name: Generate Allure report for server project tests
+        if: always()
         run: ./gradlew :node:allureReport
       - name: Store reports as job artifacts
         uses: actions/upload-artifact@v4
