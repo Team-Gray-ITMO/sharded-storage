@@ -1,0 +1,23 @@
+name: sharded-storage-CI-CD-workflow
+run-name: ${{ github.actor }} is running CI pipeline
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-20.04
+    steps:
+      - run: echo "Build Job is triggered by ${{ github.event_name }} event."
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+      - name: Grant permissions to gradlew
+        run: chmod +x gradlew
+      - name: Build and test server project
+        run: ./gradlew :node:test
+      - name: Generate Jacoco report for server project tests
+        run: ./gradlew :node:jacocoTestReport
+      - name: Generate Allure report for server project tests
+        run: ./gradlew :node:allureReport
+      - run: echo "This job's status is ${{ job.status }}"
