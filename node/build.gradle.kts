@@ -1,5 +1,7 @@
 plugins {
     id("java")
+    id("jacoco")
+    id("io.qameta.allure") version "2.12.0"
 }
 
 private val mainClassName = "vk.itmo.teamgray.sharded.storage.node.NodeApplication"
