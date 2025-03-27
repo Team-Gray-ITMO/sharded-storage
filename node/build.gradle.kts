@@ -12,6 +12,7 @@ application {
 
 dependencies {
     implementation(project(":common"))
+    testImplementation("org.mockito:mockito-core:5.15.2")
 }
 
 tasks.jar {
