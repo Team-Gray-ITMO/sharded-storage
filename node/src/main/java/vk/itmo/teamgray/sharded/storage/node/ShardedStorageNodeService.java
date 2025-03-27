@@ -1,8 +1,12 @@
 package vk.itmo.teamgray.sharded.storage.node;
 
 import io.grpc.stub.StreamObserver;
+
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jetbrains.annotations.NotNull;
@@ -28,9 +32,9 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
         ).addToStorage(key, value);
 
         responseObserver.onNext(
-            SetKeyResponse.newBuilder()
-                .setSuccess(true)
-                .build()
+                SetKeyResponse.newBuilder()
+                        .setSuccess(true)
+                        .build()
         );
 
         responseObserver.onCompleted();
@@ -47,9 +51,9 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
         }
 
         responseObserver.onNext(
-            GetKeyResponse.newBuilder()
-                .setValue(returnValue)
-                .build()
+                GetKeyResponse.newBuilder()
+                        .setValue(returnValue)
+                        .build()
         );
 
         responseObserver.onCompleted();
@@ -60,9 +64,9 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
         // TODO: Implement file import logic
 
         responseObserver.onNext(
-            SetFromFileResponse.newBuilder()
-                .setSuccess(true)
-                .build()
+                SetFromFileResponse.newBuilder()
+                        .setSuccess(true)
+                        .build()
         );
 
         responseObserver.onCompleted();
@@ -83,9 +87,39 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
     }
 
     @NotNull
-    private MessageAndSuccessDTO changeShardsCount(int newShardCount){
-        // TODO: Придумать, как сделать
-        return new MessageAndSuccessDTO("STUB", false);
+    private MessageAndSuccessDTO changeShardsCount(int newShardCount) {
+        if (newShardCount <= 0) {
+            return new MessageAndSuccessDTO(
+                    "NEW COUNT IS NEGATIVE OR ZERO",
+                    false
+            );
+        }
+
+        if (newShardCount == shards.size()) {
+            return new MessageAndSuccessDTO(
+                    "SAME SHARD COUNT",
+                    false
+            );
+        }
+
+        List<ShardData> allData = new ArrayList<>(shards.values());
+        shards.clear();
+        for (int localShardIndex = 0; localShardIndex < newShardCount; localShardIndex++) {
+            shards.put(localShardIndex, new ShardData());
+        }
+
+        allData.forEach(shardData -> {
+            shardData.getStorage().forEach((key, value) -> {
+                int localShardIndex = ShardUtils.getLocalShardKey(key, newShardCount);
+                shards.get(localShardIndex)
+                        .addToStorage(key, value);
+            });
+        });
+
+        return new MessageAndSuccessDTO(
+                "COUNT OF SHARDS CHANGED",
+                true
+        );
     }
 
     @Override
@@ -97,10 +131,10 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
         boolean isHealthy = true;
 
         responseObserver.onNext(NodeHeartbeatResponse.newBuilder()
-            .setHealthy(isHealthy)
-            .setServerTimestamp(now.toEpochMilli())
-            .setStatusMessage("OK")
-            .build());
+                .setHealthy(isHealthy)
+                .setServerTimestamp(now.toEpochMilli())
+                .setStatusMessage("OK")
+                .build());
 
         responseObserver.onCompleted();
     }
