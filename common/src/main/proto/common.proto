@@ -14,6 +14,8 @@ service ShardedStorage {
 
   rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
 
+  rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
+
   rpc SetFromFile (SetFromFileRequest) returns (SetFromFileResponse);
 
   rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
@@ -58,6 +60,15 @@ message SetKeyRequest {
 
 message SetKeyResponse {
   bool success = 1;
+}
+
+message GetKeyRequest {
+  string key = 1;
+}
+
+message GetKeyResponse {
+  bool found = 1;
+  string value = 2;
 }
 
 message SetFromFileRequest {
