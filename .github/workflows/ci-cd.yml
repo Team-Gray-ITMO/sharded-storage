@@ -29,4 +29,12 @@ jobs:
           name: reports
           path: |
             **/node/build/reports/
+      - name: Deploy test reports to Github Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: |
+            **/node/build/reports/allure-report/allureReport
       - run: echo "This job's status is ${{ job.status }}"
