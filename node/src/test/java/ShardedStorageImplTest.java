@@ -6,7 +6,7 @@ public class ShardedStorageImplTest {
 
     @Test
     public void test() {
-        assertTrue(true);
+        assertTrue(false);
     }
 
 }
