@@ -6,13 +6,22 @@ option java_package = "vk.itmo.teamgray.sharded.storage.master";
 package vk.itmo.teamgray.sharded.storage;
 
 service ShardedStorageMasterService {
+  rpc GetTopology (GetTopologyRequest) returns (GetTopologyResponse);
+
   rpc AddServer (AddServerRequest) returns (AddServerResponse);
 
   rpc DeleteServer (DeleteServerRequest) returns (DeleteServerResponse);
 
-  rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
-
   rpc Heartbeat (MasterHeartbeatRequest) returns (MasterHeartbeatResponse);
+}
+
+message GetTopologyRequest {
+}
+
+message GetTopologyResponse{
+  // Map of shard ID to server address (ip:port)
+  map<int32, string> shard_to_server = 1;
+  int32 total_shard_count = 2;
 }
 
 message AddServerRequest {
@@ -34,15 +43,6 @@ message DeleteServerRequest {
 }
 
 message DeleteServerResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message ChangeShardCountRequest {
-  int32 newShardCount = 1;
-}
-
-message ChangeShardCountResponse {
   bool success = 1;
   string message = 2;
 }

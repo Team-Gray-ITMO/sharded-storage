@@ -3,16 +3,19 @@ package vk.itmo.teamgray.sharded.storage.client;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import vk.itmo.teamgray.sharded.storage.master.AddServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.AddServerResponse;
-import vk.itmo.teamgray.sharded.storage.master.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.master.ChangeShardCountResponse;
 import vk.itmo.teamgray.sharded.storage.master.DeleteServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.DeleteServerResponse;
+import vk.itmo.teamgray.sharded.storage.master.GetTopologyRequest;
+import vk.itmo.teamgray.sharded.storage.master.GetTopologyResponse;
 import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatResponse;
 import vk.itmo.teamgray.sharded.storage.master.ShardedStorageMasterServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountRequest;
+import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountResponse;
 
 public class ShardedStorageMasterClient {
     private final ManagedChannel channel;
@@ -68,15 +71,6 @@ public class ShardedStorageMasterClient {
     }
 
     //TODO Return POJO class instead of gRPC response
-    public ChangeShardCountResponse changeShardCount(int newShardCount) {
-        ChangeShardCountRequest request = ChangeShardCountRequest.newBuilder()
-            .setNewShardCount(newShardCount)
-            .build();
-
-        return blockingStub.changeShardCount(request);
-    }
-
-    //TODO Return POJO class instead of gRPC response
     public MasterHeartbeatResponse sendHeartbeat() {
         return blockingStub
             .heartbeat(
@@ -84,5 +78,29 @@ public class ShardedStorageMasterClient {
                     .setTimestamp(Instant.now().toEpochMilli())
                     .build()
             );
+    }
+
+    //TODO Return POJO class instead of gRPC response
+    public GetTopologyResponse getTopology() {
+        GetTopologyRequest request = GetTopologyRequest.newBuilder().build();
+        return blockingStub.getTopology(request);
+    }
+    
+    /**
+     * Get the current shard-to-server mapping as a Map
+     * @return Map from shard ID to server address (ip:port)
+     */
+    public Map<Integer, String> getShardServerMapping() {
+        GetTopologyResponse response = getTopology();
+        return response.getShardToServerMap();
+    }
+    
+    /**
+     * Get the total shard count
+     * @return the total number of shards
+     */
+    public int getTotalShardCount() {
+        GetTopologyResponse response = getTopology();
+        return response.getTotalShardCount();
     }
 }

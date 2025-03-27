@@ -4,13 +4,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import vk.itmo.teamgray.sharded.storage.node.GetKeyRequest;
-import vk.itmo.teamgray.sharded.storage.node.NodeHeartbeatRequest;
-import vk.itmo.teamgray.sharded.storage.node.NodeHeartbeatResponse;
-import vk.itmo.teamgray.sharded.storage.node.SetFromFileRequest;
-import vk.itmo.teamgray.sharded.storage.node.SetFromFileResponse;
-import vk.itmo.teamgray.sharded.storage.node.SetKeyRequest;
-import vk.itmo.teamgray.sharded.storage.node.ShardedStorageNodeServiceGrpc;
+
+import vk.itmo.teamgray.sharded.storage.node.*;
 
 public class ShardedStorageNodeClient {
     private final ManagedChannel channel;
@@ -79,5 +74,14 @@ public class ShardedStorageNodeClient {
                     .setTimestamp(Instant.now().toEpochMilli())
                     .build()
             );
+    }
+
+    //TODO Return POJO class instead of gRPC response
+    public ChangeShardCountResponse changeShardCount(int newShardCount) {
+        ChangeShardCountRequest request = ChangeShardCountRequest.newBuilder()
+                .setNewShardCount(newShardCount)
+                .build();
+
+        return blockingStub.changeShardCount(request);
     }
 }

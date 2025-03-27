@@ -5,9 +5,11 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.HashUtils;
+import vk.itmo.teamgray.sharded.storage.common.MessageAndSuccessDTO;
+import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.shards.ShardData;
 
 public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.ShardedStorageNodeServiceImplBase {
@@ -21,7 +23,7 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
         String value = request.getValue();
 
         shards.computeIfAbsent(
-                HashUtils.hashKey(key),
+                ShardUtils.getLocalShardKey(key, shards.size()),
                 k -> new ShardData()
         ).addToStorage(key, value);
 
@@ -38,7 +40,7 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
     public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
         String key = request.getKey();
 
-        ShardData shardData = shards.get(HashUtils.hashKey(key));
+        ShardData shardData = shards.get(ShardUtils.getLocalShardKey(key, shards.size()));
         String returnValue = null;
         if (shardData != null) {
             returnValue = shardData.getValue(key);
@@ -64,6 +66,26 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
         );
 
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void changeShardCount(ChangeShardCountRequest request, StreamObserver<ChangeShardCountResponse> responseObserver) {
+        MessageAndSuccessDTO result = changeShardsCount(request.getNewShardCount());
+
+        responseObserver.onNext(
+                ChangeShardCountResponse.newBuilder()
+                        .setSuccess(result.success())
+                        .setMessage(result.message())
+                        .build()
+        );
+
+        responseObserver.onCompleted();
+    }
+
+    @NotNull
+    private MessageAndSuccessDTO changeShardsCount(int newShardCount){
+        // TODO: Придумать, как сделать
+        return new MessageAndSuccessDTO("STUB", false);
     }
 
     @Override
