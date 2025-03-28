@@ -71,6 +71,8 @@ public class TopologyService {
                     new ArrayList<>()
                 );
 
+                shardCount.incrementAndGet();
+
                 redistributeHashesEvenly(shardCount.get());
 
                 return new AddServerResult(true, "SERVER CREATED");
@@ -99,7 +101,9 @@ public class TopologyService {
     public void redistributeHashesEvenly(int shardCount) {
         shardToHash.clear();
 
-        this.shardCount.set(shardCount);
+        if (shardCount == 0) {
+            return;
+        }
 
         long stepSize = Long.MAX_VALUE / shardCount * 2;
 
