@@ -2,6 +2,9 @@ package vk.itmo.teamgray.sharded.storage.node;
 
 import io.grpc.stub.StreamObserver;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,12 +64,33 @@ public class ShardedStorageNodeService extends ShardedStorageNodeServiceGrpc.Sha
 
     @Override
     public void setFromFile(SetFromFileRequest request, StreamObserver<SetFromFileResponse> responseObserver) {
-        // TODO: Implement file import logic
+        String filePath = request.getFilePath();
+        boolean success = true;
+        String message = "SUCCESS";
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+
+                String key = parts[0].trim();
+                String value = parts[1].trim();
+
+                shards.computeIfAbsent(
+                    ShardUtils.getLocalShardKey(key, shards.size()),
+                    k -> new ShardData()
+                ).addToStorage(key, value);
+            }
+        } catch (IOException e) {
+            success = false;
+            message = "ERROR: " + e.getMessage();
+        }
 
         responseObserver.onNext(
-                SetFromFileResponse.newBuilder()
-                        .setSuccess(true)
-                        .build()
+            SetFromFileResponse.newBuilder()
+                .setSuccess(success)
+                .setMessage(message)
+                .build()
         );
 
         responseObserver.onCompleted();
