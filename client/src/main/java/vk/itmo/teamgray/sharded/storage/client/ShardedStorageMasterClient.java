@@ -5,17 +5,15 @@ import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
+import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
+import vk.itmo.teamgray.sharded.storage.dto.GetTopologyResponseDTO;
+import vk.itmo.teamgray.sharded.storage.dto.MasterHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.master.AddServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.AddServerResponse;
 import vk.itmo.teamgray.sharded.storage.master.DeleteServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.DeleteServerResponse;
 import vk.itmo.teamgray.sharded.storage.master.GetTopologyRequest;
-import vk.itmo.teamgray.sharded.storage.master.GetTopologyResponse;
 import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatRequest;
-import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatResponse;
 import vk.itmo.teamgray.sharded.storage.master.ShardedStorageMasterServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountResponse;
 
 public class ShardedStorageMasterClient {
     private final ManagedChannel channel;
@@ -49,41 +47,45 @@ public class ShardedStorageMasterClient {
         channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     }
 
-    //TODO Return POJO class instead of gRPC response
-    public AddServerResponse addServer(String ip, int port, boolean forkNewInstance) {
+    public AddServerResponseDTO addServer(String ip, int port, boolean forkNewInstance) {
         AddServerRequest request = AddServerRequest.newBuilder()
             .setIp(ip)
             .setPort(port)
             .setForkNewInstance(forkNewInstance)
             .build();
 
-        return blockingStub.addServer(request);
+        var response = blockingStub.addServer(request);
+        return new AddServerResponseDTO(response.getMessage(), response.getSuccess());
     }
 
-    //TODO Return POJO class instead of gRPC response
-    public DeleteServerResponse deleteServer(String ip, int port) {
+    public DeleteServerResponseDTO deleteServer(String ip, int port) {
         DeleteServerRequest request = DeleteServerRequest.newBuilder()
             .setIp(ip)
             .setPort(port)
             .build();
 
-        return blockingStub.deleteServer(request);
+        var response = blockingStub.deleteServer(request);
+        return new DeleteServerResponseDTO(response.getMessage(), response.getSuccess());
     }
 
-    //TODO Return POJO class instead of gRPC response
-    public MasterHeartbeatResponse sendHeartbeat() {
-        return blockingStub
+    public MasterHeartbeatResponseDTO sendHeartbeat() {
+        var response = blockingStub
             .heartbeat(
                 MasterHeartbeatRequest.newBuilder()
                     .setTimestamp(Instant.now().toEpochMilli())
                     .build()
             );
+        return new MasterHeartbeatResponseDTO(
+            response.getHealthy(),
+            response.getServerTimestamp(),
+            response.getStatusMessage()
+        );
     }
 
-    //TODO Return POJO class instead of gRPC response
-    public GetTopologyResponse getTopology() {
+    public GetTopologyResponseDTO getTopology() {
         GetTopologyRequest request = GetTopologyRequest.newBuilder().build();
-        return blockingStub.getTopology(request);
+        var response = blockingStub.getTopology(request);
+        return new GetTopologyResponseDTO(response.getShardToServerMap(), response.getTotalShardCount());
     }
     
     /**
@@ -91,8 +93,8 @@ public class ShardedStorageMasterClient {
      * @return Map from shard ID to server address (ip:port)
      */
     public Map<Integer, String> getShardServerMapping() {
-        GetTopologyResponse response = getTopology();
-        return response.getShardToServerMap();
+        GetTopologyResponseDTO response = getTopology();
+        return response.shardToServer();
     }
     
     /**
@@ -100,7 +102,7 @@ public class ShardedStorageMasterClient {
      * @return the total number of shards
      */
     public int getTotalShardCount() {
-        GetTopologyResponse response = getTopology();
-        return response.getTotalShardCount();
+        GetTopologyResponseDTO response = getTopology();
+        return response.totalShardCount();
     }
 }

@@ -5,6 +5,9 @@ import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
+import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
+import vk.itmo.teamgray.sharded.storage.dto.NodeHeartbeatResponseDTO;
+import vk.itmo.teamgray.sharded.storage.dto.SetFromFileResponseDTO;
 import vk.itmo.teamgray.sharded.storage.node.*;
 
 public class ShardedStorageNodeClient {
@@ -57,31 +60,35 @@ public class ShardedStorageNodeClient {
 
     //TODO add getKey
 
-    //TODO Return POJO class instead of gRPC response
-    public SetFromFileResponse setFromFile(String filePath) {
+    public SetFromFileResponseDTO setFromFile(String filePath) {
         SetFromFileRequest request = SetFromFileRequest.newBuilder()
             .setFilePath(filePath)
             .build();
 
-        return blockingStub.setFromFile(request);
+        var response = blockingStub.setFromFile(request);
+        return new SetFromFileResponseDTO(response.getMessage(), response.getSuccess());
     }
 
-    //TODO Return POJO class instead of gRPC response
-    public NodeHeartbeatResponse sendHeartbeat() {
-        return blockingStub
+    public NodeHeartbeatResponseDTO sendHeartbeat() {
+        var response = blockingStub
             .heartbeat(
                 NodeHeartbeatRequest.newBuilder()
                     .setTimestamp(Instant.now().toEpochMilli())
                     .build()
             );
+        return new NodeHeartbeatResponseDTO(
+            response.getHealthy(),
+            response.getServerTimestamp(),
+            response.getStatusMessage()
+        );
     }
 
-    //TODO Return POJO class instead of gRPC response
-    public ChangeShardCountResponse changeShardCount(int newShardCount) {
+    public ChangeShardCountResponseDTO changeShardCount(int newShardCount) {
         ChangeShardCountRequest request = ChangeShardCountRequest.newBuilder()
                 .setNewShardCount(newShardCount)
                 .build();
 
-        return blockingStub.changeShardCount(request);
+        var response = blockingStub.changeShardCount(request);
+        return new ChangeShardCountResponseDTO(response.getMessage(), response.getSuccess());
     }
 }

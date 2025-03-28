@@ -36,8 +36,8 @@ public class ClientApplication {
                 log.info("Heartbeat to {}:{} returned. Healthy: {}, Timestamp: {} ",
                     client.getHost(),
                     client.getPort(),
-                    response.getHealthy(),
-                    Instant.ofEpochMilli(response.getServerTimestamp()));
+                    response.healthy(),
+                    Instant.ofEpochMilli(response.serverTimestamp()));
                 latch.countDown();
             }, 0, 1, TimeUnit.SECONDS);
 
@@ -58,8 +58,8 @@ public class ClientApplication {
                 log.info("Heartbeat to {}:{} returned. Healthy: {}, Timestamp: {} ",
                     client.getHost(),
                     client.getPort(),
-                    response.getHealthy(),
-                    Instant.ofEpochMilli(response.getServerTimestamp()));
+                    response.healthy(),
+                    Instant.ofEpochMilli(response.serverTimestamp()));
                 latch.countDown();
             }, 0, 1, TimeUnit.SECONDS);
 
