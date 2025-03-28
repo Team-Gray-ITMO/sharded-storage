@@ -6,7 +6,7 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static vk.itmo.teamgray.sharded.storage.common.Utils.getServerPort;
+import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPort;
 
 public class NodeApplication {
     private static final Logger log = LoggerFactory.getLogger(NodeApplication.class);

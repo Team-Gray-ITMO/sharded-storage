@@ -2,54 +2,40 @@ package vk.itmo.teamgray.sharded.storage.master;
 
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.MessageAndSuccessDTO;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
-import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountResponse;
+import vk.itmo.teamgray.sharded.storage.master.topology.TopologyService;
 
 public class ShardedStorageMasterService extends ShardedStorageMasterServiceGrpc.ShardedStorageMasterServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(ShardedStorageMasterService.class);
 
-    private final ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = new ConcurrentHashMap<>();
-    AtomicInteger shardCount = new AtomicInteger(0);
-    ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final TopologyService topologyService;
+
+    public ShardedStorageMasterService(TopologyService topologyService) {
+        this.topologyService = topologyService;
+    }
 
     @Override
-    public void getTopology(GetTopologyRequest request, StreamObserver<GetTopologyResponse> responseObserver) {
-        log.info("Received GetTopology request");
+    public void getServerToShard(GetServerToShardRequest request, StreamObserver<GetServerToShardResponse> responseObserver) {
+        log.info("Received ServerToShard request");
 
-        lock.readLock().lock();
-        GetTopologyResponse.Builder responseBuilder;
-        try {
-            responseBuilder = GetTopologyResponse.newBuilder()
-                    .setTotalShardCount(shardCount.get());
+        var response = topologyService.getServerToShardsAsGrpc();
 
-            for (var entry : serverToShards.entrySet()) {
-                ServerDataDTO serverData = entry.getKey();
-                String serverAddress = serverData.host() + ":" + serverData.port();
+        log.info("Returning {} servers with shards", response.getServerToShardCount());
 
-                entry.getValue().forEach(shardId -> responseBuilder.putShardToServer(shardId, serverAddress));
-            }
-        }
-        finally {
-            lock.readLock().unlock();
-        }
-        
-        GetTopologyResponse response = responseBuilder.build();
-        
-        log.info("Returning topology with {} shards", response.getShardToServerCount());
-        
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getShardToHash(GetShardToHashRequest request, StreamObserver<GetShardToHashResponse> responseObserver) {
+        log.info("Received ShardToHash request");
+
+        var response = topologyService.getShardToHashAsGrpc();
+
+        log.info("Returning {} shards with hashes", response.getShardToHashCount());
+
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
@@ -57,26 +43,13 @@ public class ShardedStorageMasterService extends ShardedStorageMasterServiceGrpc
     @Override
     public void addServer(AddServerRequest request, StreamObserver<AddServerResponse> responseObserver) {
         ServerDataDTO server = new ServerDataDTO(request.getIp(), request.getPort());
-        String responseMessage = "SERVER ALREADY EXISTS";
-        boolean created = false;
-        lock.writeLock().lock();
-        try {
-            if (!serverToShards.containsKey(server)) {
-                serverToShards.put(
-                        server,
-                        new ArrayList<>()
-                );
-                created = true;
-                responseMessage = "SERVER CREATED";
-            }
-        } finally {
-            lock.writeLock().unlock();
-        }
+
+        var result = topologyService.addServer(server);
 
         responseObserver.onNext(
             AddServerResponse.newBuilder()
-                .setSuccess(created)
-                .setMessage(responseMessage)
+                .setSuccess(result.created())
+                .setMessage(result.message())
                 .build()
         );
 
@@ -86,20 +59,13 @@ public class ShardedStorageMasterService extends ShardedStorageMasterServiceGrpc
     @Override
     public void deleteServer(DeleteServerRequest request, StreamObserver<DeleteServerResponse> responseObserver) {
         ServerDataDTO server = new ServerDataDTO(request.getIp(), request.getPort());
-        List<Integer> shards = serverToShards.get(server);
-        String responseMessage = "SERVER NOT REMOVED";
-        boolean deleted = false;
-        if (shards != null) {
-            shardCount.getAndAdd(-shards.size());
-            serverToShards.remove(server);
-            deleted = true;
-            responseMessage = "SERVER DELETED";
-        }
+
+        var result = topologyService.deleteServer(server);
 
         responseObserver.onNext(
             DeleteServerResponse.newBuilder()
-                .setSuccess(deleted)
-                .setMessage(responseMessage)
+                .setSuccess(result.deleted())
+                .setMessage(result.message())
                 .build()
         );
 

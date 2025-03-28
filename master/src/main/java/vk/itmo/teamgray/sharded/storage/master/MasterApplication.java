@@ -5,8 +5,9 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.master.topology.TopologyService;
 
-import static vk.itmo.teamgray.sharded.storage.common.Utils.getServerPort;
+import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPort;
 
 public class MasterApplication {
     private static final Logger log = LoggerFactory.getLogger(MasterApplication.class);
@@ -18,7 +19,7 @@ public class MasterApplication {
     public MasterApplication(int port) {
         this.port = port;
         this.server = ServerBuilder.forPort(port)
-            .addService(new ShardedStorageMasterService())
+            .addService(new ShardedStorageMasterService(new TopologyService()))
             .build();
     }
 

@@ -60,6 +60,6 @@ message NodeHeartbeatRequest {
 
 message NodeHeartbeatResponse {
   bool healthy = 1;
-  int64 server_timestamp = 2;
-  string status_message = 3;
+  int64 serverTimestamp = 2;
+  string statusMessage = 3;
 }

@@ -5,15 +5,15 @@ import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
 
-public class Utils {
-    private Utils() {
+public class PropertyUtils {
+    private PropertyUtils() {
         // No-op.
     }
 
     public static Properties getProperties() {
         Properties properties = new Properties();
 
-        try (InputStream input = Utils.class.getClassLoader().getResourceAsStream("application.properties")) {
+        try (InputStream input = PropertyUtils.class.getClassLoader().getResourceAsStream("application.properties")) {
             if (input == null) {
                 throw new IOException("Properties file not found in classpath.");
             }

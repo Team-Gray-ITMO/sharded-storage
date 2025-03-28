@@ -6,7 +6,9 @@ option java_package = "vk.itmo.teamgray.sharded.storage.master";
 package vk.itmo.teamgray.sharded.storage;
 
 service ShardedStorageMasterService {
-  rpc GetTopology (GetTopologyRequest) returns (GetTopologyResponse);
+  rpc GetServerToShard (GetServerToShardRequest) returns (GetServerToShardResponse);
+
+  rpc GetShardToHash (GetShardToHashRequest) returns (GetShardToHashResponse);
 
   rpc AddServer (AddServerRequest) returns (AddServerResponse);
 
@@ -15,13 +17,24 @@ service ShardedStorageMasterService {
   rpc Heartbeat (MasterHeartbeatRequest) returns (MasterHeartbeatResponse);
 }
 
-message GetTopologyRequest {
+message GetServerToShardRequest {
 }
 
-message GetTopologyResponse{
-  // Map of shard ID to server address (ip:port)
-  map<int32, string> shard_to_server = 1;
-  int32 total_shard_count = 2;
+message GetServerToShardResponse{
+  // Map of server address (ip:port) to shard IDs
+  map<string, IntList> serverToShard = 1;
+}
+
+message GetShardToHashRequest {
+}
+
+message GetShardToHashResponse{
+  // Sorted map of upper bound hash (inclusive) by shard number, lower bound is defined by previous shard (exclusive)
+  map<int32, int64> shardToHash = 1;
+}
+
+message IntList {
+  repeated int32 values = 1;
 }
 
 message AddServerRequest {
@@ -53,6 +66,6 @@ message MasterHeartbeatRequest {
 
 message MasterHeartbeatResponse {
   bool healthy = 1;
-  int64 server_timestamp = 2;
-  string status_message = 3;
+  int64 serverTimestamp = 2;
+  string statusMessage = 3;
 }

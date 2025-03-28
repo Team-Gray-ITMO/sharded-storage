@@ -5,13 +5,16 @@ import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
-import vk.itmo.teamgray.sharded.storage.dto.GetTopologyResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.MasterHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.master.AddServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.DeleteServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.GetTopologyRequest;
+import vk.itmo.teamgray.sharded.storage.master.GetServerToShardRequest;
+import vk.itmo.teamgray.sharded.storage.master.GetServerToShardResponse;
+import vk.itmo.teamgray.sharded.storage.master.GetShardToHashRequest;
+import vk.itmo.teamgray.sharded.storage.master.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.master.ShardedStorageMasterServiceGrpc;
 
@@ -82,27 +85,33 @@ public class ShardedStorageMasterClient {
         );
     }
 
-    public GetTopologyResponseDTO getTopology() {
-        GetTopologyRequest request = GetTopologyRequest.newBuilder().build();
-        var response = blockingStub.getTopology(request);
-        return new GetTopologyResponseDTO(response.getShardToServerMap(), response.getTotalShardCount());
+    //Doing map flipping on client side to unload master.
+    public Map<Integer, String> getShardToServerMap() {
+        GetServerToShardRequest request = GetServerToShardRequest.newBuilder().build();
+        GetServerToShardResponse response = blockingStub.getServerToShard(request);
+
+        return response.getServerToShardMap().entrySet().stream()
+            .flatMap(
+                entry -> entry.getValue().getValuesList().stream()
+                    .map(shardId -> Map.entry(shardId, entry.getKey()))
+            )
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue)
+            );
     }
-    
-    /**
-     * Get the current shard-to-server mapping as a Map
-     * @return Map from shard ID to server address (ip:port)
-     */
-    public Map<Integer, String> getShardServerMapping() {
-        GetTopologyResponseDTO response = getTopology();
-        return response.shardToServer();
-    }
-    
-    /**
-     * Get the total shard count
-     * @return the total number of shards
-     */
-    public int getTotalShardCount() {
-        GetTopologyResponseDTO response = getTopology();
-        return response.totalShardCount();
+
+    //Doing map flipping on client side to unload master.
+    public Map<Long, Integer> getHashToShardMap() {
+        GetShardToHashRequest request = GetShardToHashRequest.newBuilder().build();
+        GetShardToHashResponse response = blockingStub.getShardToHash(request);
+
+        return response.getShardToHashMap().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getValue,
+                    Map.Entry::getKey)
+            );
     }
 }
