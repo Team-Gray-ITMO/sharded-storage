@@ -1,8 +1,0 @@
-version: "3.8"
-services:
-  node:
-    build:
-      context: ./node
-      dockerfile: ./Dockerfile
-    ports:
-      - "9001:9001"
