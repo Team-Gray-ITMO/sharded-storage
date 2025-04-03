@@ -19,7 +19,7 @@ public class MasterApplication {
     public MasterApplication(int port) {
         this.port = port;
         this.server = ServerBuilder.forPort(port)
-            .addService(new ShardedStorageMasterService(new TopologyService()))
+            .addService(new ShardedStorageMasterService(new TopologyService(true)))
             .build();
     }
 

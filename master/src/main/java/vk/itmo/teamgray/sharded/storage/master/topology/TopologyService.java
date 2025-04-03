@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import vk.itmo.teamgray.sharded.storage.common.PropertyUtils;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.master.GetServerToShardResponse;
 import vk.itmo.teamgray.sharded.storage.master.GetShardToHashResponse;
@@ -18,6 +19,17 @@ public class TopologyService {
     private ConcurrentHashMap<Integer, Long> shardToHash = new ConcurrentHashMap<>();
 
     private ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private final boolean hardCodedNode;
+
+    public TopologyService(boolean hardCodedNode) {
+        this.hardCodedNode = hardCodedNode;
+
+        if (hardCodedNode) {
+            //TODO For now single node
+            serverToShards.put(new ServerDataDTO(PropertyUtils.getServerHost("node"), PropertyUtils.getServerPort("node")), List.of());
+        }
+    }
 
     public ConcurrentHashMap<ServerDataDTO, List<Integer>> getServerToShards() {
         return serverToShards;
@@ -67,6 +79,10 @@ public class TopologyService {
     }
 
     public AddServerResult addServer(ServerDataDTO serverToAdd) {
+        if (hardCodedNode) {
+            return new AddServerResult(false, "Adding Nodes is Not Supported");
+        }
+
         if (serverToShards.containsKey(serverToAdd)) {
             return new AddServerResult(false, "SERVER NOT ADDED");
         }
@@ -86,6 +102,10 @@ public class TopologyService {
     }
 
     public DeleteServerResult deleteServer(ServerDataDTO serverToRemove) {
+        if (hardCodedNode) {
+            return new DeleteServerResult(false, "Removing Nodes is Not Supported");
+        }
+
         if (!serverToShards.containsKey(serverToRemove)) {
             return new DeleteServerResult(false, "SERVER NOT REMOVED");
         }
