@@ -90,6 +90,29 @@ class TopologyServiceTest {
         assertEquals(7, serverToShards.values().stream().mapToInt(List::size).sum());
     }
 
+    @Test
+    void hashDistributionCoversFullRange() {
+        int shardCount = 10;
+        topologyService.changeShardCount(shardCount);
+
+        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+
+        assertEquals(shardCount, shardToHash.size());
+
+        long previousBoundary = Long.MIN_VALUE;
+
+        for (int i = 0; i < shardCount; i++) {
+            assertTrue(shardToHash.containsKey(i));
+            long boundary = shardToHash.get(i);
+
+            assertTrue(previousBoundary <= boundary);
+
+            previousBoundary = boundary;
+        }
+
+        assertEquals(Long.MAX_VALUE, previousBoundary);
+    }
+
     //TODO Remove, once implemented
     @Test
     void testHardCodedNode() {
