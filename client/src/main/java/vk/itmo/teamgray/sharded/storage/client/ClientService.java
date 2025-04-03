@@ -133,6 +133,12 @@ public class ClientService {
 
             latch.await();
         }
+
+        masterClient.addServer("0.0.0.0", 9090, true);
+        masterClient.addServer("0.0.0.1", 9091, true);
+
+        log.info(String.valueOf(masterClient.getHashToShardMap()));
+        log.info(String.valueOf(masterClient.getShardToServerMap()));
     }
 
     /**

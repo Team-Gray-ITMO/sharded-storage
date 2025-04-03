@@ -7,9 +7,11 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
+import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.MasterHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.master.AddServerRequest;
+import vk.itmo.teamgray.sharded.storage.master.ChangeShardCountRequest;
 import vk.itmo.teamgray.sharded.storage.master.DeleteServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.GetServerToShardRequest;
 import vk.itmo.teamgray.sharded.storage.master.GetServerToShardResponse;
@@ -113,5 +115,14 @@ public class ShardedStorageMasterClient {
                     Map.Entry::getValue,
                     Map.Entry::getKey)
             );
+    }
+
+    public ChangeShardCountResponseDTO changeShardCount(int newShardCount) {
+        ChangeShardCountRequest request = ChangeShardCountRequest.newBuilder()
+            .setNewShardCount(newShardCount)
+            .build();
+
+        var response = blockingStub.changeShardCount(request);
+        return new ChangeShardCountResponseDTO(response.getMessage(), response.getSuccess());
     }
 }

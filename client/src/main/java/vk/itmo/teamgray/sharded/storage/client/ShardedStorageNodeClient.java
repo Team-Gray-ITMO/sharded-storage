@@ -4,10 +4,8 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.NodeHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.SetFromFileResponseDTO;
-import vk.itmo.teamgray.sharded.storage.node.ChangeShardCountRequest;
 import vk.itmo.teamgray.sharded.storage.node.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.NodeHeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.node.SetFromFileRequest;
@@ -83,14 +81,5 @@ public class ShardedStorageNodeClient {
             response.getServerTimestamp(),
             response.getStatusMessage()
         );
-    }
-
-    public ChangeShardCountResponseDTO changeShardCount(int newShardCount) {
-        ChangeShardCountRequest request = ChangeShardCountRequest.newBuilder()
-            .setNewShardCount(newShardCount)
-            .build();
-
-        var response = blockingStub.changeShardCount(request);
-        return new ChangeShardCountResponseDTO(response.getMessage(), response.getSuccess());
     }
 }

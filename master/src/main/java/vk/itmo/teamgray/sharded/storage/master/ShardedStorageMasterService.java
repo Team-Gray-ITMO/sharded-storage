@@ -73,6 +73,20 @@ public class ShardedStorageMasterService extends ShardedStorageMasterServiceGrpc
     }
 
     @Override
+    public void changeShardCount(ChangeShardCountRequest request, StreamObserver<ChangeShardCountResponse> responseObserver) {
+        var success = topologyService.changeShardCount(request.getNewShardCount());
+
+        responseObserver.onNext(
+            ChangeShardCountResponse.newBuilder()
+                .setSuccess(success)
+                .setMessage("SUCCESS")
+                .build()
+        );
+
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void heartbeat(MasterHeartbeatRequest request, StreamObserver<MasterHeartbeatResponse> responseObserver) {
         // TODO: Implement file import logic
 

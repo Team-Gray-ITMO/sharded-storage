@@ -14,6 +14,8 @@ service ShardedStorageMasterService {
 
   rpc DeleteServer (DeleteServerRequest) returns (DeleteServerResponse);
 
+  rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
+
   rpc Heartbeat (MasterHeartbeatRequest) returns (MasterHeartbeatResponse);
 }
 
@@ -56,6 +58,15 @@ message DeleteServerRequest {
 }
 
 message DeleteServerResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ChangeShardCountRequest {
+  int32 newShardCount = 1;
+}
+
+message ChangeShardCountResponse {
   bool success = 1;
   string message = 2;
 }

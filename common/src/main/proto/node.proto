@@ -12,8 +12,6 @@ service ShardedStorageNodeService {
 
   rpc SetFromFile (SetFromFileRequest) returns (SetFromFileResponse);
 
-  rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
-
   rpc Heartbeat (NodeHeartbeatRequest) returns (NodeHeartbeatResponse);
 }
 
@@ -41,15 +39,6 @@ message SetFromFileRequest {
 
 message SetFromFileResponse {
   //TODO Negotiate format
-  bool success = 1;
-  string message = 2;
-}
-
-message ChangeShardCountRequest {
-  int32 newShardCount = 1;
-}
-
-message ChangeShardCountResponse {
   bool success = 1;
   string message = 2;
 }
