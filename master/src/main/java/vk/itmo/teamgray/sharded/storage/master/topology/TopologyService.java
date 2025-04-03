@@ -79,6 +79,7 @@ public class TopologyService {
     }
 
     public AddServerResult addServer(ServerDataDTO serverToAdd) {
+        // TODO Remove
         if (hardCodedNode) {
             return new AddServerResult(false, "Adding Nodes is Not Supported");
         }
@@ -102,6 +103,7 @@ public class TopologyService {
     }
 
     public DeleteServerResult deleteServer(ServerDataDTO serverToRemove) {
+        // TODO Remove
         if (hardCodedNode) {
             return new DeleteServerResult(false, "Removing Nodes is Not Supported");
         }
@@ -124,6 +126,18 @@ public class TopologyService {
         return new DeleteServerResult(true, "SERVER REMOVED");
     }
 
+    public boolean changeShardCount(int shardCount) {
+        var newShardToHash = redistributeHashesEvenly(shardCount);
+        var newServerToShards = redistributeShardsEvenly(
+            Collections.list(serverToShards.keys()),
+            Collections.list(newShardToHash.keys())
+        );
+
+        replaceBothMaps(newShardToHash, newServerToShards);
+
+        return true;
+    }
+
     private void replaceServerToShards(ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards) {
         lock.writeLock().lock();
 
@@ -138,13 +152,8 @@ public class TopologyService {
         }
     }
 
-    public boolean changeShardCount(int shardCount) {
-        var newShardToHash = redistributeHashesEvenly(shardCount);
-        var newServerToShards = redistributeShardsEvenly(
-            Collections.list(serverToShards.keys()),
-            Collections.list(newShardToHash.keys())
-        );
-
+    private void replaceBothMaps(ConcurrentHashMap<Integer, Long> newShardToHash,
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards) {
         lock.writeLock().lock();
 
         try {
@@ -159,8 +168,6 @@ public class TopologyService {
         } finally {
             lock.writeLock().unlock();
         }
-
-        return true;
     }
 
     private ConcurrentHashMap<ServerDataDTO, List<Integer>> redistributeShardsEvenly(
