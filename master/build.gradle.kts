@@ -2,7 +2,7 @@ plugins {
     id("java")
 }
 
-private val mainClassName = "vk.itmo.teamgray.sharded.storage.node.NodeApplication"
+private val mainClassName = "vk.itmo.teamgray.sharded.storage.master.MasterApplication"
 
 application {
     mainClass.set(mainClassName)

@@ -5,15 +5,15 @@ import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
 
-public class Utils {
-    private Utils() {
+public class PropertyUtils {
+    private PropertyUtils() {
         // No-op.
     }
 
     public static Properties getProperties() {
         Properties properties = new Properties();
 
-        try (InputStream input = Utils.class.getClassLoader().getResourceAsStream("application.properties")) {
+        try (InputStream input = PropertyUtils.class.getClassLoader().getResourceAsStream("application.properties")) {
             if (input == null) {
                 throw new IOException("Properties file not found in classpath.");
             }
@@ -26,17 +26,19 @@ public class Utils {
         return properties;
     }
 
-    public static int getServerPort() {
+    //TODO Implement something more fancy later.
+    public static int getServerPort(String serverType) {
         Properties properties = getProperties();
 
-        return Optional.ofNullable(properties.getProperty("grpc.port"))
+        return Optional.ofNullable(properties.getProperty(serverType + ".grpc.port"))
             .map(Integer::parseInt)
             .orElseThrow();
     }
 
-    public static String getServerHost() {
+    //TODO Implement something more fancy later.
+    public static String getServerHost(String serverType) {
         Properties properties = getProperties();
 
-        return properties.getProperty("grpc.host");
+        return properties.getProperty(serverType + ".grpc.host");
     }
 }
