@@ -5,8 +5,11 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.master.topology.TopologyService;
+import vk.itmo.teamgray.sharded.storage.master.client.MasterClientService;
+import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
+import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
 
+import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerHost;
 import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPort;
 
 public class MasterApplication {
@@ -18,8 +21,17 @@ public class MasterApplication {
 
     public MasterApplication(int port) {
         this.port = port;
+
+        NodeManagementClient nodeManagementClient = new NodeManagementClient(
+            getServerHost("node.management"),
+            getServerPort("node.management")
+        );
+
+        var topologyService = new TopologyService(true, nodeManagementClient);
+        var masterClientService = new MasterClientService(topologyService);
+
         this.server = ServerBuilder.forPort(port)
-            .addService(new ShardedStorageMasterService(new TopologyService(true)))
+            .addService(masterClientService)
             .build();
     }
 

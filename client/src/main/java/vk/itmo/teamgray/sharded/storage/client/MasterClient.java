@@ -10,26 +10,26 @@ import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.MasterHeartbeatResponseDTO;
-import vk.itmo.teamgray.sharded.storage.master.AddServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.master.DeleteServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.GetServerToShardRequest;
-import vk.itmo.teamgray.sharded.storage.master.GetServerToShardResponse;
-import vk.itmo.teamgray.sharded.storage.master.GetShardToHashRequest;
-import vk.itmo.teamgray.sharded.storage.master.GetShardToHashResponse;
-import vk.itmo.teamgray.sharded.storage.master.MasterHeartbeatRequest;
-import vk.itmo.teamgray.sharded.storage.master.ShardedStorageMasterServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.master.client.AddServerRequest;
+import vk.itmo.teamgray.sharded.storage.master.client.ChangeShardCountRequest;
+import vk.itmo.teamgray.sharded.storage.master.client.DeleteServerRequest;
+import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardRequest;
+import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
+import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashRequest;
+import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
+import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.master.client.MasterHeartbeatRequest;
 
-public class ShardedStorageMasterClient {
+public class MasterClient {
     private final ManagedChannel channel;
 
-    private final ShardedStorageMasterServiceGrpc.ShardedStorageMasterServiceBlockingStub blockingStub;
+    private final MasterClientServiceGrpc.MasterClientServiceBlockingStub blockingStub;
 
     private final String host;
 
     private final int port;
 
-    public ShardedStorageMasterClient(String host, int port) {
+    public MasterClient(String host, int port) {
         this.host = host;
         this.port = port;
 
@@ -37,7 +37,7 @@ public class ShardedStorageMasterClient {
             .usePlaintext()
             .build();
 
-        this.blockingStub = ShardedStorageMasterServiceGrpc.newBlockingStub(channel);
+        this.blockingStub = MasterClientServiceGrpc.newBlockingStub(channel);
     }
 
     public String getHost() {

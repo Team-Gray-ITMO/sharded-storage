@@ -1,13 +1,12 @@
-package vk.itmo.teamgray.sharded.storage.node.shards;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+package vk.itmo.teamgray.sharded.storage.node.client.shards;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public class ShardData{
+public class ShardData {
     private ConcurrentHashMap<String, String> storage;
 
     public ShardData(@NotNull ConcurrentHashMap<String, String> storage) {
@@ -15,7 +14,7 @@ public class ShardData{
         this.storage = storage;
     }
 
-    public ShardData(){
+    public ShardData() {
         storage = new ConcurrentHashMap<>();
     }
 

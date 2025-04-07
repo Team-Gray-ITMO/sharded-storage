@@ -6,8 +6,8 @@ import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPor
 public class ClientApplication {
 
     public static void main(String[] args) throws InterruptedException {
-        ShardedStorageNodeClient nodeClient = new ShardedStorageNodeClient(getServerHost("node"), getServerPort("node"));
-        ShardedStorageMasterClient masterClient = new ShardedStorageMasterClient(getServerHost("master"), getServerPort("master"));
+        NodeClient nodeClient = new NodeClient(getServerHost("node"), getServerPort("node"));
+        MasterClient masterClient = new MasterClient(getServerHost("master"), getServerPort("master"));
 
         ClientService clientService = new ClientService(masterClient, nodeClient);
 

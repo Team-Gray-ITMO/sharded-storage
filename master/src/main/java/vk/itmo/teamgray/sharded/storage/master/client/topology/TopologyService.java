@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.master.topology;
+package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,13 +7,18 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.PropertyUtils;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
-import vk.itmo.teamgray.sharded.storage.master.GetServerToShardResponse;
-import vk.itmo.teamgray.sharded.storage.master.GetShardToHashResponse;
-import vk.itmo.teamgray.sharded.storage.master.IntList;
+import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
+import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
+import vk.itmo.teamgray.sharded.storage.master.client.IntList;
+import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 public class TopologyService {
+    private final NodeManagementClient nodeManagementClient;
+
     private ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = new ConcurrentHashMap<>();
 
     private ConcurrentHashMap<Integer, Long> shardToHash = new ConcurrentHashMap<>();
@@ -22,8 +27,9 @@ public class TopologyService {
 
     private final boolean hardCodedNode;
 
-    public TopologyService(boolean hardCodedNode) {
+    public TopologyService(boolean hardCodedNode, NodeManagementClient nodeManagementClient) {
         this.hardCodedNode = hardCodedNode;
+        this.nodeManagementClient = nodeManagementClient;
 
         if (hardCodedNode) {
             //TODO For now single node
@@ -134,6 +140,17 @@ public class TopologyService {
         );
 
         replaceBothMaps(newShardToHash, newServerToShards);
+
+        serverToShards.forEach((server, shards) ->
+            nodeManagementClient.rearrangeShards(shards.stream()
+                .collect(
+                    Collectors.toMap(
+                        Function.identity(),
+                        shard -> shardToHash.get(shard)
+                    )
+                )
+            )
+        );
 
         return true;
     }
