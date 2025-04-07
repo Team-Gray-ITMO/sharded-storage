@@ -1,1 +1,1 @@
-{"total":1,"items":[{"uid":"d4ab22bd9e500aa5640c03d93982cde7","name":"ShardedStorageImplTest","statistic":{"failed":0,"broken":0,"skipped":0,"passed":1,"unknown":0,"total":1}}]}
+{"total":1,"items":[{"uid":"25fb3b5bd40e84d0e3cb3401945405d2","name":"vk.itmo.teamgray.sharded.storage.node.client.ShardedStorageImplTest","statistic":{"failed":0,"broken":0,"skipped":0,"passed":1,"unknown":0,"total":1}}]}
