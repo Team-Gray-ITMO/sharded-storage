@@ -15,17 +15,18 @@ import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
 
-    private Map<Integer, ShardData> shards = new ConcurrentHashMap<>();
+    private final NodeStorageService nodeStorageService;
+
+    public NodeClientService(NodeStorageService nodeStorageService) {
+        this.nodeStorageService = nodeStorageService;
+    }
 
     @Override
     public void setKey(SetKeyRequest request, StreamObserver<SetKeyResponse> responseObserver) {
         String key = request.getKey();
         String value = request.getValue();
 
-        shards.computeIfAbsent(
-            ShardUtils.getLocalShardKey(key, shards.size()),
-            k -> new ShardData()
-        ).addToStorage(key, value);
+        nodeStorageService.setKeyValue(key, value);
 
         responseObserver.onNext(
             SetKeyResponse.newBuilder()
@@ -40,11 +41,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
         String key = request.getKey();
 
-        ShardData shardData = shards.get(ShardUtils.getLocalShardKey(key, shards.size()));
-        String returnValue = null;
-        if (shardData != null) {
-            returnValue = shardData.getValue(key);
-        }
+        String returnValue = nodeStorageService.getValueByKey(key);
 
         responseObserver.onNext(
             GetKeyResponse.newBuilder()
@@ -69,10 +66,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
                 String key = parts[0].trim();
                 String value = parts[1].trim();
 
-                shards.computeIfAbsent(
-                    ShardUtils.getLocalShardKey(key, shards.size()),
-                    k -> new ShardData()
-                ).addToStorage(key, value);
+                nodeStorageService.setKeyValue(key, value);
             }
         } catch (IOException e) {
             success = false;

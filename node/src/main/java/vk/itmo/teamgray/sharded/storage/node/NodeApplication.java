@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeManagementService;
+import vk.itmo.teamgray.sharded.storage.node.client.NodeStorageService;
 
 import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPort;
 
@@ -18,15 +19,17 @@ public class NodeApplication {
     private final List<Server> activeServers = new ArrayList<>();
 
     public NodeApplication() {
+        NodeStorageService nodeStorageService = new NodeStorageService();
+
         activeServers.add(
             ServerBuilder.forPort(getServerPort("node"))
-                .addService(new NodeClientService())
+                .addService(new NodeClientService(nodeStorageService))
                 .build()
         );
 
         activeServers.add(
             ServerBuilder.forPort(getServerPort("node.management"))
-                .addService(new NodeManagementService())
+                .addService(new NodeManagementService(nodeStorageService))
                 .build()
         );
     }
