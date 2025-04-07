@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.node.management";
+
+package vk.itmo.teamgray.sharded.storage;
+
+service NodeManagementService {
+  rpc RearrangeShards (RearrangeShardsRequest) returns (RearrangeShardsResponse);
+}
+
+message RearrangeShardsRequest {
+  // Sorted map of upper bound hash (inclusive) by shard number, lower bound is defined by previous shard (exclusive)
+  // For rearrange request, only relevant shards will be included
+  map<int32, int64> shardToHash = 1;
+}
+
+message RearrangeShardsResponse {
+  bool success = 1;
+}

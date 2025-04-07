@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.master.topology;
+package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,13 +9,14 @@ import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 class TopologyServiceTest {
     private TopologyService topologyService;
 
     @BeforeEach
     void setUp() {
-        topologyService = new TopologyService(false);
+        topologyService = new TopologyService(false, mock());
     }
 
     @Test
@@ -116,7 +117,7 @@ class TopologyServiceTest {
     //TODO Remove, once implemented
     @Test
     void testHardCodedNode() {
-        var hardCodedTopologyService = new TopologyService(true);
+        var hardCodedTopologyService = new TopologyService(true, mock());
 
         ServerDataDTO server = new ServerDataDTO("127.0.0.1", 8001);
 

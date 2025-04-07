@@ -6,29 +6,29 @@ import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import vk.itmo.teamgray.sharded.storage.dto.NodeHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.SetFromFileResponseDTO;
-import vk.itmo.teamgray.sharded.storage.node.GetKeyRequest;
-import vk.itmo.teamgray.sharded.storage.node.NodeHeartbeatRequest;
-import vk.itmo.teamgray.sharded.storage.node.SetFromFileRequest;
-import vk.itmo.teamgray.sharded.storage.node.SetKeyRequest;
-import vk.itmo.teamgray.sharded.storage.node.ShardedStorageNodeServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
+import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.client.NodeHeartbeatRequest;
+import vk.itmo.teamgray.sharded.storage.node.client.SetFromFileRequest;
+import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
-public class ShardedStorageNodeClient {
+public class NodeClient {
     private final ManagedChannel channel;
 
-    private final ShardedStorageNodeServiceGrpc.ShardedStorageNodeServiceBlockingStub blockingStub;
+    private final NodeClientServiceGrpc.NodeClientServiceBlockingStub blockingStub;
 
     private final String host;
 
     private final int port;
 
-    public ShardedStorageNodeClient(String host, int port) {
+    public NodeClient(String host, int port) {
         this.host = host;
         this.port = port;
         this.channel = ManagedChannelBuilder.forAddress(host, port)
             .usePlaintext()
             .build();
 
-        this.blockingStub = ShardedStorageNodeServiceGrpc.newBlockingStub(channel);
+        this.blockingStub = NodeClientServiceGrpc.newBlockingStub(channel);
     }
 
     public String getHost() {

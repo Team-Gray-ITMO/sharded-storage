@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "vk.itmo.teamgray.sharded.storage.node";
+option java_package = "vk.itmo.teamgray.sharded.storage.node.client";
 
 package vk.itmo.teamgray.sharded.storage;
 
-service ShardedStorageNodeService {
+service NodeClientService {
   rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
 
   rpc SetKey (SetKeyRequest) returns (SetKeyResponse);

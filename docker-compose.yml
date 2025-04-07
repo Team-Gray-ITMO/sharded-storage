@@ -6,9 +6,18 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - "9001:9001"
+      - "9003:9003"
+    networks:
+      - sharded-storage
   master:
     build:
       context: ./master
       dockerfile: ./Dockerfile
     ports:
       - "9002:9002"
+    networks:
+      - sharded-storage
+
+networks:
+  sharded-storage:
+    driver: bridge

@@ -2,6 +2,7 @@ plugins {
     id("java")
     id("jacoco")
     id("io.qameta.allure") version "2.12.0"
+    id("com.github.johnrengelman.shadow") apply true
 }
 
 private val mainClassName = "vk.itmo.teamgray.sharded.storage.node.NodeApplication"
@@ -21,23 +22,20 @@ tasks.jar {
     }
 }
 
-tasks.register<Jar>("fatJar") {
+tasks.shadowJar {
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    from(sourceSets.main.get().output)
-
-    dependsOn(configurations.runtimeClasspath)
-    from({
-        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
-    })
 
     manifest {
         attributes["Main-Class"] = mainClassName
     }
+
+    mergeServiceFiles()
+
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 
 tasks.build {
-    dependsOn(tasks.named("fatJar"))
+    dependsOn(tasks.named("shadowJar"))
 }
 

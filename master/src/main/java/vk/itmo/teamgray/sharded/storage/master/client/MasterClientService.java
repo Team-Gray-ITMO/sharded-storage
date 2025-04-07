@@ -1,18 +1,18 @@
-package vk.itmo.teamgray.sharded.storage.master;
+package vk.itmo.teamgray.sharded.storage.master.client;
 
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
-import vk.itmo.teamgray.sharded.storage.master.topology.TopologyService;
+import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
 
-public class ShardedStorageMasterService extends ShardedStorageMasterServiceGrpc.ShardedStorageMasterServiceImplBase {
-    private static final Logger log = LoggerFactory.getLogger(ShardedStorageMasterService.class);
+public class MasterClientService extends MasterClientServiceGrpc.MasterClientServiceImplBase {
+    private static final Logger log = LoggerFactory.getLogger(MasterClientService.class);
 
     private final TopologyService topologyService;
 
-    public ShardedStorageMasterService(TopologyService topologyService) {
+    public MasterClientService(TopologyService topologyService) {
         this.topologyService = topologyService;
     }
 

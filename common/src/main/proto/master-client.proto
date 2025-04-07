@@ -1,11 +1,11 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "vk.itmo.teamgray.sharded.storage.master";
+option java_package = "vk.itmo.teamgray.sharded.storage.master.client";
 
 package vk.itmo.teamgray.sharded.storage;
 
-service ShardedStorageMasterService {
+service MasterClientService {
   rpc GetServerToShard (GetServerToShardRequest) returns (GetServerToShardResponse);
 
   rpc GetShardToHash (GetShardToHashRequest) returns (GetShardToHashResponse);

@@ -1,6 +1,7 @@
 plugins {
     id("java")
     application
+    id("com.github.johnrengelman.shadow") version "8.1.1" apply false
 }
 
 group = "vk.itmo.teamgray.sharded.storage"

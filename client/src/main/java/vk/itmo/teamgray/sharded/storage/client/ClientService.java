@@ -24,9 +24,9 @@ public class ClientService {
 
     private static final Duration CACHE_EXPIRATION = Duration.of(30, ChronoUnit.MINUTES);
 
-    private final ShardedStorageMasterClient masterClient;
+    private final MasterClient masterClient;
 
-    private final ShardedStorageNodeClient nodeClient;
+    private final NodeClient nodeClient;
 
     private final Cache<Integer, String> shardToServer = CacheBuilder.newBuilder()
         .expireAfterWrite(CACHE_EXPIRATION)
@@ -56,7 +56,7 @@ public class ClientService {
             }
         });
 
-    public ClientService(ShardedStorageMasterClient masterClient, ShardedStorageNodeClient nodeClient) {
+    public ClientService(MasterClient masterClient, NodeClient nodeClient) {
         this.masterClient = masterClient;
         this.nodeClient = nodeClient;
     }

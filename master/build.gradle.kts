@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("com.github.johnrengelman.shadow") apply true
 }
 
 private val mainClassName = "vk.itmo.teamgray.sharded.storage.master.MasterApplication"
@@ -11,6 +12,8 @@ application {
 dependencies {
     implementation(project(":common"))
     implementation("org.jetbrains:annotations:26.0.2")
+
+    testImplementation("org.mockito:mockito-core:5.17.0")
 }
 
 tasks.jar {
@@ -19,23 +22,20 @@ tasks.jar {
     }
 }
 
-tasks.register<Jar>("fatJar") {
+tasks.shadowJar {
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    from(sourceSets.main.get().output)
-
-    dependsOn(configurations.runtimeClasspath)
-    from({
-        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
-    })
 
     manifest {
         attributes["Main-Class"] = mainClassName
     }
+
+    mergeServiceFiles()
+
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 
 tasks.build {
-    dependsOn(tasks.named("fatJar"))
+    dependsOn(tasks.named("shadowJar"))
 }
 
