@@ -93,6 +93,16 @@ class TopologyServiceTest {
     }
 
     @Test
+    void testSingleShard() {
+        topologyService.changeShardCount(1);
+
+        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+
+        assertEquals(1, shardToHash.size());
+        assertEquals(Long.MAX_VALUE, shardToHash.get(0));
+    }
+
+    @Test
     void hashDistributionEvenlyCoversFullRange() {
         int shardCount = 10;
         topologyService.changeShardCount(shardCount);
