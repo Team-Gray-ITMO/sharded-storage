@@ -1,5 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,13 +93,32 @@ class TopologyServiceTest {
     }
 
     @Test
-    void hashDistributionCoversFullRange() {
+    void testSingleShard() {
+        topologyService.changeShardCount(1);
+
+        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+
+        assertEquals(1, shardToHash.size());
+        assertEquals(Long.MAX_VALUE, shardToHash.get(0));
+    }
+
+    @Test
+    void hashDistributionEvenlyCoversFullRange() {
         int shardCount = 10;
         topologyService.changeShardCount(shardCount);
 
         ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
 
         assertEquals(shardCount, shardToHash.size());
+
+        //Use BigInteger to calculate range more precisely in tests.
+        BigInteger range = BigInteger
+            .valueOf(Long.MAX_VALUE)
+            .subtract(BigInteger.valueOf(Long.MIN_VALUE));
+
+        long expectedInterval = range
+            .divide(BigInteger.valueOf(shardCount))
+            .longValue();
 
         long previousBoundary = Long.MIN_VALUE;
 
@@ -107,6 +127,11 @@ class TopologyServiceTest {
             long boundary = shardToHash.get(i);
 
             assertTrue(previousBoundary <= boundary);
+
+            long interval = boundary - previousBoundary;
+
+            long deviation = Math.abs(interval - expectedInterval);
+            assertTrue(deviation <= expectedInterval * 0.001, "Interval " + i + " is not even: " + interval);
 
             previousBoundary = boundary;
         }

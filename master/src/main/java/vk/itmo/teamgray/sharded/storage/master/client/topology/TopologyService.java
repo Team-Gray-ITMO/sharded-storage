@@ -222,14 +222,17 @@ public class TopologyService {
 
         long stepSize = Long.MAX_VALUE / shardCount * 2;
 
-        for (int i = 0; i < shardCount; i++) {
-            long hashBoundary = Long.MIN_VALUE + i * stepSize;
+        long previousBoundary = Long.MIN_VALUE;
 
-            if (i == shardCount - 1) {
+        for (int i = 1; i <= shardCount; i++) {
+            long hashBoundary = previousBoundary + stepSize;
+            if (i == shardCount) {
                 hashBoundary = Long.MAX_VALUE;
             }
 
-            newShardToHash.put(i, hashBoundary);
+            newShardToHash.put(i - 1, hashBoundary);
+
+            previousBoundary = hashBoundary;
         }
 
         return newShardToHash;
