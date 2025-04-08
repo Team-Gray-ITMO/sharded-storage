@@ -3,7 +3,7 @@ services:
   node:
     build:
       context: ./node
-      dockerfile: ./Dockerfile
+      dockerfile: ./dev.Dockerfile
     ports:
       - "9001:9001"
       - "9003:9003"
@@ -12,7 +12,7 @@ services:
   master:
     build:
       context: ./master
-      dockerfile: ./Dockerfile
+      dockerfile: ./dev.Dockerfile
     ports:
       - "9002:9002"
     networks:
