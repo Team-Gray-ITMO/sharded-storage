@@ -5,12 +5,9 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
-import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
@@ -26,7 +23,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
         String key = request.getKey();
         String value = request.getValue();
 
-        nodeStorageService.setKeyValue(key, value);
+        nodeStorageService.set(key, value);
 
         responseObserver.onNext(
             SetKeyResponse.newBuilder()
@@ -41,7 +38,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
         String key = request.getKey();
 
-        String returnValue = nodeStorageService.getValueByKey(key);
+        String returnValue = nodeStorageService.get(key);
 
         responseObserver.onNext(
             GetKeyResponse.newBuilder()
@@ -66,7 +63,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
                 String key = parts[0].trim();
                 String value = parts[1].trim();
 
-                nodeStorageService.setKeyValue(key, value);
+                nodeStorageService.set(key, value);
             }
         } catch (IOException e) {
             success = false;

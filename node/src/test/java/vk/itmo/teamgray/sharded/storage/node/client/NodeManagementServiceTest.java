@@ -72,7 +72,7 @@ public class NodeManagementServiceTest {
         Map<String, Long> hashByKey = new HashMap<>();
         pairs.keySet().forEach(key -> hashByKey.put(key, HashingUtils.calculate64BitHash(key)));
         pairs.forEach((key, value) -> {
-            nodeStorageService.setKeyValue(key, value);
+            nodeStorageService.set(key, value);
             hashByKey.put(key, HashingUtils.calculate64BitHash(key));
         });
 
@@ -99,6 +99,12 @@ public class NodeManagementServiceTest {
         var shards = nodeStorageService.getShards();
         assertEquals(2, shards.get(1).getStorage().size());
         assertEquals(2, shards.get(2).getStorage().size());
+
+        assertNotNull(shards.get(1).getValue(sortedHashesByKey.getFirst().getKey()));
+        assertNotNull(shards.get(1).getValue(sortedHashesByKey.get(1).getKey()));
+        assertNotNull(shards.get(2).getValue(sortedHashesByKey.get(2).getKey()));
+        assertNotNull(shards.get(2).getValue(sortedHashesByKey.get(3).getKey()));
+
     }
 
 }

@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
+import vk.itmo.teamgray.sharded.storage.common.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
@@ -26,7 +27,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     @Override
     public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<RearrangeShardsResponse> responseObserver) {
-        //TODO Rearrange shards here. Most likely shards map would need to be extracted to other Service, which both these gRPC services will be able to access.
+        //TODO Refactor
 
         Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
         Map<Integer, ShardData> newShards = new ConcurrentHashMap<>();
@@ -63,12 +64,12 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 if (targetShardId != null) {
                     newShards.get(targetShardId).addToStorage(key, value);
                 } else {
-                    throw new RuntimeException("Shard for key " + key + " not found");
+                    throw new NodeException("Shard for key " + key + " not found");
                 }
             }
         }
 
-        nodeStorageService.updateStorage(newShards);
+        nodeStorageService.replace(newShards);
 
         responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
         responseObserver.onCompleted();

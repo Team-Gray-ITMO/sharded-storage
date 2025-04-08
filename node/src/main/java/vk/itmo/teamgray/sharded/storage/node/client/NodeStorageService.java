@@ -10,14 +10,14 @@ public class NodeStorageService {
 
     private Map<Integer, ShardData> shards = new ConcurrentHashMap<>();
 
-    public void setKeyValue(String key, String value) {
+    public void set(String key, String value) {
         shards.computeIfAbsent(
                 ShardUtils.getLocalShardKey(key, shards.size()),
                 k -> new ShardData()
         ).addToStorage(key, value);
     }
 
-    public String getValueByKey(String key) {
+    public String get(String key) {
         ShardData shardData = shards.get(ShardUtils.getLocalShardKey(key, shards.size()));
         String returnValue = null;
         if (shardData != null) {
@@ -30,7 +30,7 @@ public class NodeStorageService {
         return shards;
     }
 
-    public void updateStorage(Map<Integer, ShardData> newStorage) {
+    public void replace(Map<Integer, ShardData> newStorage) {
         shards.clear();
         shards.putAll(newStorage);
     }
