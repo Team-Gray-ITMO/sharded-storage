@@ -30,6 +30,17 @@ public class PropertyUtils {
     public static int getServerPort(String serverType) {
         Properties properties = getProperties();
 
+        String envKey = serverType.toUpperCase().replace(".", "_") + "_GRPC_PORT";
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isEmpty()) {
+            try {
+                return Integer.parseInt(envValue);
+            } catch (NumberFormatException e) {
+                // do nothing
+            }
+        }
+
+        // Используем значение из файла свойств
         return Optional.ofNullable(properties.getProperty(serverType + ".grpc.port"))
             .map(Integer::parseInt)
             .orElseThrow();
@@ -38,6 +49,12 @@ public class PropertyUtils {
     //TODO Implement something more fancy later.
     public static String getServerHost(String serverType) {
         Properties properties = getProperties();
+
+        String envKey = serverType.toUpperCase().replace(".", "_") + "_GRPC_HOST";
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isEmpty()) {
+            return envValue;
+        }
 
         return properties.getProperty(serverType + ".grpc.host");
     }
