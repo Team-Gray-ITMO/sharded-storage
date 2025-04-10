@@ -9,9 +9,7 @@ public class ClientApplication {
         NodeClient nodeClient = new NodeClient(getServerHost("node"), getServerPort("node"));
         MasterClient masterClient = new MasterClient(getServerHost("master"), getServerPort("master"));
 
-        ClientService clientService = new ClientService(masterClient, nodeClient);
-
-        //TODO: Test logic to check gRPC, later remove
-        clientService.scheduleHeartbeat();
+        CLI cli = new CLI(nodeClient, masterClient);
+        cli.start();
     }
 }
