@@ -11,9 +11,9 @@ public class ShardUtils {
         return key.hashCode();
     }
 
-    public static int getLocalShardKey(@NotNull String key, int shardCount){
+    public static long getLocalShardKey(@NotNull String key, int shardCount){
         Objects.requireNonNull(key);
 
-        return key.hashCode() % shardCount;
+        return HashingUtils.calculate64BitHash(key);
     }
 }

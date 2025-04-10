@@ -15,7 +15,7 @@ import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
 
-    private Map<Integer, ShardData> shards = new ConcurrentHashMap<>();
+    private Map<Long, ShardData> shards = new ConcurrentHashMap<>();
 
     @Override
     public void setKey(SetKeyRequest request, StreamObserver<SetKeyResponse> responseObserver) {
