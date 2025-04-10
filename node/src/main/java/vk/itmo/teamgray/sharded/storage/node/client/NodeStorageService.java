@@ -1,5 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
+import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 
@@ -12,13 +13,13 @@ public class NodeStorageService {
 
     public void set(String key, String value) {
         shards.computeIfAbsent(
-                ShardUtils.getLocalShardKey(key, shards.size()),
+                ShardUtils.getShardIdForKey(key, shards.size()),
                 k -> new ShardData()
         ).addToStorage(key, value);
     }
 
     public String get(String key) {
-        ShardData shardData = shards.get(ShardUtils.getLocalShardKey(key, shards.size()));
+        ShardData shardData = shards.get(ShardUtils.getShardIdForKey(key, shards.size()));
         String returnValue = null;
         if (shardData != null) {
             returnValue = shardData.getValue(key);
