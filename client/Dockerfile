@@ -12,10 +12,10 @@ COPY node ./node
 COPY client ./client
 
 # build
-RUN gradle :node:build --no-daemon
+RUN gradle :client:build --no-daemon
 
 # Run stage
 FROM openjdk:21-jdk-slim
 WORKDIR /app
-COPY --from=build /app/node/build/libs/node-all.jar /app/node.jar
-ENTRYPOINT ["java", "-jar", "/app/node.jar"]
+COPY --from=build /app/client/build/libs/client-all.jar /app/client.jar
+ENTRYPOINT ["java", "-jar", "/app/client.jar"]

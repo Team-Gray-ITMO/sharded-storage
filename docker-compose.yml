@@ -2,21 +2,56 @@ version: "3.8"
 services:
   node:
     build:
-      context: ./node
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: node/Dockerfile
     ports:
       - "9001:9001"
       - "9003:9003"
+    environment:
+      - NODE_GRPC_HOST=0.0.0.0
+      - NODE_GRPC_PORT=9001
+      - NODE_MANAGEMENT_GRPC_HOST=0.0.0.0
+      - NODE_MANAGEMENT_GRPC_PORT=9003
+      - MASTER_GRPC_HOST=master
+      - MASTER_GRPC_PORT=9002
     networks:
       - sharded-storage
+    depends_on:
+      - master
   master:
     build:
-      context: ./master
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: master/Dockerfile
     ports:
       - "9002:9002"
+    environment:
+      - MASTER_GRPC_HOST=master
+      - MASTER_GRPC_PORT=9002
+      - NODE_GRPC_HOST=node
+      - NODE_GRPC_PORT=9001
+      - NODE_MANAGEMENT_GRPC_HOST=node
+      - NODE_MANAGEMENT_GRPC_PORT=9003
     networks:
       - sharded-storage
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    environment:
+      - MASTER_GRPC_HOST=master
+      - MASTER_GRPC_PORT=9002
+      - NODE_GRPC_HOST=node
+      - NODE_GRPC_PORT=9001
+      - NODE_MANAGEMENT_GRPC_HOST=node
+      - NODE_MANAGEMENT_GRPC_PORT=9003
+    networks:
+      - sharded-storage
+    profiles:
+      - client
+    depends_on:
+      - master
+      - node
 
 networks:
   sharded-storage:
