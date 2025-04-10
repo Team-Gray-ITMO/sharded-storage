@@ -1,5 +1,5 @@
 # Build stage
-FROM gradle:8.6-jdk21 AS build
+FROM gradle:8.13-jdk21 AS build
 WORKDIR /app
 
 COPY settings.gradle.kts build.gradle.kts ./
