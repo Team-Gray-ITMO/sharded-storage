@@ -5,15 +5,16 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 
 public class ShardUtils {
-    public static int hashKey(@NotNull String key){
-        Objects.requireNonNull(key);
+    public static int getShardIdForKey(@NotNull String key, int shardsCount) {
+        if (shardsCount <= 0) {
+            return 0;
+        }
 
-        return key.hashCode();
+        long hash = HashingUtils.calculate64BitHash(key);
+        long step = Long.MAX_VALUE / shardsCount - Long.MIN_VALUE / shardsCount;
+        long shardId = hash / step;
+        return (int) shardId;
     }
 
-    public static long getLocalShardKey(@NotNull String key, int shardCount){
-        Objects.requireNonNull(key);
 
-        return HashingUtils.calculate64BitHash(key);
-    }
 }

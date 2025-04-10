@@ -5,27 +5,25 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
-import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
 
-    private Map<Long, ShardData> shards = new ConcurrentHashMap<>();
+    private final NodeStorageService nodeStorageService;
+
+    public NodeClientService(NodeStorageService nodeStorageService) {
+        this.nodeStorageService = nodeStorageService;
+    }
 
     @Override
     public void setKey(SetKeyRequest request, StreamObserver<SetKeyResponse> responseObserver) {
         String key = request.getKey();
         String value = request.getValue();
 
-        shards.computeIfAbsent(
-            ShardUtils.getLocalShardKey(key, shards.size()),
-            k -> new ShardData()
-        ).addToStorage(key, value);
+        nodeStorageService.set(key, value);
 
         responseObserver.onNext(
             SetKeyResponse.newBuilder()
@@ -40,11 +38,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
         String key = request.getKey();
 
-        ShardData shardData = shards.get(ShardUtils.getLocalShardKey(key, shards.size()));
-        String returnValue = null;
-        if (shardData != null) {
-            returnValue = shardData.getValue(key);
-        }
+        String returnValue = nodeStorageService.get(key);
 
         responseObserver.onNext(
             GetKeyResponse.newBuilder()
@@ -69,10 +63,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
                 String key = parts[0].trim();
                 String value = parts[1].trim();
 
-                shards.computeIfAbsent(
-                    ShardUtils.getLocalShardKey(key, shards.size()),
-                    k -> new ShardData()
-                ).addToStorage(key, value);
+                nodeStorageService.set(key, value);
             }
         } catch (IOException e) {
             success = false;
