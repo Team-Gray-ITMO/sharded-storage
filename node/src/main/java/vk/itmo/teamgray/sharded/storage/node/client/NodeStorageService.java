@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.NodeException;
 import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 
@@ -15,16 +16,24 @@ public class NodeStorageService {
     public void set(String key, String value) {
         var shardId = ShardUtils.getShardIdForKey(key, shards.size());
 
+        if (shardId == null || !shards.containsKey(shardId)) {
+            throw new NodeException("No shard found for key: " + key);
+        }
+
         //TODO Change to debug
         log.info("Setting key {} on shard {} to {}", key, shardId, value);
 
-        shards.computeIfAbsent(shardId,
-            k -> new ShardData()
-        ).addToStorage(key, value);
+        shards
+            .computeIfAbsent(shardId, k -> new ShardData())
+            .addToStorage(key, value);
     }
 
     public String get(String key) {
         var shardId = ShardUtils.getShardIdForKey(key, shards.size());
+
+        if (shardId == null || !shards.containsKey(shardId)) {
+            throw new NodeException("No shard found for key: " + key);
+        }
 
         //TODO Change to debug
         log.info("Getting value for key {} on shard {}", key, shardId);
