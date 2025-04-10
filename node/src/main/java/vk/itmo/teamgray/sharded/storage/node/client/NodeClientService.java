@@ -5,7 +5,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.time.Instant;
-
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +42,8 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
 
         responseObserver.onNext(
             GetKeyResponse.newBuilder()
-                .setValue(returnValue)
+                // gRPC does not handle nulls well
+                .setValue(Objects.requireNonNullElse(returnValue, ""))
                 .build()
         );
 

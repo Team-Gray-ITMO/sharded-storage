@@ -1,13 +1,13 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.stub.StreamObserver;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.common.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
@@ -16,6 +16,7 @@ import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
 
 public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
+    private static final Logger log = LoggerFactory.getLogger(NodeManagementService.class);
 
     private final NodeStorageService nodeStorageService;
 
@@ -27,9 +28,13 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
     public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<RearrangeShardsResponse> responseObserver) {
         //TODO Refactor
 
+        var shardToHash = request.getShardToHashMap();
+
+        log.info("Rearranging shards. [request={}]", shardToHash);
+
         Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
         Map<Integer, ShardData> newShards = new ConcurrentHashMap<>();
-        List<Map.Entry<Integer, Long>> shardToHashMap = new ArrayList<>(request.getShardToHashMap().entrySet());
+        List<Map.Entry<Integer, Long>> shardToHashMap = new ArrayList<>(shardToHash.entrySet());
         shardToHashMap.sort(Comparator.comparingLong(Map.Entry::getValue));
 
         if (shardToHashMap.isEmpty()) {
@@ -68,6 +73,8 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         }
 
         nodeStorageService.replace(newShards);
+
+        log.info("Rearranged shards.");
 
         responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
         responseObserver.onCompleted();

@@ -9,6 +9,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.PropertyUtils;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
@@ -17,6 +19,8 @@ import vk.itmo.teamgray.sharded.storage.master.client.IntList;
 import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 public class TopologyService {
+    private static final Logger log = LoggerFactory.getLogger(TopologyService.class);
+
     private final NodeManagementClient nodeManagementClient;
 
     private ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = new ConcurrentHashMap<>();
@@ -85,6 +89,8 @@ public class TopologyService {
     }
 
     public AddServerResult addServer(ServerDataDTO serverToAdd) {
+        log.info("Adding server {}", serverToAdd);
+
         // TODO Remove
         if (hardCodedNode) {
             return new AddServerResult(false, "Adding Nodes is Not Supported");
@@ -105,10 +111,14 @@ public class TopologyService {
 
         replaceServerToShards(newServerToShards);
 
+        log.info("Added server {}", serverToAdd);
+
         return new AddServerResult(true, "SERVER ADDED");
     }
 
     public DeleteServerResult deleteServer(ServerDataDTO serverToRemove) {
+        log.info("Removing server {}", serverToRemove);
+
         // TODO Remove
         if (hardCodedNode) {
             return new DeleteServerResult(false, "Removing Nodes is Not Supported");
@@ -127,12 +137,16 @@ public class TopologyService {
             Collections.list(shardToHash.keys())
         );
 
+        log.info("Removed server {}", serverToRemove);
+
         replaceServerToShards(newServerToShards);
 
         return new DeleteServerResult(true, "SERVER REMOVED");
     }
 
     public boolean changeShardCount(int shardCount) {
+        log.info("Changing shard count to {}", shardCount);
+
         var newShardToHash = redistributeHashesEvenly(shardCount);
         var newServerToShards = redistributeShardsEvenly(
             Collections.list(serverToShards.keys()),
@@ -141,16 +155,22 @@ public class TopologyService {
 
         replaceBothMaps(newShardToHash, newServerToShards);
 
-        serverToShards.forEach((server, shards) ->
-            nodeManagementClient.rearrangeShards(shards.stream()
-                .collect(
-                    Collectors.toMap(
-                        Function.identity(),
-                        shard -> shardToHash.get(shard)
-                    )
-                )
-            )
+        serverToShards.forEach((server, shards) -> {
+                var relevantSchemeSlice = shards.stream()
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(),
+                            shard -> shardToHash.get(shard)
+                        )
+                    );
+
+                log.info("Sending rearrange request [node={}, scheme={}]", server, relevantSchemeSlice);
+
+                nodeManagementClient.rearrangeShards(relevantSchemeSlice);
+            }
         );
+
+        log.info("Changed shard count");
 
         return true;
     }
@@ -158,20 +178,28 @@ public class TopologyService {
     private void replaceServerToShards(ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards) {
         lock.writeLock().lock();
 
+        log.info("Replacing server to shard scheme {}", newServerToShards);
+
         try {
             var oldServerToShards = serverToShards;
 
             serverToShards = newServerToShards;
 
             oldServerToShards.clear();
+
+            log.info("Replaced server to shard scheme");
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private void replaceBothMaps(ConcurrentHashMap<Integer, Long> newShardToHash,
-        ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards) {
+    private void replaceBothMaps(
+        ConcurrentHashMap<Integer, Long> newShardToHash,
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards
+    ) {
         lock.writeLock().lock();
+
+        log.info("Replacing server to shard and shard to hash schemes [sts={}, sth={}]", newServerToShards, newShardToHash);
 
         try {
             var oldShardToHash = shardToHash;
@@ -182,6 +210,8 @@ public class TopologyService {
 
             oldShardToHash.clear();
             oldServerToShards.clear();
+
+            log.info("Replaced server to shard and shard to hash schemes");
         } finally {
             lock.writeLock().unlock();
         }

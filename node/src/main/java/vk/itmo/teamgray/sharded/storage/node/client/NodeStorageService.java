@@ -1,29 +1,41 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
-import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 public class NodeStorageService {
+    private static final Logger log = LoggerFactory.getLogger(NodeStorageService.class);
 
     private Map<Integer, ShardData> shards = new ConcurrentHashMap<>();
 
     public void set(String key, String value) {
-        shards.computeIfAbsent(
-                ShardUtils.getShardIdForKey(key, shards.size()),
-                k -> new ShardData()
+        var shardId = ShardUtils.getShardIdForKey(key, shards.size());
+
+        //TODO Change to debug
+        log.info("Setting key {} on shard {} to {}", key, shardId, value);
+
+        shards.computeIfAbsent(shardId,
+            k -> new ShardData()
         ).addToStorage(key, value);
     }
 
     public String get(String key) {
-        ShardData shardData = shards.get(ShardUtils.getShardIdForKey(key, shards.size()));
+        var shardId = ShardUtils.getShardIdForKey(key, shards.size());
+
+        //TODO Change to debug
+        log.info("Getting value for key {} on shard {}", key, shardId);
+
+        ShardData shardData = shards.get(shardId);
         String returnValue = null;
+
         if (shardData != null) {
             returnValue = shardData.getValue(key);
         }
+
         return returnValue;
     }
 
@@ -31,9 +43,13 @@ public class NodeStorageService {
         return shards;
     }
 
+    //TODO Add locks?
     public void replace(Map<Integer, ShardData> newStorage) {
+        log.info("Replacing shard scheme {}", newStorage);
+
         shards.clear();
         shards.putAll(newStorage);
-    }
 
+        log.info("Replaced shard scheme.");
+    }
 }

@@ -43,4 +43,11 @@ public class ShardData {
         Objects.requireNonNull(key);
         return storage.get(key);
     }
+
+    @Override
+    public String toString() {
+        return "ShardData{" +
+            "storage=" + storage +
+            '}';
+    }
 }

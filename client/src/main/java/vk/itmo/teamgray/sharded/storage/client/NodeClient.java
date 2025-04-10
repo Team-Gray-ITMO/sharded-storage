@@ -57,7 +57,14 @@ public class NodeClient {
             .setKey(key)
             .build();
 
-        return blockingStub.getKey(request).getValue();
+        var value = blockingStub.getKey(request).getValue();
+
+        //TODO Work on better strategy to handle null values in gRPC.
+        if (value.isBlank()) {
+            return null;
+        }
+
+        return value;
     }
 
     public SetFromFileResponseDTO setFromFile(String filePath) {
