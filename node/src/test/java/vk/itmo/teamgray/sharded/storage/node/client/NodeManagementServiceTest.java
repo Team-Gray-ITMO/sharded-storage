@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
+import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
 
@@ -61,8 +62,6 @@ public class NodeManagementServiceTest {
         });
     }
 
-    //TODO Update test to new conditions
-    @Disabled
     @Test
     public void testRearrangeShardsWithNotEmptyStorageAndNotEmptyRequestMapping() {
         NodeStorageService nodeStorageService = new NodeStorageService();
@@ -71,6 +70,14 @@ public class NodeManagementServiceTest {
         pairs.put("key2", "value2");
         pairs.put("key3", "value3");
         pairs.put("key4", "value4");
+
+        Map<Integer, ShardData> initialShards = new HashMap<>();
+        initialShards.put(1, new ShardData());
+        initialShards.put(2, new ShardData());
+        initialShards.put(3, new ShardData());
+        initialShards.put(4, new ShardData());
+
+        nodeStorageService.replace(initialShards);
 
         Map<String, Long> hashByKey = new HashMap<>();
         pairs.keySet().forEach(key -> hashByKey.put(key, HashingUtils.calculate64BitHash(key)));
