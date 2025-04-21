@@ -1,6 +1,9 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
+import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
+
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -67,7 +70,12 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 if (targetShardId != null) {
                     newShards.get(targetShardId).addToStorage(key, value);
                 } else {
-                    throw new NodeException("Shard for key " + key + " not found");
+                    Metadata metadata = new Metadata();
+                    String errMessage = MessageFormat.format("Shard for key=[{0}] not found", key);
+                    log.warn(errMessage);
+                    responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
+                            .asRuntimeException(metadata));
+                    return;
                 }
             }
         }
