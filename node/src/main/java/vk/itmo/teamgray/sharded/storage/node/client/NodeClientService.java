@@ -29,9 +29,12 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
 
         try {
             nodeStorageService.set(key, value);
-        } catch (Exception e) {
-            log.warn("Error while setting key=[{}] value=[{}]", key, value, e);
-            responseObserver.onError(e);
+        } catch (NodeException e) {
+            Metadata metadata = new Metadata();
+            String errMessage = MessageFormat.format("Error while getting by key=[{0}]", key);
+            log.warn(errMessage, e);
+            responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
+                    .asRuntimeException(metadata));
             return;
         }
 
