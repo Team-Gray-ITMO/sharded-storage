@@ -31,7 +31,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
             nodeStorageService.set(key, value);
         } catch (NodeException e) {
             Metadata metadata = new Metadata();
-            String errMessage = MessageFormat.format("Error while getting by key=[{0}]", key);
+            String errMessage = MessageFormat.format("Error while setting key=[{0}] value=[{1}]", key, value);
             log.warn(errMessage, e);
             responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
                     .asRuntimeException(metadata));
