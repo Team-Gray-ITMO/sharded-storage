@@ -52,6 +52,11 @@ public class NodeStorageService {
         return shards;
     }
 
+    public void removeShard(int shardId) {
+        shards.remove(shardId);
+        log.info("Shard {} removed", shardId);
+    }
+
     //TODO Add locks?
     public void replace(Map<Integer, ShardData> newStorage) {
         log.info("Replacing shard scheme {}", newStorage);
