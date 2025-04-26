@@ -64,6 +64,13 @@ class TopologyServiceTest {
     }
 
     @Test
+    void test23() {
+        topologyService.changeShardCount(10);
+
+        topologyService.changeShardCount(5);
+    }
+
+    @Test
     void changeShardCountCorrectlyRedistributesShards() {
         topologyService.changeShardCount(10);
         ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();

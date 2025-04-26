@@ -1,7 +1,7 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.Metadata;
-import io.grpc.protobuf.ProtoUtils;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -33,8 +33,8 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
             Metadata metadata = new Metadata();
             String errMessage = MessageFormat.format("Error while setting key=[{0}] value=[{1}]", key, value);
             log.warn(errMessage, e);
-            responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
-                    .asRuntimeException(metadata));
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(errMessage)
+                .asRuntimeException(metadata));
             return;
         }
 
@@ -58,8 +58,8 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
             Metadata metadata = new Metadata();
             String errMessage = MessageFormat.format("Error while getting by key=[{0}]", key);
             log.warn(errMessage, e);
-            responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
-                    .asRuntimeException(metadata));
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(errMessage)
+                .asRuntimeException(metadata));
             return;
         }
 
@@ -93,8 +93,8 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
                     Metadata metadata = new Metadata();
                     String errMessage = MessageFormat.format("Error while setting key=[{0}] value=[{1}]", key, value);
                     log.warn(errMessage, e);
-                    responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
-                            .asRuntimeException(metadata));
+                    responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(errMessage)
+                        .asRuntimeException(metadata));
                     return;
                 }
             }

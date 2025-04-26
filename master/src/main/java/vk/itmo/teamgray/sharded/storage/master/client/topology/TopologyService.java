@@ -2,17 +2,22 @@ package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.PropertyUtils;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.IntList;
@@ -147,28 +152,94 @@ public class TopologyService {
     public boolean changeShardCount(int shardCount) {
         log.info("Changing shard count to {}", shardCount);
 
-        var newShardToHash = redistributeHashesEvenly(shardCount);
-        var newServerToShards = redistributeShardsEvenly(
+        ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards = redistributeShardsEvenly(
             Collections.list(serverToShards.keys()),
             Collections.list(newShardToHash.keys())
         );
 
-        replaceBothMaps(newShardToHash, newServerToShards);
+        List<Bound> allBounds = Stream.concat(
+                shardToHash.entrySet().stream().map(it -> new Bound(false, it.getKey(), it.getValue())),
+                newShardToHash.entrySet().stream().map(it -> new Bound(true, it.getKey(), it.getValue()))
+            )
+            .sorted(Comparator.comparingLong(Bound::upperBound))
+            .toList();
 
-        serverToShards.forEach((server, shards) -> {
+        List<FragmentDTO> fragments = new ArrayList<>();
+
+        if (!shardToHash.isEmpty() && !newShardToHash.isEmpty()) {
+            long prevBound = Long.MIN_VALUE;
+            int currentOldShard = -1;
+            int currentNewShard = -1;
+
+            int oldShardCount = shardToHash.size();
+
+            for (Bound bound : allBounds) {
+                long newBound = bound.upperBound();
+                int oldShardForRange = bound.isNew() ?
+                    Objects.requireNonNull(ShardUtils.getShardIdForHash(newBound, oldShardCount)) :
+                    bound.shardId();
+
+                int newShardForRange = bound.isNew() ?
+                    bound.shardId() :
+                    Objects.requireNonNull(ShardUtils.getShardIdForHash(newBound, shardCount));
+
+                if (currentOldShard != oldShardForRange || currentNewShard != newShardForRange) {
+                    if (currentOldShard != -1 && oldShardForRange != newShardForRange && prevBound != newBound) {
+                        fragments.add(new FragmentDTO(
+                            oldShardForRange,
+                            newShardForRange,
+                            prevBound,
+                            newBound
+                        ));
+                    }
+                    currentOldShard = oldShardForRange;
+                    currentNewShard = newShardForRange;
+                    prevBound = newBound;
+                }
+            }
+        }
+
+        var fragmentsByOldShards = fragments.stream()
+            .collect(
+                Collectors.groupingBy(
+                    FragmentDTO::oldShardId,
+                    Collectors.mapping(Function.identity(), Collectors.toList())
+                )
+            );
+
+        var newShardsToServer = newServerToShards.entrySet().stream()
+            .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
+            .collect(Collectors.toMap(
+                Map.Entry::getValue,
+                Map.Entry::getKey
+            ));
+
+        newServerToShards.forEach((server, shards) -> {
                 var relevantSchemeSlice = shards.stream()
                     .collect(
                         Collectors.toMap(
                             Function.identity(),
-                            shard -> shardToHash.get(shard)
+                            newShardToHash::get
                         )
                     );
 
-                log.info("Sending rearrange request [node={}, scheme={}]", server, relevantSchemeSlice);
+                var relevantFragments = serverToShards.get(server).stream()
+                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
+                    .toList();
 
-                nodeManagementClient.rearrangeShards(relevantSchemeSlice);
+                var relevantNodes = relevantFragments.stream()
+                    .map(it -> new ShardNodeMapping(it.newShardId(), newShardsToServer.get(it.newShardId())))
+                    .toList();
+
+                log.info("Sending rearrange request [node={}, fragments={}, nodeMapping={}]", server, relevantFragments, relevantNodes);
+
+                nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
             }
         );
+
+        //Replace after all rearrange shards has returned as success.
+        replaceBothMaps(newShardToHash, newServerToShards);
 
         log.info("Changed shard count");
 

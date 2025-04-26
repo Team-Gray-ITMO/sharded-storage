@@ -13,8 +13,28 @@ message RearrangeShardsRequest {
   // Sorted map of upper bound hash (inclusive) by shard number, lower bound is defined by previous shard (exclusive)
   // For rearrange request, only relevant shards will be included
   map<int32, int64> shardToHash = 1;
+
+  repeated MoveFragment fragments = 2;
+
+  map<int32, Server> serverByShardNumber = 3;
 }
 
 message RearrangeShardsResponse {
   bool success = 1;
+}
+
+message MoveFragment {
+  int32 shardFrom = 1;
+
+  int32 shardTo = 2;
+
+  int64 rangeFrom = 3;
+
+  int64 rangeTo = 4;
+}
+
+message Server {
+  string ip = 1;
+
+  int32 port = 2;
 }
