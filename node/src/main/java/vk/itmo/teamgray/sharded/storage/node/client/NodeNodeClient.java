@@ -41,7 +41,7 @@ public class NodeNodeClient {
         channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     }
 
-    public boolean sendShard(long shardId, Map<String, String> shard) {
+    public boolean sendShard(int shardId, Map<String, String> shard) {
         SendShardRequest request = SendShardRequest.newBuilder()
                 .setShardId(shardId)
                 .putAllShard(shard)
