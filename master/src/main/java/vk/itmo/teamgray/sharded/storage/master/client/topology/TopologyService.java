@@ -15,10 +15,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.common.PropertyUtils;
-import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
-import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
+import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils;
+import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.IntList;
@@ -26,8 +27,6 @@ import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 public class TopologyService {
     private static final Logger log = LoggerFactory.getLogger(TopologyService.class);
-
-    private final NodeManagementClient nodeManagementClient;
 
     private ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = new ConcurrentHashMap<>();
 
@@ -37,9 +36,8 @@ public class TopologyService {
 
     private final boolean hardCodedNode;
 
-    public TopologyService(boolean hardCodedNode, NodeManagementClient nodeManagementClient) {
+    public TopologyService(boolean hardCodedNode) {
         this.hardCodedNode = hardCodedNode;
-        this.nodeManagementClient = nodeManagementClient;
 
         if (hardCodedNode) {
             //TODO For now single node
@@ -128,7 +126,7 @@ public class TopologyService {
         );
 
         handleShardMovement(oldServerToShards, newServerToShards);
-        
+
         replaceServerToShards(newServerToShards);
 
         log.info("Added server {}", serverToAdd);
@@ -157,7 +155,7 @@ public class TopologyService {
             updatedServers,
             Collections.list(shardToHash.keys())
         );
-        
+
         // move shards to new server
         handleShardMovement(oldServerToShards, newServerToShards);
 
@@ -169,8 +167,8 @@ public class TopologyService {
     }
 
     private void handleShardMovement(
-            ConcurrentHashMap<ServerDataDTO, List<Integer>> oldMapping,
-            ConcurrentHashMap<ServerDataDTO, List<Integer>> newMapping
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> oldMapping,
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> newMapping
     ) {
         // find shards that need to be moved
         for (Map.Entry<ServerDataDTO, List<Integer>> oldEntry : oldMapping.entrySet()) {
@@ -179,9 +177,17 @@ public class TopologyService {
 
             for (Integer shardId : oldShards) {
                 ServerDataDTO targetServer = findServerForShard(newMapping, shardId);
-                
+
                 if (targetServer != null && !targetServer.equals(sourceServer)) {
                     log.info("Moving shard {} from {} to {}", shardId, sourceServer, targetServer);
+
+                    var nodeManagementClient = GrpcClientCachingFactory
+                        .getInstance()
+                        .getClient(
+                            sourceServer.host(),
+                            sourceServer.port(),
+                            NodeManagementClient::new
+                        );
 
                     boolean success = nodeManagementClient.moveShard(shardId, targetServer);
                     if (!success) {
@@ -193,8 +199,8 @@ public class TopologyService {
     }
 
     private ServerDataDTO findServerForShard(
-            ConcurrentHashMap<ServerDataDTO, List<Integer>> mapping,
-            Integer shardId
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> mapping,
+        Integer shardId
     ) {
         for (Map.Entry<ServerDataDTO, List<Integer>> entry : mapping.entrySet()) {
             if (entry.getValue().contains(shardId)) {
@@ -265,6 +271,15 @@ public class TopologyService {
                 );
 
                 //TODO Invert mapping and revert on the node side.
+
+                var nodeManagementClient = GrpcClientCachingFactory
+                    .getInstance()
+                    .getClient(
+                        server.host(),
+                        server.port(),
+                        NodeManagementClient::new
+                    );
+
                 nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
             }
         );

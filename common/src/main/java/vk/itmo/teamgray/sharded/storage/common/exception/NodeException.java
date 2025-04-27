@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.common;
+package vk.itmo.teamgray.sharded.storage.common.exception;
 
 public class NodeException extends RuntimeException {
 

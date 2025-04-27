@@ -12,9 +12,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
-import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
@@ -28,11 +29,8 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     private final NodeStorageService nodeStorageService;
 
-    private final NodeNodeClient nodeNodeClient;
-
-    public NodeManagementService(NodeStorageService nodeStorageService, NodeNodeClient nodeNodeClient) {
+    public NodeManagementService(NodeStorageService nodeStorageService) {
         this.nodeStorageService = nodeStorageService;
-        this.nodeNodeClient = nodeNodeClient;
     }
 
     @Override
@@ -141,7 +139,14 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
     }
 
     private boolean moveShardFragment(ServerDataDTO serverDataDTO, int newShardId, Map<String, String> fragmentsToSend) {
-        //TODO Add shard resolving
+        var nodeNodeClient = GrpcClientCachingFactory
+            .getInstance()
+            .getClient(
+                serverDataDTO.host(),
+                serverDataDTO.port(),
+                NodeNodeClient::new
+            );
+
         return nodeNodeClient.sendShard(newShardId, fragmentsToSend);
     }
 
@@ -166,7 +171,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         Map<String, String> shardData = shardToMove.getStorage();
 
         // TODO: replace with sendShard implementation
-        boolean sendSuccess = sendShardStub(shardId, shardData, targetServer);
+        boolean sendSuccess = sendShard(shardId, shardData, targetServer);
 
         if (sendSuccess) {
             // remove shard only after successful transfer
@@ -186,15 +191,15 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
-    private boolean sendShardStub(int shardId, Map<String, String> shardData, ServerData targetServer) {
-        // TODO: refactor this method for dynamic change host and port
-        NodeNodeClient nodeNodeClient = new NodeNodeClient(targetServer.getHost(), targetServer.getPort());
-        boolean result = nodeNodeClient.sendShard(shardId, shardData);
-        try {
-            nodeNodeClient.shutdown();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        return result;
+    private boolean sendShard(int shardId, Map<String, String> shardData, ServerData targetServer) {
+        var nodeNodeClient = GrpcClientCachingFactory
+            .getInstance()
+            .getClient(
+                targetServer.getHost(),
+                targetServer.getPort(),
+                NodeNodeClient::new
+            );
+
+        return nodeNodeClient.sendShard(shardId, shardData);
     }
 }

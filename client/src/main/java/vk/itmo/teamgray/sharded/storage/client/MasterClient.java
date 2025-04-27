@@ -1,11 +1,11 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
@@ -20,36 +20,14 @@ import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterHeartbeatRequest;
 
-public class MasterClient {
-    private final ManagedChannel channel;
-
-    private final MasterClientServiceGrpc.MasterClientServiceBlockingStub blockingStub;
-
-    private final String host;
-
-    private final int port;
-
+public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.MasterClientServiceBlockingStub> {
     public MasterClient(String host, int port) {
-        this.host = host;
-        this.port = port;
-
-        this.channel = ManagedChannelBuilder.forAddress(host, port)
-            .usePlaintext()
-            .build();
-
-        this.blockingStub = MasterClientServiceGrpc.newBlockingStub(channel);
+        super(host, port);
     }
 
-    public String getHost() {
-        return host;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public void shutdown() throws InterruptedException {
-        channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+    @Override
+    protected Function<ManagedChannel, MasterClientServiceGrpc.MasterClientServiceBlockingStub> getStubFactory() {
+        return MasterClientServiceGrpc::newBlockingStub;
     }
 
     public AddServerResponseDTO addServer(String ip, int port, boolean forkNewInstance) {

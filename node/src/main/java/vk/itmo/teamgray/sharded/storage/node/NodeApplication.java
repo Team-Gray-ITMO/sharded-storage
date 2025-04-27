@@ -11,7 +11,7 @@ import vk.itmo.teamgray.sharded.storage.node.client.NodeClientService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeManagementService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeStorageService;
 
-import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPort;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class NodeApplication {
     private static final Logger log = LoggerFactory.getLogger(NodeApplication.class);
@@ -30,7 +30,7 @@ public class NodeApplication {
         activeServers.add(
             ServerBuilder.forPort(getServerPort("node.management"))
                 // Add actual node-node client with server resolving
-                .addService(new NodeManagementService(nodeStorageService, null))
+                .addService(new NodeManagementService(nodeStorageService))
                 .build()
         );
     }

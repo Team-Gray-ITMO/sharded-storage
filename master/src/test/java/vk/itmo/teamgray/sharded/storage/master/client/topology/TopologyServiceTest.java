@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,11 +21,12 @@ import static org.mockito.Mockito.verify;
 class TopologyServiceTest {
     private TopologyService topologyService;
 
+    //TODO Find a way to inject mock
     private NodeManagementClient nodeManagementClient = mock();
 
     @BeforeEach
     void setUp() {
-        topologyService = new TopologyService(false, nodeManagementClient);
+        topologyService = new TopologyService(false);
     }
 
     @Test
@@ -195,7 +196,7 @@ class TopologyServiceTest {
     //TODO Remove, once implemented
     @Test
     void testHardCodedNode() {
-        var hardCodedTopologyService = new TopologyService(true, mock());
+        var hardCodedTopologyService = new TopologyService(true);
 
         ServerDataDTO server = new ServerDataDTO("127.0.0.1", 8001);
 

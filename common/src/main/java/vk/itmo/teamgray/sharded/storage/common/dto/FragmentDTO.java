@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.common;
+package vk.itmo.teamgray.sharded.storage.common.dto;
 
 import vk.itmo.teamgray.sharded.storage.node.management.MoveFragment;
 

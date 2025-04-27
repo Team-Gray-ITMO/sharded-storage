@@ -1,9 +1,9 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.dto.NodeHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.SetFromFileResponseDTO;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
@@ -12,35 +12,14 @@ import vk.itmo.teamgray.sharded.storage.node.client.NodeHeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetFromFileRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
-public class NodeClient {
-    private final ManagedChannel channel;
-
-    private final NodeClientServiceGrpc.NodeClientServiceBlockingStub blockingStub;
-
-    private final String host;
-
-    private final int port;
-
+public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeClientServiceBlockingStub> {
     public NodeClient(String host, int port) {
-        this.host = host;
-        this.port = port;
-        this.channel = ManagedChannelBuilder.forAddress(host, port)
-            .usePlaintext()
-            .build();
-
-        this.blockingStub = NodeClientServiceGrpc.newBlockingStub(channel);
+        super(host, port);
     }
 
-    public String getHost() {
-        return host;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public void shutdown() throws InterruptedException {
-        channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+    @Override
+    protected Function<ManagedChannel, NodeClientServiceGrpc.NodeClientServiceBlockingStub> getStubFactory() {
+        return NodeClientServiceGrpc::newBlockingStub;
     }
 
     public boolean setKey(String key, String value) {

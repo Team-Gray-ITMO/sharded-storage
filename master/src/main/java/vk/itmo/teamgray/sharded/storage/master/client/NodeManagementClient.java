@@ -1,51 +1,28 @@
 package vk.itmo.teamgray.sharded.storage.master.client;
 
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.ShardNodeMapping;
-
-import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
-import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
+import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
 
-public class NodeManagementClient {
-    private final ManagedChannel channel;
-
-    private final NodeManagementServiceGrpc.NodeManagementServiceBlockingStub blockingStub;
-
-    private final String host;
-
-    private final int port;
-
+public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
     public NodeManagementClient(String host, int port) {
-        this.host = host;
-        this.port = port;
-
-        this.channel = ManagedChannelBuilder.forAddress(host, port)
-            .usePlaintext()
-            .build();
-
-        this.blockingStub = NodeManagementServiceGrpc.newBlockingStub(channel);
+        super(host, port);
     }
 
-    public String getHost() {
-        return host;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public void shutdown() throws InterruptedException {
-        channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+    @Override
+    protected Function<ManagedChannel, NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> getStubFactory() {
+        return NodeManagementServiceGrpc::newBlockingStub;
     }
 
     public boolean rearrangeShards(
