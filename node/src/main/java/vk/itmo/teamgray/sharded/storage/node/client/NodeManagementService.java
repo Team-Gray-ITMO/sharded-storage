@@ -16,11 +16,11 @@ import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
 
 public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
@@ -28,8 +28,11 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     private final NodeStorageService nodeStorageService;
 
-    public NodeManagementService(NodeStorageService nodeStorageService) {
+    private final NodeNodeClient nodeNodeClient;
+
+    public NodeManagementService(NodeStorageService nodeStorageService, NodeNodeClient nodeNodeClient) {
         this.nodeStorageService = nodeStorageService;
+        this.nodeNodeClient = nodeNodeClient;
     }
 
     @Override
@@ -116,7 +119,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                         )
                     );
 
-                if (!moveShardFragment(nodesByShard.get(fragment.newShardId()), fragmentsToSend)) {
+                if (!moveShardFragment(nodesByShard.get(fragment.newShardId()), fragment.newShardId(), fragmentsToSend)) {
                     throw new IllegalStateException("Failed to move shard fragment");
                 }
 
@@ -137,9 +140,9 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
-    private boolean moveShardFragment(ServerDataDTO serverDataDTO, Map<String, String> fragmentsToSend) {
-        //TODO Implement
-        return true;
+    private boolean moveShardFragment(ServerDataDTO serverDataDTO, int newShardId, Map<String, String> fragmentsToSend) {
+        //TODO Add shard resolving
+        return nodeNodeClient.sendShard(newShardId, fragmentsToSend);
     }
 
     @Override
