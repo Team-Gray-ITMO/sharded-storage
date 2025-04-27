@@ -2,8 +2,12 @@ package vk.itmo.teamgray.sharded.storage.master.client;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.master.client.topology.ShardNodeMapping;
 
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
@@ -44,9 +48,24 @@ public class NodeManagementClient {
         channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     }
 
-    public boolean rearrangeShards(Map<Integer, Long> relevantShardsToHash) {
+    public boolean rearrangeShards(
+        Map<Integer, Long> relevantShardsToHash,
+        List<FragmentDTO> relevantFragments,
+        List<ShardNodeMapping> relevantNodes
+    ) {
+        //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's population method modular, so we can easily switch from gRPC.
         RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder()
             .putAllShardToHash(relevantShardsToHash)
+            .addAllFragments(relevantFragments.stream().map(FragmentDTO::toGrpc).toList())
+            .putAllServerByShardNumber(
+                relevantNodes.stream()
+                    .collect(
+                        Collectors.toMap(
+                            ShardNodeMapping::shardId,
+                            it -> it.node().toGrpc()
+                        )
+                    )
+            )
             .build();
 
         return blockingStub.rearrangeShards(request).getSuccess();

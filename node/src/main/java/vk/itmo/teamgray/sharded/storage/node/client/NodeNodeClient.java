@@ -2,11 +2,11 @@ package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
-
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
 
 public class NodeNodeClient {
 
@@ -48,5 +48,14 @@ public class NodeNodeClient {
                 .build();
 
         return blockingStub.sendShard(request).getSuccess();
+    }
+
+    public boolean sendShardFragment(int shardId, Map<String, String> fragmentsToSend) {
+        SendShardFragmentRequest request = SendShardFragmentRequest.newBuilder()
+            .setShardId(shardId)
+            .putAllShardFragments(fragmentsToSend)
+            .build();
+
+        return blockingStub.sendShardFragment(request).getSuccess();
     }
 }

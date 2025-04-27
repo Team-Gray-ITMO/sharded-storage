@@ -1,23 +1,26 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
-import io.grpc.Metadata;
 import io.grpc.stub.StreamObserver;
-
-import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
+import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
 
 public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
@@ -25,14 +28,16 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     private final NodeStorageService nodeStorageService;
 
-    public NodeManagementService(NodeStorageService nodeStorageService) {
+    private final NodeNodeClient nodeNodeClient;
+
+    public NodeManagementService(NodeStorageService nodeStorageService, NodeNodeClient nodeNodeClient) {
         this.nodeStorageService = nodeStorageService;
+        this.nodeNodeClient = nodeNodeClient;
     }
 
     @Override
     public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<RearrangeShardsResponse> responseObserver) {
         //TODO Refactor
-
         var shardToHash = request.getShardToHashMap();
 
         log.info("Rearranging shards. [request={}]", shardToHash);
@@ -50,37 +55,82 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
         shardToHashMap.forEach(shard -> newShards.put(shard.getKey(), new ShardData()));
 
-        for (Map.Entry<Integer, ShardData> existingShardEntry : existingShards.entrySet()) {
-            Map<String, String> shardStorage = existingShardEntry.getValue().getStorage();
-            for (Map.Entry<String, String> entry : shardStorage.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-                long hash = HashingUtils.calculate64BitHash(key);
+        var fragments = request.getFragmentsList().stream()
+            .map(FragmentDTO::fromGrpc)
+            .toList();
 
-                Integer targetShardId = null;
-                long previousUpperBound = Long.MIN_VALUE;
+        var localFragments = fragments.stream()
+            .filter(fragment -> newShards.containsKey(fragment.newShardId()))
+            .toList();
 
-                for (Map.Entry<Integer, Long> bound : shardToHashMap) {
-                    long upperBound = bound.getValue();
-                    if (hash > previousUpperBound && hash <= upperBound) {
-                        targetShardId = bound.getKey();
-                        break;
-                    }
-                    previousUpperBound = upperBound;
-                }
+        localFragments.forEach(fragment -> {
+            int oldShardId = fragment.oldShardId();
+            if (existingShards.containsKey(oldShardId)) {
+                Map<String, String> sourceStorage = existingShards.get(oldShardId).getStorage();
 
-                if (targetShardId != null) {
-                    newShards.get(targetShardId).addToStorage(key, value);
-                } else {
-                    Metadata metadata = new Metadata();
-                    String errMessage = MessageFormat.format("Shard for key=[{0}] not found", key);
-                    log.warn(errMessage);
-                    responseObserver.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription(errMessage)
-                            .asRuntimeException(metadata));
-                    return;
-                }
+                //TODO At some point for perf reasons it will be nice to be able to do this with hash ranges instead of one-by-one
+                sourceStorage.entrySet().stream()
+                    .filter(entry -> {
+                        long hash = HashingUtils.calculate64BitHash(entry.getKey());
+                        return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
+                    })
+                    .forEach(entry -> {
+                        newShards.get(fragment.newShardId()).addToStorage(entry.getKey(), entry.getValue());
+
+                        if (!newShards.containsKey(oldShardId)) {
+                            sourceStorage.remove(entry.getKey());
+                        }
+                    });
             }
-        }
+        });
+
+        var externalFragments = fragments.stream()
+            .filter(fragment -> !newShards.containsKey(fragment.newShardId()))
+            .toList();
+
+        var keysToRemove = new HashMap<Integer, Set<String>>();
+
+        Map<Integer, ServerDataDTO> nodesByShard = externalFragments.isEmpty()
+            ? Collections.emptyMap()
+            : request.getServerByShardNumberMap().entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        it -> ServerDataDTO.fromGrpc(it.getValue())
+                    )
+                );
+
+        externalFragments.stream()
+            .filter(it -> existingShards.containsKey(it.oldShardId()))
+            .forEach(fragment -> {
+                int oldShardId = fragment.oldShardId();
+
+                Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+
+                var fragmentsToSend = fragmentStorage.entrySet().stream()
+                    .filter(entry -> {
+                        long hash = HashingUtils.calculate64BitHash(entry.getKey());
+                        return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
+                    })
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue
+                        )
+                    );
+
+                if (!moveShardFragment(nodesByShard.get(fragment.newShardId()), fragment.newShardId(), fragmentsToSend)) {
+                    throw new IllegalStateException("Failed to move shard fragment");
+                }
+
+                keysToRemove.put(oldShardId, fragmentsToSend.keySet());
+            });
+
+        keysToRemove.forEach((oldShardId, keysToRemoveSet) -> {
+            Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+
+            keysToRemoveSet.forEach(fragmentStorage::remove);
+        });
 
         nodeStorageService.replace(newShards);
 
@@ -90,13 +140,18 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
+    private boolean moveShardFragment(ServerDataDTO serverDataDTO, int newShardId, Map<String, String> fragmentsToSend) {
+        //TODO Add shard resolving
+        return nodeNodeClient.sendShard(newShardId, fragmentsToSend);
+    }
+
     @Override
     public void moveShard(MoveShardRequest request, StreamObserver<MoveShardResponse> responseObserver) {
         int shardId = request.getShardId();
         ServerData targetServer = request.getTargetServer();
-        
+
         log.info("Request to move shard {} to {}:{}", shardId, targetServer.getHost(), targetServer.getPort());
-        
+
         Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
         if (!existingShards.containsKey(shardId)) {
             responseObserver.onNext(MoveShardResponse.newBuilder()
@@ -116,7 +171,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         if (sendSuccess) {
             // remove shard only after successful transfer
             nodeStorageService.removeShard(shardId);
-            
+
             responseObserver.onNext(MoveShardResponse.newBuilder()
                 .setSuccess(true)
                 .setMessage("Shard successfully moved")
@@ -127,7 +182,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 .setMessage("Failed to send shard to target server")
                 .build());
         }
-        
+
         responseObserver.onCompleted();
     }
 

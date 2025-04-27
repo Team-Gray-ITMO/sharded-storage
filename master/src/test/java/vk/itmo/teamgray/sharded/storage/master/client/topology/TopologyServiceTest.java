@@ -3,21 +3,29 @@ package vk.itmo.teamgray.sharded.storage.master.client.topology;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
+import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 class TopologyServiceTest {
     private TopologyService topologyService;
 
+    private NodeManagementClient nodeManagementClient = mock();
+
     @BeforeEach
     void setUp() {
-        topologyService = new TopologyService(false, mock());
+        topologyService = new TopologyService(false, nodeManagementClient);
     }
 
     @Test
@@ -61,6 +69,51 @@ class TopologyServiceTest {
     void deleteServerFailsIfServerDoesNotExist() {
         ServerDataDTO server = new ServerDataDTO("127.0.0.1", 8001);
         assertFalse(topologyService.deleteServer(server).deleted());
+    }
+
+    @Test
+    void testFragments() {
+        var serverCount = 2;
+
+        IntStream.range(0, serverCount)
+            .forEach(i -> topologyService.addServer(new ServerDataDTO("127.0.0.1", 8000 + i)));
+
+        var shardCount = 10;
+        topologyService.changeShardCount(shardCount);
+
+        //Default shard count is 1, so 10 fragments come from 1 server to second
+        verify(nodeManagementClient, times(1))
+            .rearrangeShards(
+                argThat(shards -> shards.size() == shardCount / serverCount),
+                argThat(fragments -> fragments.size() == shardCount),
+                argThat(nodes -> nodes.size() == shardCount)
+            );
+
+        //No fragments here, this server was not populated.
+        verify(nodeManagementClient, times(1))
+            .rearrangeShards(
+                argThat(shards -> shards.size() == shardCount / serverCount),
+                argThat(List::isEmpty),
+                argThat(List::isEmpty)
+            );
+
+        var newShardCount = 5;
+
+        topologyService.changeShardCount(newShardCount);
+
+        verify(nodeManagementClient, times(1))
+            .rearrangeShards(
+                argThat(shards -> shards.size() == newShardCount / serverCount + 1),
+                argThat(fragments -> fragments.size() == 9),
+                any()
+            );
+
+        verify(nodeManagementClient, times(1))
+            .rearrangeShards(
+                argThat(shards -> shards.size() == newShardCount / serverCount),
+                argThat(fragments -> fragments.size() == 5),
+                any()
+            );
     }
 
     @Test
@@ -122,9 +175,9 @@ class TopologyServiceTest {
 
         long previousBoundary = Long.MIN_VALUE;
 
-        for (int i = 0; i < shardCount; i++) {
-            assertTrue(shardToHash.containsKey(i));
-            long boundary = shardToHash.get(i);
+        for (int i = 1; i <= shardCount; i++) {
+            assertTrue(shardToHash.containsKey(i - 1));
+            long boundary = shardToHash.get(i - 1);
 
             assertTrue(previousBoundary <= boundary);
 

@@ -29,7 +29,8 @@ public class NodeApplication {
 
         activeServers.add(
             ServerBuilder.forPort(getServerPort("node.management"))
-                .addService(new NodeManagementService(nodeStorageService))
+                // Add actual node-node client with server resolving
+                .addService(new NodeManagementService(nodeStorageService, null))
                 .build()
         );
     }
