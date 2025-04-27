@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.Metadata;
-import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.StreamObserver;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -17,7 +16,6 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
 
     private final NodeStorageService nodeStorageService;
-    private final String SUCCESS_MESSAGE = "SUCCESS";
 
     public NodeClientService(NodeStorageService nodeStorageService) {
         this.nodeStorageService = nodeStorageService;
@@ -78,7 +76,7 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     public void setFromFile(SetFromFileRequest request, StreamObserver<SetFromFileResponse> responseObserver) {
         String filePath = request.getFilePath();
         boolean success = true;
-        String message = SUCCESS_MESSAGE;
+        String message = "SUCCESS";
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
@@ -126,30 +124,6 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
             .setHealthy(isHealthy)
             .setServerTimestamp(now.toEpochMilli())
             .setStatusMessage("OK")
-            .build());
-
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void sendShardFragment(SendShardFragmentRequest request,
-                                  StreamObserver<SendShardFragmentResponse> responseObserver) {
-        boolean success = true;
-        String message = SUCCESS_MESSAGE;
-
-        try {
-            if (!nodeStorageService.containsShard(request.getShardId())) {
-                nodeStorageService.addNewShard(request.getShardId());
-            }
-            request.getShardFragmentsMap().forEach(nodeStorageService::set);
-        } catch (NodeException e) {
-            success = false;
-            message = "ERROR: " + e.getMessage();
-        }
-
-        responseObserver.onNext(SendShardFragmentResponse.newBuilder()
-            .setSuccess(success)
-            .setMessage(message)
             .build());
 
         responseObserver.onCompleted();

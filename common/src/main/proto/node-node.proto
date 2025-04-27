@@ -7,6 +7,8 @@ package vk.itmo.teamgray.sharded.storage;
 
 service NodeNodeService {
   rpc SendShard (SendShardRequest) returns (SendShardResponse);
+
+  rpc SendShardFragment (SendShardFragmentRequest) returns (SendShardFragmentResponse);
 }
 
 message SendShardRequest {
@@ -15,6 +17,16 @@ message SendShardRequest {
 }
 
 message SendShardResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SendShardFragmentRequest {
+  int32 shardId = 1;
+  map<string, string> shardFragments = 2;
+}
+
+message SendShardFragmentResponse {
   bool success = 1;
   string message = 2;
 }

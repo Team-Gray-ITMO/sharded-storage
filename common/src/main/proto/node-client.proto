@@ -13,8 +13,6 @@ service NodeClientService {
   rpc SetFromFile (SetFromFileRequest) returns (SetFromFileResponse);
 
   rpc Heartbeat (NodeHeartbeatRequest) returns (NodeHeartbeatResponse);
-
-  rpc SendShardFragment (SendShardFragmentRequest) returns (SendShardFragmentResponse);
 }
 
 message GetKeyRequest {
@@ -53,14 +51,4 @@ message NodeHeartbeatResponse {
   bool healthy = 1;
   int64 serverTimestamp = 2;
   string statusMessage = 3;
-}
-
-message SendShardFragmentRequest {
-  int32 shardId = 1;
-  map<string, string> shardFragments = 2;
-}
-
-message SendShardFragmentResponse {
-  bool success = 1;
-  string message = 2;
 }

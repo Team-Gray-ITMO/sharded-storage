@@ -5,8 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentResponse;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,7 +17,7 @@ import static org.mockito.Mockito.verify;
 
 public class NodeClientServiceTest {
 
-    private NodeClientService nodeClientService;
+    private NodeNodeService nodeNodeService;
     private NodeStorageService nodeStorageService;
 
     @BeforeEach
@@ -29,7 +29,7 @@ public class NodeClientServiceTest {
 
         nodeStorageService = new NodeStorageService();
         nodeStorageService.replace(shards);
-        nodeClientService = new NodeClientService(nodeStorageService);
+        nodeNodeService = new NodeNodeService(nodeStorageService);
     }
 
     @Test
@@ -46,7 +46,7 @@ public class NodeClientServiceTest {
                 SendShardFragmentResponse.class
         );
 
-        nodeClientService.sendShardFragment(request, responseObserver);
+        nodeNodeService.sendShardFragment(request, responseObserver);
         verify(responseObserver).onNext(responseCaptor.capture());
         verify(responseObserver).onCompleted();
         var response = responseCaptor.getValue();
@@ -70,7 +70,7 @@ public class NodeClientServiceTest {
                 SendShardFragmentResponse.class
         );
 
-        nodeClientService.sendShardFragment(request, responseObserver);
+        nodeNodeService.sendShardFragment(request, responseObserver);
         verify(responseObserver).onNext(responseCaptor.capture());
         verify(responseObserver).onCompleted();
         var response = responseCaptor.getValue();
