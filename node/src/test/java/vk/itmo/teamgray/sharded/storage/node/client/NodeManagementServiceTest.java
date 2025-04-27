@@ -16,7 +16,7 @@ public class NodeManagementServiceTest {
     @Test
     public void testRearrangeShardsWithEmptyMapping() {
         NodeStorageService nodeStorageService = new NodeStorageService();
-        NodeManagementService service = new NodeManagementService(nodeStorageService);
+        NodeManagementService service = new NodeManagementService(nodeStorageService, null);
 
         RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder().build();
         StreamObserver<RearrangeShardsResponse> responseObserver = mock(StreamObserver.class);
@@ -34,7 +34,7 @@ public class NodeManagementServiceTest {
     @Test
     public void testRearrangeShardsWithEmptyStorageAndNotEmptyRequestMapping() {
         NodeStorageService nodeStorageService = new NodeStorageService();
-        NodeManagementService service = new NodeManagementService(nodeStorageService);
+        NodeManagementService service = new NodeManagementService(nodeStorageService, null);
 
         RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder()
             .putShardToHash(1, Long.MAX_VALUE / 2)
