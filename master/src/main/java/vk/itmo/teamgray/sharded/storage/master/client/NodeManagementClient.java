@@ -48,12 +48,19 @@ public class NodeManagementClient {
         List<FragmentDTO> relevantFragments,
         List<ShardNodeMapping> relevantNodes
     ) {
-        //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's make it modular, so we can easily switch from gRPC.
+        //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's population method modular, so we can easily switch from gRPC.
         RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder()
             .putAllShardToHash(relevantShardsToHash)
             .addAllFragments(relevantFragments.stream().map(FragmentDTO::toGrpc).toList())
             .putAllServerByShardNumber(
-                relevantNodes.stream().collect(Collectors.toMap(ShardNodeMapping::shardId, it -> it.node().toGrpc())))
+                relevantNodes.stream()
+                    .collect(
+                        Collectors.toMap(
+                            ShardNodeMapping::shardId,
+                            it -> it.node().toGrpc()
+                        )
+                    )
+            )
             .build();
 
         return blockingStub.rearrangeShards(request).getSuccess();

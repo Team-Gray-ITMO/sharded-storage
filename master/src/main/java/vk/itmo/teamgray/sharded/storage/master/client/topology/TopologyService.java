@@ -44,6 +44,17 @@ public class TopologyService {
             //TODO For now single node
             serverToShards.put(new ServerDataDTO(PropertyUtils.getServerHost("node"), PropertyUtils.getServerPort("node")), List.of());
         }
+
+        //TODO add a real await for all nodes to be available.
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        if (shardToHash.isEmpty()) {
+            changeShardCount(1);
+        }
     }
 
     public ConcurrentHashMap<ServerDataDTO, List<Integer>> getServerToShards() {
@@ -165,6 +176,64 @@ public class TopologyService {
             .sorted(Comparator.comparingLong(Bound::upperBound))
             .toList();
 
+        List<FragmentDTO> fragments = findFragmentsToMove(shardCount, newShardToHash, allBounds);
+
+        var fragmentsByOldShards = fragments.stream()
+            .collect(
+                Collectors.groupingBy(
+                    FragmentDTO::oldShardId,
+                    Collectors.mapping(Function.identity(), Collectors.toList())
+                )
+            );
+
+        var newShardsToServer = newServerToShards.entrySet().stream()
+            .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
+            .collect(Collectors.toMap(
+                Map.Entry::getValue,
+                Map.Entry::getKey
+            ));
+
+        newServerToShards.forEach((server, shards) -> {
+                var relevantSchemeSlice = shards.stream()
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(),
+                            newShardToHash::get
+                        )
+                    );
+
+                var relevantFragments = serverToShards.get(server).stream()
+                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
+                    .toList();
+
+                var relevantNodes = relevantFragments.stream()
+                    .map(FragmentDTO::newShardId)
+                    .distinct()
+                    .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
+                    .toList();
+
+                log.info(
+                    "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
+                    server,
+                    relevantSchemeSlice,
+                    relevantFragments,
+                    relevantNodes
+                );
+
+                nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+            }
+        );
+
+        //Replace after all rearrange shards has returned as success.
+        replaceBothMaps(newShardToHash, newServerToShards);
+
+        log.info("Changed shard count");
+
+        return true;
+    }
+
+    private List<FragmentDTO> findFragmentsToMove(int shardCount, ConcurrentHashMap<Integer, Long> newShardToHash,
+        List<Bound> allBounds) {
         List<FragmentDTO> fragments = new ArrayList<>();
 
         if (!shardToHash.isEmpty() && !newShardToHash.isEmpty()) {
@@ -200,50 +269,7 @@ public class TopologyService {
             }
         }
 
-        var fragmentsByOldShards = fragments.stream()
-            .collect(
-                Collectors.groupingBy(
-                    FragmentDTO::oldShardId,
-                    Collectors.mapping(Function.identity(), Collectors.toList())
-                )
-            );
-
-        var newShardsToServer = newServerToShards.entrySet().stream()
-            .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
-            .collect(Collectors.toMap(
-                Map.Entry::getValue,
-                Map.Entry::getKey
-            ));
-
-        newServerToShards.forEach((server, shards) -> {
-                var relevantSchemeSlice = shards.stream()
-                    .collect(
-                        Collectors.toMap(
-                            Function.identity(),
-                            newShardToHash::get
-                        )
-                    );
-
-                var relevantFragments = serverToShards.get(server).stream()
-                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
-                    .toList();
-
-                var relevantNodes = relevantFragments.stream()
-                    .map(it -> new ShardNodeMapping(it.newShardId(), newShardsToServer.get(it.newShardId())))
-                    .toList();
-
-                log.info("Sending rearrange request [node={}, fragments={}, nodeMapping={}]", server, relevantFragments, relevantNodes);
-
-                nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
-            }
-        );
-
-        //Replace after all rearrange shards has returned as success.
-        replaceBothMaps(newShardToHash, newServerToShards);
-
-        log.info("Changed shard count");
-
-        return true;
+        return fragments;
     }
 
     private void replaceServerToShards(ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards) {

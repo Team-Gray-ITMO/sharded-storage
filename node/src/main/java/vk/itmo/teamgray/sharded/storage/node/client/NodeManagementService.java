@@ -2,6 +2,7 @@ package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
+import vk.itmo.teamgray.sharded.storage.common.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
@@ -82,6 +84,16 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
         var keysToRemove = new HashMap<Integer, Set<String>>();
 
+        Map<Integer, ServerDataDTO> nodesByShard = externalFragments.isEmpty()
+            ? Collections.emptyMap()
+            : request.getServerByShardNumberMap().entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        it -> ServerDataDTO.fromGrpc(it.getValue())
+                    )
+                );
+
         externalFragments.stream()
             .filter(it -> existingShards.containsKey(it.oldShardId()))
             .forEach(fragment -> {
@@ -101,7 +113,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                         )
                     );
 
-                if (!moveShardFragment(fragmentsToSend)) {
+                if (!moveShardFragment(nodesByShard.get(fragment.newShardId()), fragmentsToSend)) {
                     throw new IllegalStateException("Failed to move shard fragment");
                 }
 
@@ -122,7 +134,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
-    private boolean moveShardFragment(Map<String, String> fragmentsToSend) {
+    private boolean moveShardFragment(ServerDataDTO serverDataDTO, Map<String, String> fragmentsToSend) {
         //TODO Implement
         return true;
     }

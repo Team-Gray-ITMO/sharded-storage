@@ -10,4 +10,8 @@ public record ServerDataDTO(@NotNull String host, int port) {
             .setPort(port)
             .build();
     }
+
+    public static ServerDataDTO fromGrpc(Server server) {
+        return new ServerDataDTO(server.getIp(), server.getPort());
+    }
 }
