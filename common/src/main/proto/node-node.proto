@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.node.node";
+
+package vk.itmo.teamgray.sharded.storage;
+
+service NodeNodeService {
+  rpc SendShard (SendShardRequest) returns (SendShardResponse);
+}
+
+message SendShardRequest {
+  int64 shardId = 1;
+  map<string, string> shard = 2;
+}
+
+message SendShardResponse {
+  bool success = 1;
+}
