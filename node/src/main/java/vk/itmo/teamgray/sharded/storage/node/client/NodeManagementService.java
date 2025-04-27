@@ -16,6 +16,9 @@ import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
+import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
 
 public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeManagementService.class);

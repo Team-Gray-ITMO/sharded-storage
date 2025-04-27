@@ -7,6 +7,7 @@ package vk.itmo.teamgray.sharded.storage;
 
 service NodeManagementService {
   rpc RearrangeShards (RearrangeShardsRequest) returns (RearrangeShardsResponse);
+  rpc MoveShard (MoveShardRequest) returns (MoveShardResponse);
 }
 
 message RearrangeShardsRequest {
@@ -17,4 +18,19 @@ message RearrangeShardsRequest {
 
 message RearrangeShardsResponse {
   bool success = 1;
+}
+
+message ServerData {
+  string host = 1;
+  int32 port = 2;
+}
+
+message MoveShardRequest {
+  int32 shardId = 1;
+  ServerData targetServer = 2;
+}
+
+message MoveShardResponse {
+  bool success = 1;
+  string message = 2;
 }

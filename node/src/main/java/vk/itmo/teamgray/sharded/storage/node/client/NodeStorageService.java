@@ -52,6 +52,11 @@ public class NodeStorageService {
         return shards;
     }
 
+    public void removeShard(int shardId) {
+        shards.remove(shardId);
+        log.info("Shard {} removed", shardId);
+    }
+
     public boolean containsShard(int shardId) {
         return shards.containsKey(shardId);
     }
