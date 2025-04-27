@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-public class NodeClientServiceTest {
+public class NodeNodeServiceTest {
 
     private NodeNodeService nodeNodeService;
     private NodeStorageService nodeStorageService;
