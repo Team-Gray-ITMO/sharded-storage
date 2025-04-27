@@ -254,14 +254,13 @@ public class TopologyService {
                     Objects.requireNonNull(ShardUtils.getShardIdForHash(newBound, shardCount));
 
                 if (currentOldShard != oldShardForRange || currentNewShard != newShardForRange) {
-                    if (currentOldShard != -1 && oldShardForRange != newShardForRange && prevBound != newBound) {
-                        fragments.add(new FragmentDTO(
-                            oldShardForRange,
-                            newShardForRange,
-                            prevBound,
-                            newBound
-                        ));
-                    }
+                    fragments.add(new FragmentDTO(
+                        oldShardForRange,
+                        newShardForRange,
+                        prevBound,
+                        newBound
+                    ));
+
                     currentOldShard = oldShardForRange;
                     currentNewShard = newShardForRange;
                     prevBound = newBound;
