@@ -121,11 +121,14 @@ public class TopologyService {
 
         updatedServers.add(serverToAdd);
 
+        var oldServerToShards = new ConcurrentHashMap<>(serverToShards);
         var newServerToShards = redistributeShardsEvenly(
             updatedServers,
             Collections.list(shardToHash.keys())
         );
 
+        handleShardMovement(oldServerToShards, newServerToShards);
+        
         replaceServerToShards(newServerToShards);
 
         log.info("Added server {}", serverToAdd);
@@ -149,16 +152,56 @@ public class TopologyService {
             .filter(it -> it != serverToRemove)
             .toList();
 
+        var oldServerToShards = new ConcurrentHashMap<>(serverToShards);
         var newServerToShards = redistributeShardsEvenly(
             updatedServers,
             Collections.list(shardToHash.keys())
         );
+        
+        // move shards to new server
+        handleShardMovement(oldServerToShards, newServerToShards);
 
         log.info("Removed server {}", serverToRemove);
 
         replaceServerToShards(newServerToShards);
 
         return new DeleteServerResult(true, "SERVER REMOVED");
+    }
+
+    private void handleShardMovement(
+            ConcurrentHashMap<ServerDataDTO, List<Integer>> oldMapping,
+            ConcurrentHashMap<ServerDataDTO, List<Integer>> newMapping
+    ) {
+        // find shards that need to be moved
+        for (Map.Entry<ServerDataDTO, List<Integer>> oldEntry : oldMapping.entrySet()) {
+            ServerDataDTO sourceServer = oldEntry.getKey();
+            List<Integer> oldShards = oldEntry.getValue();
+
+            for (Integer shardId : oldShards) {
+                ServerDataDTO targetServer = findServerForShard(newMapping, shardId);
+                
+                if (targetServer != null && !targetServer.equals(sourceServer)) {
+                    log.info("Moving shard {} from {} to {}", shardId, sourceServer, targetServer);
+
+                    boolean success = nodeManagementClient.moveShard(shardId, targetServer);
+                    if (!success) {
+                        log.error("Failed to move shard {} from {} to {}", shardId, sourceServer, targetServer);
+                    }
+                }
+            }
+        }
+    }
+
+    private ServerDataDTO findServerForShard(
+            ConcurrentHashMap<ServerDataDTO, List<Integer>> mapping,
+            Integer shardId
+    ) {
+        for (Map.Entry<ServerDataDTO, List<Integer>> entry : mapping.entrySet()) {
+            if (entry.getValue().contains(shardId)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     public boolean changeShardCount(int shardCount) {

@@ -52,6 +52,22 @@ public class NodeStorageService {
         return shards;
     }
 
+    public void removeShard(int shardId) {
+        shards.remove(shardId);
+        log.info("Shard {} removed", shardId);
+    }
+
+    public boolean containsShard(int shardId) {
+        return shards.containsKey(shardId);
+    }
+
+    public void addNewShard(int shardId) {
+        if (shards.containsKey(shardId)) {
+            throw new NodeException("Shard already exists for id: " + shardId);
+        }
+        shards.put(shardId, new ShardData());
+    }
+
     //TODO Add locks?
     public void replace(Map<Integer, ShardData> newStorage) {
         log.info("Replacing shard scheme {}", newStorage);
@@ -60,5 +76,12 @@ public class NodeStorageService {
         shards.putAll(newStorage);
 
         log.info("Replaced shard scheme.");
+    }
+
+    public void checkKeyForShard(int shardId, String key) {
+        Integer shardIdForKey = ShardUtils.getShardIdForKey(key, shards.size());
+        if (shardIdForKey == null || shardIdForKey.compareTo(shardId) != 0) {
+            throw new NodeException("Incorrect shard for key: " + key);
+        }
     }
 }
