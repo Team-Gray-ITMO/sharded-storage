@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [[ "$#" -ne 2 ]]; then
-  echo "Использование: $0 <порт_для_9001> <порт_для_9003>"
+if [[ "$#" -ne 1 ]]; then
+  echo "Использование: $0 <порт_для_9001>"
   exit 1
 fi
 
@@ -9,7 +9,7 @@ PORT_FOR_9001=$1
 PORT_FOR_9003=$2
 
 IMAGE_NAME="sharded_storage_node"
-CONTAINER_NAME="node_container_$1_$2"
+CONTAINER_NAME="node_container_$1"
 NETWORK_NAME="sharded_storage_network"
 
 echo "Сборка образа..."
@@ -23,7 +23,6 @@ docker run -d \
            --name=${CONTAINER_NAME} \
            --network="${NETWORK_NAME}" \
            -p ${PORT_FOR_9001}:9001 \
-           -p ${PORT_FOR_9003}:9003 \
            ${IMAGE_NAME}
 
 echo "Контейнер запущен!"
