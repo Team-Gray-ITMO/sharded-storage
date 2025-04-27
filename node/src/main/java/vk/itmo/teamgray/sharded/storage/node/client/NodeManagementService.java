@@ -147,7 +147,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 NodeNodeClient::new
             );
 
-        return nodeNodeClient.sendShard(newShardId, fragmentsToSend);
+        return nodeNodeClient.sendShardFragment(newShardId, fragmentsToSend);
     }
 
     @Override
@@ -170,7 +170,6 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         ShardData shardToMove = existingShards.get(shardId);
         Map<String, String> shardData = shardToMove.getStorage();
 
-        // TODO: replace with sendShard implementation
         boolean sendSuccess = sendShard(shardId, shardData, targetServer);
 
         if (sendSuccess) {
