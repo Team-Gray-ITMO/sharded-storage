@@ -11,7 +11,7 @@ import java.time.Instant;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.NodeException;
+import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);

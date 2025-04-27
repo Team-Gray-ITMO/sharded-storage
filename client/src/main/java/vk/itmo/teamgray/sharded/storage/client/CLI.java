@@ -2,6 +2,7 @@ package vk.itmo.teamgray.sharded.storage.client;
 
 import java.util.Map;
 import java.util.Scanner;
+import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 
 public class CLI {
     private final NodeClient nodeClient;
@@ -38,12 +39,7 @@ public class CLI {
         }
 
         scanner.close();
-        try {
-            nodeClient.shutdown();
-            masterClient.shutdown();
-        } catch (InterruptedException e) {
-            System.err.println("Error while shutting down clients: " + e.getMessage());
-        }
+        CachedGrpcStubCreator.getInstance().shutdownAll();
     }
 
     private void printWelcomeMessage() {
@@ -179,4 +175,4 @@ public class CLI {
             System.err.println("Error sending heartbeat: " + e.getMessage());
         }
     }
-} 
+}

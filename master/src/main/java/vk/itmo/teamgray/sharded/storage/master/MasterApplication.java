@@ -6,11 +6,9 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientService;
-import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
 
-import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerHost;
-import static vk.itmo.teamgray.sharded.storage.common.PropertyUtils.getServerPort;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class MasterApplication {
     private static final Logger log = LoggerFactory.getLogger(MasterApplication.class);
@@ -22,12 +20,7 @@ public class MasterApplication {
     public MasterApplication(int port) {
         this.port = port;
 
-        NodeManagementClient nodeManagementClient = new NodeManagementClient(
-            getServerHost("node.management"),
-            getServerPort("node.management")
-        );
-
-        var topologyService = new TopologyService(true, nodeManagementClient);
+        var topologyService = new TopologyService();
         var masterClientService = new MasterClientService(topologyService);
 
         this.server = ServerBuilder.forPort(port)

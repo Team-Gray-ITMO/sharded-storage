@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.common;
+package vk.itmo.teamgray.sharded.storage.common.utils;
 
 import com.google.common.hash.Hashing;
 

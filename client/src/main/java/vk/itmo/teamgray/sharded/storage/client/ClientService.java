@@ -14,7 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
+import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 
 public class ClientService {
     private record ShardOnServer(String server, int shard) {

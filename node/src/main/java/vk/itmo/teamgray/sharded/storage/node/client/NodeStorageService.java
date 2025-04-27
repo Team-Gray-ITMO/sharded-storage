@@ -4,8 +4,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.NodeException;
-import vk.itmo.teamgray.sharded.storage.common.ShardUtils;
+import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
+import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 
 public class NodeStorageService {

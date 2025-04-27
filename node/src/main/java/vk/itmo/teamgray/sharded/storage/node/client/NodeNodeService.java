@@ -1,14 +1,18 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.stub.StreamObserver;
-import vk.itmo.teamgray.sharded.storage.common.NodeException;
-import vk.itmo.teamgray.sharded.storage.node.node.*;
-
 import java.util.Map;
+import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
+import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentResponse;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardResponse;
 
 public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase {
 
     private final String SUCCESS_MESSAGE = "SUCCESS";
+
     private final NodeStorageService nodeStorageService;
 
     public NodeNodeService(NodeStorageService nodeStorageService) {

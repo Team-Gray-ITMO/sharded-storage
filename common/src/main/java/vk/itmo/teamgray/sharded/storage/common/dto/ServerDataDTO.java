@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.common;
+package vk.itmo.teamgray.sharded.storage.common.dto;
 
 import org.jetbrains.annotations.NotNull;
 import vk.itmo.teamgray.sharded.storage.node.management.Server;

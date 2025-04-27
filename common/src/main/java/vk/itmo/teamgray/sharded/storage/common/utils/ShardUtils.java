@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.common;
+package vk.itmo.teamgray.sharded.storage.common.utils;
 
 import java.math.BigInteger;
 import org.jetbrains.annotations.NotNull;
