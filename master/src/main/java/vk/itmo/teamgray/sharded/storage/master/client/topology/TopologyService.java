@@ -1,5 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -220,6 +221,7 @@ public class TopologyService {
                     relevantNodes
                 );
 
+                //TODO Invert mapping and revert on the node side.
                 nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
             }
         );
@@ -232,8 +234,11 @@ public class TopologyService {
         return true;
     }
 
-    private List<FragmentDTO> findFragmentsToMove(int shardCount, ConcurrentHashMap<Integer, Long> newShardToHash,
-        List<Bound> allBounds) {
+    private List<FragmentDTO> findFragmentsToMove(
+        int shardCount,
+        ConcurrentHashMap<Integer, Long> newShardToHash,
+        List<Bound> allBounds
+    ) {
         List<FragmentDTO> fragments = new ArrayList<>();
 
         if (!shardToHash.isEmpty() && !newShardToHash.isEmpty()) {
@@ -346,7 +351,14 @@ public class TopologyService {
             return newShardToHash;
         }
 
-        long stepSize = Long.MAX_VALUE / shardCount * 2;
+        // Precision here is more important than a small performance benefit.
+        BigInteger range = BigInteger
+            .valueOf(Long.MAX_VALUE)
+            .subtract(BigInteger.valueOf(Long.MIN_VALUE));
+
+        long stepSize = range
+            .divide(BigInteger.valueOf(shardCount))
+            .longValue();
 
         long previousBoundary = Long.MIN_VALUE;
 
