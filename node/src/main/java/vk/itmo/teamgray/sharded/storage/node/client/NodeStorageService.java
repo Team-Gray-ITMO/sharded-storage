@@ -72,4 +72,11 @@ public class NodeStorageService {
 
         log.info("Replaced shard scheme.");
     }
+
+    public void checkKeyForShard(int shardId, String key) {
+        Integer shardIdForKey = ShardUtils.getShardIdForKey(key, shards.size());
+        if (shardIdForKey == null || shardIdForKey.compareTo(shardId) != 0) {
+            throw new NodeException("Incorrect shard for key: " + key);
+        }
+    }
 }
