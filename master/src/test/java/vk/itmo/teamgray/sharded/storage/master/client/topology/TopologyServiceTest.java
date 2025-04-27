@@ -26,7 +26,7 @@ class TopologyServiceTest {
 
     @BeforeEach
     void setUp() {
-        topologyService = new TopologyService(false);
+        topologyService = new TopologyService();
     }
 
     @Test
@@ -196,7 +196,7 @@ class TopologyServiceTest {
     //TODO Remove, once implemented
     @Test
     void testHardCodedNode() {
-        var hardCodedTopologyService = new TopologyService(true);
+        var hardCodedTopologyService = new TopologyService();
 
         ServerDataDTO server = new ServerDataDTO("127.0.0.1", 8001);
 

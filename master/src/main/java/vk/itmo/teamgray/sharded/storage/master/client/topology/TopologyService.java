@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
-import vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
@@ -34,16 +33,7 @@ public class TopologyService {
 
     private ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    private final boolean hardCodedNode;
-
-    public TopologyService(boolean hardCodedNode) {
-        this.hardCodedNode = hardCodedNode;
-
-        if (hardCodedNode) {
-            //TODO For now single node
-            serverToShards.put(new ServerDataDTO(PropertyUtils.getServerHost("node"), PropertyUtils.getServerPort("node")), List.of());
-        }
-
+    public TopologyService() {
         //TODO add a real await for all nodes to be available.
         try {
             Thread.sleep(5000);
@@ -106,11 +96,6 @@ public class TopologyService {
     public AddServerResult addServer(ServerDataDTO serverToAdd) {
         log.info("Adding server {}", serverToAdd);
 
-        // TODO Remove
-        if (hardCodedNode) {
-            return new AddServerResult(false, "Adding Nodes is Not Supported");
-        }
-
         if (serverToShards.containsKey(serverToAdd)) {
             return new AddServerResult(false, "SERVER NOT ADDED");
         }
@@ -136,11 +121,6 @@ public class TopologyService {
 
     public DeleteServerResult deleteServer(ServerDataDTO serverToRemove) {
         log.info("Removing server {}", serverToRemove);
-
-        // TODO Remove
-        if (hardCodedNode) {
-            return new DeleteServerResult(false, "Removing Nodes is Not Supported");
-        }
 
         if (!serverToShards.containsKey(serverToRemove)) {
             return new DeleteServerResult(false, "SERVER NOT REMOVED");

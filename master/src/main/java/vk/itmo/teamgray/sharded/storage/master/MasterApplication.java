@@ -20,7 +20,7 @@ public class MasterApplication {
     public MasterApplication(int port) {
         this.port = port;
 
-        var topologyService = new TopologyService(true);
+        var topologyService = new TopologyService();
         var masterClientService = new MasterClientService(topologyService);
 
         this.server = ServerBuilder.forPort(port)
