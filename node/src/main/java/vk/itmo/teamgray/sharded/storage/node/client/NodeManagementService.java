@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
-import vk.itmo.teamgray.sharded.storage.common.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
@@ -132,8 +131,15 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
-    // TODO: This should be sendShard
     private boolean sendShardStub(int shardId, Map<String, String> shardData, ServerData targetServer) {
-        return true;
+        // TODO: refactor this method for dynamic change host and port
+        NodeNodeClient nodeNodeClient = new NodeNodeClient(targetServer.getHost(), targetServer.getPort());
+        boolean result = nodeNodeClient.sendShard(shardId, shardData);
+        try {
+            nodeNodeClient.shutdown();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        return result;
     }
 }
