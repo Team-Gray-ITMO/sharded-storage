@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.HashingUtils;
-import vk.itmo.teamgray.sharded.storage.common.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
@@ -86,5 +85,58 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
         responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void moveShard(MoveShardRequest request, StreamObserver<MoveShardResponse> responseObserver) {
+        int shardId = request.getShardId();
+        ServerData targetServer = request.getTargetServer();
+        
+        log.info("Request to move shard {} to {}:{}", shardId, targetServer.getHost(), targetServer.getPort());
+        
+        Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
+        if (!existingShards.containsKey(shardId)) {
+            responseObserver.onNext(MoveShardResponse.newBuilder()
+                .setSuccess(false)
+                .setMessage("Shard " + shardId + " not found in this node")
+                .build());
+            responseObserver.onCompleted();
+            return;
+        }
+
+        ShardData shardToMove = existingShards.get(shardId);
+        Map<String, String> shardData = shardToMove.getStorage();
+
+        // TODO: replace with sendShard implementation
+        boolean sendSuccess = sendShardStub(shardId, shardData, targetServer);
+
+        if (sendSuccess) {
+            // remove shard only after successful transfer
+            nodeStorageService.removeShard(shardId);
+            
+            responseObserver.onNext(MoveShardResponse.newBuilder()
+                .setSuccess(true)
+                .setMessage("Shard successfully moved")
+                .build());
+        } else {
+            responseObserver.onNext(MoveShardResponse.newBuilder()
+                .setSuccess(false)
+                .setMessage("Failed to send shard to target server")
+                .build());
+        }
+        
+        responseObserver.onCompleted();
+    }
+
+    private boolean sendShardStub(int shardId, Map<String, String> shardData, ServerData targetServer) {
+        // TODO: refactor this method for dynamic change host and port
+        NodeNodeClient nodeNodeClient = new NodeNodeClient(targetServer.getHost(), targetServer.getPort());
+        boolean result = nodeNodeClient.sendShard(shardId, shardData);
+        try {
+            nodeNodeClient.shutdown();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        return result;
     }
 }
