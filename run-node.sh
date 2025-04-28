@@ -9,7 +9,7 @@ PORT_FOR_9001=$1
 PORT_FOR_9003=$2
 
 IMAGE_NAME="sharded_storage_node"
-CONTAINER_NAME="node_container_$1"
+CONTAINER_NAME="node-containter-$1"
 NETWORK_NAME="sharded_storage_network"
 
 echo "Сборка образа..."
