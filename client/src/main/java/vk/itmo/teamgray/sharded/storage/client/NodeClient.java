@@ -14,7 +14,8 @@ import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
 public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeClientServiceBlockingStub> {
     public NodeClient(String host, int port) {
-        super(host, port);
+        //TODO Do a normal host resolving instead of this abomination.
+        super(host, port, "node-containter-" + port);
     }
 
     @Override

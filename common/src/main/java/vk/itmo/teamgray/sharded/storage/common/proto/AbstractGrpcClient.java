@@ -12,7 +12,7 @@ public abstract class AbstractGrpcClient<S extends AbstractBlockingStub> {
 
     private final int port;
 
-    public AbstractGrpcClient(String host, int port) {
+    public AbstractGrpcClient(String host, int port, String fallbackHost) {
         this.host = host;
         this.port = port;
 
@@ -21,7 +21,9 @@ public abstract class AbstractGrpcClient<S extends AbstractBlockingStub> {
         this.blockingStub = stubCreator.getStub(
             host,
             port,
-            getStubFactory()
+            getStubFactory(),
+            //TODO Remove once name resolving is in place.
+            fallbackHost
         );
     }
 

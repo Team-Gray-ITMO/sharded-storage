@@ -10,7 +10,8 @@ import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
 
 public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeNodeServiceBlockingStub> {
     public NodeNodeClient(String host, int port) {
-        super(host, port);
+        //TODO Do a normal host resolving instead of this abomination.
+        super("node-containter-" + port, 9001, host);
     }
 
     @Override

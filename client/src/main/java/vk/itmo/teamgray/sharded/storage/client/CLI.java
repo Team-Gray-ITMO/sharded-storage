@@ -152,8 +152,10 @@ public class CLI {
                 System.out.println("  Shard " + shard + " -> " + server));
             
             System.out.println("\nHash to Shard mapping:");
-            hashToShard.forEach((hash, shard) -> 
-                System.out.println("  Hash " + hash + " -> Shard " + shard));
+            hashToShard.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .forEach(entry ->
+                System.out.println("  Hash " + entry.getKey() + " -> Shard " + entry.getValue()));
         } catch (Exception e) {
             System.err.println("Error getting topology: " + e.getMessage());
         }

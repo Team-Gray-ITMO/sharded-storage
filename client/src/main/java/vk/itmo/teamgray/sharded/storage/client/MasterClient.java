@@ -22,7 +22,8 @@ import vk.itmo.teamgray.sharded.storage.master.client.MasterHeartbeatRequest;
 
 public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.MasterClientServiceBlockingStub> {
     public MasterClient(String host, int port) {
-        super(host, port);
+        //TODO Do a normal host resolving instead of this abomination.
+        super(host, port, "master");
     }
 
     @Override

@@ -17,7 +17,8 @@ import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
 
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
     public NodeManagementClient(String host, int port) {
-        super(host, port);
+        //TODO Do a normal host resolving instead of this abomination.
+        super(host, port, "node-containter-" + port);
     }
 
     @Override
