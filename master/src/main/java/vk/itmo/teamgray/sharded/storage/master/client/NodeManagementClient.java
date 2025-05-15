@@ -16,6 +16,7 @@ import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
+import java.util.concurrent.TimeUnit;
 
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
     public NodeManagementClient(String host, int port) {
@@ -47,7 +48,9 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
             )
             .build();
 
-        return blockingStub.rearrangeShards(request).getSuccess();
+        return blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .rearrangeShards(request)
+            .getSuccess();
     }
 
     public boolean moveShard(int shardId, ServerDataDTO targetServer) {
