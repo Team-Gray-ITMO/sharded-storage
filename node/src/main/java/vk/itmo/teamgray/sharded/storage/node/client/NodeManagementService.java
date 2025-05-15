@@ -22,8 +22,8 @@ import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
-
-import static java.util.stream.Collectors.toMap;
+import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeResponse;
 
 public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeManagementService.class);
@@ -32,114 +32,139 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     private final DiscoveryClient discoveryClient;
 
+    private Map<Integer, ShardData> originalShardsBackup;
+
     public NodeManagementService(NodeStorageService nodeStorageService, DiscoveryClient discoveryClient) {
         this.nodeStorageService = nodeStorageService;
         this.discoveryClient = discoveryClient;
     }
 
+    private Map<Integer, ShardData> deepCopyShards(Map<Integer, ShardData> original) {
+        if (original == null) {
+            return new ConcurrentHashMap<>();
+        }
+        Map<Integer, ShardData> copy = new ConcurrentHashMap<>();
+        for (Map.Entry<Integer, ShardData> entry : original.entrySet()) {
+            ShardData originalData = entry.getValue();
+            ShardData copiedData = new ShardData();
+            if (originalData != null) {
+                originalData.getStorage().forEach(copiedData::addToStorage);
+            }
+            copy.put(entry.getKey(), copiedData);
+        }
+        return copy;
+    }
+
     @Override
     public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<RearrangeShardsResponse> responseObserver) {
-        //TODO Refactor
-        var shardToHash = request.getShardToHashMap();
+        this.originalShardsBackup = deepCopyShards(nodeStorageService.getShards());
 
-        log.info("Rearranging shards. [request={}]", shardToHash);
+        try {
+            var shardToHash = request.getShardToHashMap();
 
-        Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
-        Map<Integer, ShardData> newShards = new ConcurrentHashMap<>();
-        List<Map.Entry<Integer, Long>> shardToHashMap = new ArrayList<>(shardToHash.entrySet());
-        shardToHashMap.sort(Comparator.comparingLong(Map.Entry::getValue));
+            log.info("Rearranging shards. [request={}]", shardToHash);
 
-        if (shardToHashMap.isEmpty()) {
-            responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
-            responseObserver.onCompleted();
-            return;
-        }
+            Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
+            Map<Integer, ShardData> newShards = new ConcurrentHashMap<>();
+            List<Map.Entry<Integer, Long>> shardToHashMap = new ArrayList<>(shardToHash.entrySet());
+            shardToHashMap.sort(Comparator.comparingLong(Map.Entry::getValue));
 
-        shardToHashMap.forEach(shard -> newShards.put(shard.getKey(), new ShardData()));
-
-        var fragments = request.getFragmentsList().stream()
-            .map(FragmentDTO::fromGrpc)
-            .toList();
-
-        var localFragments = fragments.stream()
-            .filter(fragment -> newShards.containsKey(fragment.newShardId()))
-            .toList();
-
-        localFragments.forEach(fragment -> {
-            int oldShardId = fragment.oldShardId();
-            if (existingShards.containsKey(oldShardId)) {
-                Map<String, String> sourceStorage = existingShards.get(oldShardId).getStorage();
-
-                //TODO At some point for perf reasons it will be nice to be able to do this with hash ranges instead of one-by-one
-                sourceStorage.entrySet().stream()
-                    .filter(entry -> {
-                        long hash = HashingUtils.calculate64BitHash(entry.getKey());
-                        return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
-                    })
-                    .forEach(entry -> {
-                        newShards.get(fragment.newShardId()).addToStorage(entry.getKey(), entry.getValue());
-
-                        if (!newShards.containsKey(oldShardId)) {
-                            sourceStorage.remove(entry.getKey());
-                        }
-                    });
+            if (shardToHashMap.isEmpty()) {
+                responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
+                responseObserver.onCompleted();
+                return;
             }
-        });
 
-        var externalFragments = fragments.stream()
-            .filter(fragment -> !newShards.containsKey(fragment.newShardId()))
-            .toList();
+            shardToHashMap.forEach(shard -> newShards.put(shard.getKey(), new ShardData()));
 
-        var keysToRemove = new HashMap<Integer, Set<String>>();
+            var fragments = request.getFragmentsList().stream()
+                .map(FragmentDTO::fromGrpc)
+                .toList();
 
-        Map<Integer, Integer> nodesByShard = externalFragments.isEmpty()
-            ? Collections.emptyMap()
-            : request.getServerByShardNumberMap();
+            var localFragments = fragments.stream()
+                .filter(fragment -> newShards.containsKey(fragment.newShardId()))
+                .toList();
 
-        Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.keySet());
-
-        externalFragments.stream()
-            .filter(it -> existingShards.containsKey(it.oldShardId()))
-            .forEach(fragment -> {
+            localFragments.forEach(fragment -> {
                 int oldShardId = fragment.oldShardId();
+                if (existingShards.containsKey(oldShardId)) {
+                    Map<String, String> sourceStorage = existingShards.get(oldShardId).getStorage();
 
-                Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+                    //TODO At some point for perf reasons it will be nice to be able to do this with hash ranges instead of one-by-one
+                    sourceStorage.entrySet().stream()
+                        .filter(entry -> {
+                            long hash = HashingUtils.calculate64BitHash(entry.getKey());
+                            return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
+                        })
+                        .forEach(entry -> {
+                            newShards.get(fragment.newShardId()).addToStorage(entry.getKey(), entry.getValue());
 
-                var fragmentsToSend = fragmentStorage.entrySet().stream()
-                    .filter(entry -> {
-                        long hash = HashingUtils.calculate64BitHash(entry.getKey());
-                        return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
-                    })
-                    .collect(
-                        toMap(
-                            Map.Entry::getKey,
-                            Map.Entry::getValue
-                        )
-                    );
-
-                Integer serverId = nodesByShard.get(fragment.newShardId());
-
-                DiscoverableServiceDTO node = nodes.get(serverId);
-
-                if (!moveShardFragment(node, fragment.newShardId(), fragmentsToSend)) {
-                    throw new IllegalStateException("Failed to move shard fragment");
+                            if (!newShards.containsKey(oldShardId)) {
+                                sourceStorage.remove(entry.getKey());
+                            }
+                        });
                 }
-
-                keysToRemove.put(oldShardId, fragmentsToSend.keySet());
             });
 
-        keysToRemove.forEach((oldShardId, keysToRemoveSet) -> {
-            Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+            var externalFragments = fragments.stream()
+                .filter(fragment -> !newShards.containsKey(fragment.newShardId()))
+                .toList();
 
-            keysToRemoveSet.forEach(fragmentStorage::remove);
-        });
+            var keysToRemove = new HashMap<Integer, Set<String>>();
 
-        nodeStorageService.replace(newShards);
+            Map<Integer, Integer> nodesByShard = externalFragments.isEmpty()
+                ? Collections.emptyMap()
+                : request.getServerByShardNumberMap();
 
-        log.info("Rearranged shards.");
+            Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.keySet());
 
-        responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
-        responseObserver.onCompleted();
+            externalFragments.stream()
+                .filter(it -> existingShards.containsKey(it.oldShardId()))
+                .forEach(fragment -> {
+                    int oldShardId = fragment.oldShardId();
+
+                    Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+
+                    var fragmentsToSend = fragmentStorage.entrySet().stream()
+                        .filter(entry -> {
+                            long hash = HashingUtils.calculate64BitHash(entry.getKey());
+                            return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
+                        })
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue
+                            )
+                        );
+
+                    Integer serverId = nodesByShard.get(fragment.newShardId());
+
+                    DiscoverableServiceDTO node = nodes.get(serverId);
+
+                    if (!moveShardFragment(node, fragment.newShardId(), fragmentsToSend)) {
+                        throw new IllegalStateException("Failed to move shard fragment");
+                    }
+
+                    keysToRemove.put(oldShardId, fragmentsToSend.keySet());
+                });
+
+            keysToRemove.forEach((oldShardId, keysToRemoveSet) -> {
+                Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+
+                keysToRemoveSet.forEach(fragmentStorage::remove);
+            });
+
+            nodeStorageService.replace(newShards);
+            responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
+
+            log.info("Shards rearranged");
+
+        } catch (Exception e) {
+            responseObserver.onNext(
+                RearrangeShardsResponse.newBuilder().setSuccess(false).setMessage("Failed during rearrange: " + e.getMessage()).build());
+        } finally {
+            responseObserver.onCompleted();
+        }
     }
 
     private boolean moveShardFragment(DiscoverableServiceDTO server, int newShardId, Map<String, String> fragmentsToSend) {
@@ -203,5 +228,27 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
             );
 
         return nodeNodeClient.sendShard(shardId, shardData);
+    }
+
+    @Override
+    public void rollbackTopologyChange(RollbackTopologyChangeRequest request,
+        StreamObserver<RollbackTopologyChangeResponse> responseObserver) {
+        if (this.originalShardsBackup != null) {
+            try {
+                nodeStorageService.replace(this.originalShardsBackup);
+                this.originalShardsBackup = null;
+                responseObserver.onNext(
+                    RollbackTopologyChangeResponse.newBuilder().setSuccess(true).setMessage("Rollback successful").build());
+            } catch (Exception e) {
+                log.error("Error during node rollback while replacing shards", e);
+                responseObserver.onNext(
+                    RollbackTopologyChangeResponse.newBuilder().setSuccess(false).setMessage("Rollback failed").build());
+            }
+        } else {
+            log.warn("Node rollback called but no backup found.");
+            responseObserver.onNext(
+                RollbackTopologyChangeResponse.newBuilder().setSuccess(false).setMessage("No data for rollback").build());
+        }
+        responseObserver.onCompleted();
     }
 }

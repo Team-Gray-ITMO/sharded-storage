@@ -214,6 +214,9 @@ public class TopologyService {
         try {
             log.info("Changing shard count to {}", shardCount);
 
+            ConcurrentHashMap<Integer, Long> originalShardToHash = new ConcurrentHashMap<>(this.shardToHash);
+            ConcurrentHashMap<Integer, List<Integer>> originalServerToShards = new ConcurrentHashMap<>(this.serverToShards);
+
             ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
             ConcurrentHashMap<Integer, List<Integer>> newServerToShards = redistributeShardsEvenly(
                 Collections.list(serverToShards.keys()),
@@ -246,53 +249,87 @@ public class TopologyService {
 
             var nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
 
-            newServerToShards.forEach((serverId, shards) -> {
-                    var relevantSchemeSlice = shards.stream()
-                        .collect(
-                            toMap(
-                                Function.identity(),
-                                newShardToHash::get
-                            )
-                        );
+            boolean oneNodeFailed = false;
+            List<Integer> attemptedNodes = new ArrayList<>();
 
-                    var relevantFragments = serverToShards.get(serverId).stream()
-                        .flatMap(it -> fragmentsByOldShards.get(it).stream())
-                        .toList();
+            for (var entry : newServerToShards.entrySet()) {
+                var serverId = entry.getKey();
+                var shards = entry.getValue();
 
-                    var relevantNodes = relevantFragments.stream()
-                        .map(FragmentDTO::newShardId)
-                        .distinct()
-                        .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
-                        .toList();
-
-                    log.info(
-                        "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
-                        serverId,
-                        relevantSchemeSlice,
-                        relevantFragments,
-                        relevantNodes
+                var relevantSchemeSlice = shards.stream()
+                    .collect(
+                        Collectors.toMap(
+                            Function.identity(),
+                            newShardToHash::get
+                        )
                     );
 
-                    var server = nodes.get(serverId);
+                var relevantFragments = serverToShards.get(serverId).stream()
+                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
+                    .toList();
 
-                    //TODO Invert mapping and revert on the node side.
-                    NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
-                        .getInstance()
+                var relevantNodes = relevantFragments.stream()
+                    .map(FragmentDTO::newShardId)
+                    .distinct()
+                    .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
+                    .toList();
+
+                log.info(
+                    "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
+                    serverId,
+                    relevantSchemeSlice,
+                    relevantFragments,
+                    relevantNodes
+                );
+
+                var server = nodes.get(serverId);
+
+                //TODO Invert mapping and revert on the node side.
+                NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
+                    .getInstance()
+                    .getClient(
+                        server,
+                        NodeManagementClient::new
+                    );
+
+                attemptedNodes.add(serverId);
+                boolean success = nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+
+                if (!success) {
+                    log.error("RearrangeShards failed on node: {}. Initiating rollback.", server);
+                    oneNodeFailed = true;
+                    break;
+                }
+            }
+
+            if (oneNodeFailed) {
+                log.warn("One or more nodes failed during rearrange. Rolling back.");
+                for (Integer nodeIdToRollback : attemptedNodes) {
+                    var nodeToRollback = nodes.get(nodeIdToRollback);
+
+                    NodeManagementClient client = GrpcClientCachingFactory.getInstance()
                         .getClient(
-                            server,
+                            nodeToRollback,
                             NodeManagementClient::new
                         );
 
-                    nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+                    boolean rollbackSuccess = client.rollbackTopologyChange();
+                    if (!rollbackSuccess) {
+                        log.error("Rollback failed for node {}. System may be inconsistent.", nodeToRollback);
+                    }
                 }
-            );
+                this.shardToHash = originalShardToHash;
+                this.serverToShards = originalServerToShards;
 
-            //Replace after all rearrange shards has returned as success.
-            replaceBothMaps(newShardToHash, newServerToShards);
+                log.info("changeShardCount failed");
+                return false;
+            } else {
+                replaceBothMaps(newShardToHash, newServerToShards);
 
-            log.info("Changed shard count");
+                log.info("Changed shard count");
 
-            return true;
+                return true;
+            }
         } finally {
             lock.writeLock().unlock();
         }

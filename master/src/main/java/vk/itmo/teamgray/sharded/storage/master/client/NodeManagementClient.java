@@ -3,16 +3,18 @@ package vk.itmo.teamgray.sharded.storage.master.client;
 import io.grpc.ManagedChannel;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.ShardNodeMapping;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeResponse;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
@@ -46,7 +48,9 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
             )
             .build();
 
-        return blockingStub.rearrangeShards(request).getSuccess();
+        return blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .rearrangeShards(request)
+            .getSuccess();
     }
 
     public boolean moveShard(int shardId, int serverId) {
@@ -57,5 +61,15 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
 
         MoveShardResponse response = blockingStub.moveShard(request);
         return response.getSuccess();
+    }
+
+    public boolean rollbackTopologyChange() {
+        RollbackTopologyChangeRequest request = RollbackTopologyChangeRequest.newBuilder().build();
+        try {
+            RollbackTopologyChangeResponse response = blockingStub.rollbackTopologyChange(request);
+            return response.getSuccess();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
