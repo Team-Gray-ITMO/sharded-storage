@@ -36,7 +36,7 @@ public class TopologyService {
 
     private ConcurrentHashMap<Integer, Long> shardToHash = new ConcurrentHashMap<>();
 
-    private ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public TopologyService(DiscoveryClient discoveryClient) {
         this.discoveryClient = discoveryClient;
@@ -100,56 +100,66 @@ public class TopologyService {
     }
 
     public AddServerResult addServer(int serverId) {
-        log.info("Adding server {}", serverId);
+        lock.writeLock().lock();
+        try {
+            log.info("Adding server {}", serverId);
 
-        if (serverToShards.containsKey(serverId)) {
-            return new AddServerResult(false, "SERVER NOT ADDED");
+            if (serverToShards.containsKey(serverId)) {
+                return new AddServerResult(false, "SERVER NOT ADDED");
+            }
+
+            var updatedServers = Collections.list(serverToShards.keys());
+
+            updatedServers.add(serverId);
+
+            var oldServerToShards = new ConcurrentHashMap<>(serverToShards);
+            var newServerToShards = redistributeShardsEvenly(
+                updatedServers,
+                Collections.list(shardToHash.keys())
+            );
+
+            handleShardMovement(oldServerToShards, newServerToShards);
+
+            replaceServerToShards(newServerToShards);
+
+            log.info("Added server {}", serverId);
+
+            return new AddServerResult(true, "SERVER ADDED");
+        } finally {
+            lock.writeLock().unlock();
         }
-
-        var updatedServers = Collections.list(serverToShards.keys());
-
-        updatedServers.add(serverId);
-
-        var oldServerToShards = new ConcurrentHashMap<>(serverToShards);
-        var newServerToShards = redistributeShardsEvenly(
-            updatedServers,
-            Collections.list(shardToHash.keys())
-        );
-
-        handleShardMovement(oldServerToShards, newServerToShards);
-
-        replaceServerToShards(newServerToShards);
-
-        log.info("Added server {}", serverId);
-
-        return new AddServerResult(true, "SERVER ADDED");
     }
 
     public DeleteServerResult deleteServer(int serverId) {
-        log.info("Removing server {}", serverId);
+        lock.writeLock().lock();
+        try {
+            log.info("Removing server {}", serverId);
 
-        if (!serverToShards.containsKey(serverId)) {
-            return new DeleteServerResult(false, "SERVER NOT REMOVED");
+            if (!serverToShards.containsKey(serverId)) {
+                return new DeleteServerResult(false, "SERVER NOT REMOVED");
+            }
+
+            var updatedServers = Collections.list(serverToShards.keys()).stream()
+                .filter(it -> it != serverId)
+                .toList();
+
+            var oldServerToShards = new ConcurrentHashMap<>(serverToShards);
+            var newServerToShards = redistributeShardsEvenly(
+                updatedServers,
+                Collections.list(shardToHash.keys())
+            );
+
+            // move shards to new server
+            handleShardMovement(oldServerToShards, newServerToShards);
+
+            log.info("Removed server {}", serverId);
+
+            replaceServerToShards(newServerToShards);
+
+            return new DeleteServerResult(true, "SERVER REMOVED");
+        } finally {
+            lock.writeLock().unlock();
         }
-
-        var updatedServers = Collections.list(serverToShards.keys()).stream()
-            .filter(it -> it != serverId)
-            .toList();
-
-        var oldServerToShards = new ConcurrentHashMap<>(serverToShards);
-        var newServerToShards = redistributeShardsEvenly(
-            updatedServers,
-            Collections.list(shardToHash.keys())
-        );
-
-        // move shards to new server
-        handleShardMovement(oldServerToShards, newServerToShards);
-
-        log.info("Removed server {}", serverId);
-
-        replaceServerToShards(newServerToShards);
-
-        return new DeleteServerResult(true, "SERVER REMOVED");
     }
 
     private void handleShardMovement(
@@ -200,87 +210,92 @@ public class TopologyService {
     }
 
     public boolean changeShardCount(int shardCount) {
-        log.info("Changing shard count to {}", shardCount);
+        lock.writeLock().lock();
+        try {
+            log.info("Changing shard count to {}", shardCount);
 
-        ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
-        ConcurrentHashMap<Integer, List<Integer>> newServerToShards = redistributeShardsEvenly(
-            Collections.list(serverToShards.keys()),
-            Collections.list(newShardToHash.keys())
-        );
-
-        List<Bound> allBounds = Stream.concat(
-                shardToHash.entrySet().stream().map(it -> new Bound(false, it.getKey(), it.getValue())),
-                newShardToHash.entrySet().stream().map(it -> new Bound(true, it.getKey(), it.getValue()))
-            )
-            .sorted(Comparator.comparingLong(Bound::upperBound))
-            .toList();
-
-        List<FragmentDTO> fragments = findFragmentsToMove(shardCount, newShardToHash, allBounds);
-
-        var fragmentsByOldShards = fragments.stream()
-            .collect(
-                Collectors.groupingBy(
-                    FragmentDTO::oldShardId,
-                    Collectors.mapping(Function.identity(), Collectors.toList())
-                )
+            ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
+            ConcurrentHashMap<Integer, List<Integer>> newServerToShards = redistributeShardsEvenly(
+                Collections.list(serverToShards.keys()),
+                Collections.list(newShardToHash.keys())
             );
 
-        var newShardsToServer = newServerToShards.entrySet().stream()
-            .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
-            .collect(toMap(
-                Map.Entry::getValue,
-                Map.Entry::getKey
-            ));
+            List<Bound> allBounds = Stream.concat(
+                    shardToHash.entrySet().stream().map(it -> new Bound(false, it.getKey(), it.getValue())),
+                    newShardToHash.entrySet().stream().map(it -> new Bound(true, it.getKey(), it.getValue()))
+                )
+                .sorted(Comparator.comparingLong(Bound::upperBound))
+                .toList();
 
-        var nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
+            List<FragmentDTO> fragments = findFragmentsToMove(shardCount, newShardToHash, allBounds);
 
-        newServerToShards.forEach((serverId, shards) -> {
-                var relevantSchemeSlice = shards.stream()
-                    .collect(
-                        toMap(
-                            Function.identity(),
-                            newShardToHash::get
-                        )
-                    );
-
-                var relevantFragments = serverToShards.get(serverId).stream()
-                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
-                    .toList();
-
-                var relevantNodes = relevantFragments.stream()
-                    .map(FragmentDTO::newShardId)
-                    .distinct()
-                    .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
-                    .toList();
-
-                log.info(
-                    "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
-                    serverId,
-                    relevantSchemeSlice,
-                    relevantFragments,
-                    relevantNodes
+            var fragmentsByOldShards = fragments.stream()
+                .collect(
+                    Collectors.groupingBy(
+                        FragmentDTO::oldShardId,
+                        Collectors.mapping(Function.identity(), Collectors.toList())
+                    )
                 );
 
-                var server = nodes.get(serverId);
+            var newShardsToServer = newServerToShards.entrySet().stream()
+                .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
+                .collect(toMap(
+                    Map.Entry::getValue,
+                    Map.Entry::getKey
+                ));
 
-                //TODO Invert mapping and revert on the node side.
-                NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
-                    .getInstance()
-                    .getClient(
-                        server,
-                        NodeManagementClient::new
+            var nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
+
+            newServerToShards.forEach((serverId, shards) -> {
+                    var relevantSchemeSlice = shards.stream()
+                        .collect(
+                            toMap(
+                                Function.identity(),
+                                newShardToHash::get
+                            )
+                        );
+
+                    var relevantFragments = serverToShards.get(serverId).stream()
+                        .flatMap(it -> fragmentsByOldShards.get(it).stream())
+                        .toList();
+
+                    var relevantNodes = relevantFragments.stream()
+                        .map(FragmentDTO::newShardId)
+                        .distinct()
+                        .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
+                        .toList();
+
+                    log.info(
+                        "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
+                        serverId,
+                        relevantSchemeSlice,
+                        relevantFragments,
+                        relevantNodes
                     );
 
-                nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
-            }
-        );
+                    var server = nodes.get(serverId);
 
-        //Replace after all rearrange shards has returned as success.
-        replaceBothMaps(newShardToHash, newServerToShards);
+                    //TODO Invert mapping and revert on the node side.
+                    NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
+                        .getInstance()
+                        .getClient(
+                            server,
+                            NodeManagementClient::new
+                        );
 
-        log.info("Changed shard count");
+                    nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+                }
+            );
 
-        return true;
+            //Replace after all rearrange shards has returned as success.
+            replaceBothMaps(newShardToHash, newServerToShards);
+
+            log.info("Changed shard count");
+
+            return true;
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     private List<FragmentDTO> findFragmentsToMove(
