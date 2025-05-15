@@ -23,8 +23,9 @@ public class ClientApplication {
                 getServerPort("master"),
                 MasterClient::new
             );
+        ClientService clientService = new ClientService(masterClient, nodeClient);
 
-        CLI cli = new CLI(nodeClient, masterClient);
+        CLI cli = new CLI(clientService);
         cli.start();
     }
 }
