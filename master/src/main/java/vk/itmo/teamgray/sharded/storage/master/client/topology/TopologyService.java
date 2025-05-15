@@ -1,18 +1,14 @@
 package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
@@ -193,6 +189,9 @@ public class TopologyService {
     public boolean changeShardCount(int shardCount) {
         log.info("Changing shard count to {}", shardCount);
 
+        ConcurrentHashMap<Integer, Long> originalShardToHash = new ConcurrentHashMap<>(this.shardToHash);
+        ConcurrentHashMap<ServerDataDTO, List<Integer>> originalServerToShards = new ConcurrentHashMap<>(this.serverToShards);
+
         ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
         ConcurrentHashMap<ServerDataDTO, List<Integer>> newServerToShards = redistributeShardsEvenly(
             Collections.list(serverToShards.keys()),
@@ -223,53 +222,80 @@ public class TopologyService {
                 Map.Entry::getKey
             ));
 
-        newServerToShards.forEach((server, shards) -> {
-                var relevantSchemeSlice = shards.stream()
-                    .collect(
-                        Collectors.toMap(
-                            Function.identity(),
-                            newShardToHash::get
-                        )
-                    );
+        boolean oneNodeFailed = false;
+        List<ServerDataDTO> attemptedNodes = new ArrayList<>();
+        
+        for (var entry : newServerToShards.entrySet()) {
+            var server = entry.getKey();
+            var shards = entry.getValue();
 
-                var relevantFragments = serverToShards.get(server).stream()
-                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
-                    .toList();
-
-                var relevantNodes = relevantFragments.stream()
-                    .map(FragmentDTO::newShardId)
-                    .distinct()
-                    .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
-                    .toList();
-
-                log.info(
-                    "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
-                    server,
-                    relevantSchemeSlice,
-                    relevantFragments,
-                    relevantNodes
+            var relevantSchemeSlice = shards.stream()
+                .collect(
+                    Collectors.toMap(
+                        Function.identity(),
+                        newShardToHash::get
+                    )
                 );
 
-                //TODO Invert mapping and revert on the node side.
+            var relevantFragments = serverToShards.get(server).stream()
+                .flatMap(it -> fragmentsByOldShards.get(it).stream())
+                .toList();
 
-                var nodeManagementClient = GrpcClientCachingFactory
-                    .getInstance()
-                    .getClient(
-                        server.host(),
-                        server.port(),
-                        NodeManagementClient::new
-                    );
+            var relevantNodes = relevantFragments.stream()
+                .map(FragmentDTO::newShardId)
+                .distinct()
+                .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
+                .toList();
 
-                nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+            log.info(
+                "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
+                server,
+                relevantSchemeSlice,
+                relevantFragments,
+                relevantNodes
+            );
+
+            //TODO Invert mapping and revert on the node side.
+
+            var nodeManagementClient = GrpcClientCachingFactory
+                .getInstance()
+                .getClient(
+                    server.host(),
+                    server.port(),
+                    NodeManagementClient::new
+                );
+
+            attemptedNodes.add(server);
+            boolean success = nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+
+            if (!success) {
+                log.error("RearrangeShards failed on node: {}. Initiating rollback.", server);
+                oneNodeFailed = true;
+                break;
             }
-        );
+        }
 
-        //Replace after all rearrange shards has returned as success.
-        replaceBothMaps(newShardToHash, newServerToShards);
-
-        log.info("Changed shard count");
-
-        return true;
+        if (oneNodeFailed) {
+            log.warn("One or more nodes failed during rearrange. Rolling back.");
+            for (ServerDataDTO nodeToRollback : attemptedNodes) {
+                NodeManagementClient client = GrpcClientCachingFactory.getInstance().getClient(nodeToRollback.host(), nodeToRollback.port(), NodeManagementClient::new);
+                boolean rollbackSuccess = client.rollbackTopologyChange();
+                if (!rollbackSuccess) {
+                    log.error("Rollback failed for node {}. System may be inconsistent.", nodeToRollback);
+                }
+            }
+            this.shardToHash = originalShardToHash;
+            this.serverToShards = originalServerToShards;
+            
+            log.info("changeShardCount failed");
+            return false;
+        } else {
+            replaceBothMaps(newShardToHash, newServerToShards);
+            
+            log.info("Changed shard count");
+            
+            return true;
+        }
     }
 
     private List<FragmentDTO> findFragmentsToMove(

@@ -8,6 +8,7 @@ package vk.itmo.teamgray.sharded.storage;
 service NodeManagementService {
   rpc RearrangeShards (RearrangeShardsRequest) returns (RearrangeShardsResponse);
   rpc MoveShard (MoveShardRequest) returns (MoveShardResponse);
+  rpc RollbackTopologyChange (RollbackTopologyChangeRequest) returns (RollbackTopologyChangeResponse);
 }
 
 message RearrangeShardsRequest {
@@ -22,6 +23,7 @@ message RearrangeShardsRequest {
 
 message RearrangeShardsResponse {
   bool success = 1;
+  string message = 2;
 }
 
 message ServerData {
@@ -53,4 +55,13 @@ message Server {
   string ip = 1;
 
   int32 port = 2;
+}
+
+message RollbackTopologyChangeRequest {
+  // Empty, node knows its previous state
+}
+
+message RollbackTopologyChangeResponse {
+  bool success = 1;
+  string message = 2; // For status/error
 }
