@@ -7,7 +7,6 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

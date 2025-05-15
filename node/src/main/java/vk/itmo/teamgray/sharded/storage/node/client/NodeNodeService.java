@@ -47,7 +47,7 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
 
     @Override
     public void sendShardFragment(SendShardFragmentRequest request,
-                                  StreamObserver<SendShardFragmentResponse> responseObserver) {
+        StreamObserver<SendShardFragmentResponse> responseObserver) {
         boolean success = true;
         String message = SUCCESS_MESSAGE;
 

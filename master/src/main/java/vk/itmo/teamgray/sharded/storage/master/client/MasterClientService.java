@@ -4,7 +4,6 @@ import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
 
 public class MasterClientService extends MasterClientServiceGrpc.MasterClientServiceImplBase {

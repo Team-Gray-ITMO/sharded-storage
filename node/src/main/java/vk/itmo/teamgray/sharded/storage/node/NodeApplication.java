@@ -3,7 +3,6 @@ package vk.itmo.teamgray.sharded.storage.node;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import java.io.IOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
@@ -64,7 +63,7 @@ public class NodeApplication {
     }
 
     public void stop() {
-        if (activeServer != null && !activeServer.isShutdown()){
+        if (activeServer != null && !activeServer.isShutdown()) {
             activeServer.shutdown();
         }
     }
