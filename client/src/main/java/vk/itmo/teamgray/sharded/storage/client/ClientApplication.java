@@ -7,9 +7,14 @@ import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getSer
 
 public class ClientApplication {
 
-    public static void main(String[] args) throws InterruptedException {
-        //TODO: Use cached clients resolving here
-        NodeClient nodeClient = new NodeClient(getServerHost("node"), getServerPort("node"));
+    public static void main(String[] args) {
+        NodeClient nodeClient = GrpcClientCachingFactory
+            .getInstance()
+            .getClient(
+                getServerHost("node"),
+                getServerPort("node"),
+                NodeClient::new
+            );
 
         MasterClient masterClient = GrpcClientCachingFactory
             .getInstance()
