@@ -20,10 +20,11 @@ import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterHeartbeatRequest;
 
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
+
 public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.MasterClientServiceBlockingStub> {
-    public MasterClient(String host, int port) {
-        //TODO Do a normal host resolving instead of this abomination.
-        super(host, port, "master");
+    public MasterClient(String host) {
+        super(host, getServerPort("master"));
     }
 
     @Override
@@ -31,10 +32,9 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
         return MasterClientServiceGrpc::newBlockingStub;
     }
 
-    public AddServerResponseDTO addServer(String ip, int port, boolean forkNewInstance) {
+    public AddServerResponseDTO addServer(int server, boolean forkNewInstance) {
         AddServerRequest request = AddServerRequest.newBuilder()
-            .setIp(ip)
-            .setPort(port)
+            .setId(server)
             .setForkNewInstance(forkNewInstance)
             .build();
 
@@ -42,10 +42,9 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
         return new AddServerResponseDTO(response.getMessage(), response.getSuccess());
     }
 
-    public DeleteServerResponseDTO deleteServer(String ip, int port) {
+    public DeleteServerResponseDTO deleteServer(int server) {
         DeleteServerRequest request = DeleteServerRequest.newBuilder()
-            .setIp(ip)
-            .setPort(port)
+            .setId(server)
             .build();
 
         var response = blockingStub.deleteServer(request);
@@ -66,8 +65,8 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
         );
     }
 
-    //Doing map flipping on client side to unload master.
-    public Map<Integer, String> getShardToServerMap() {
+    //Doing map flipping on the client side to unload master.
+    public Map<Integer, Integer> getShardToServerMap() {
         GetServerToShardRequest request = GetServerToShardRequest.newBuilder().build();
         GetServerToShardResponse response = blockingStub.getServerToShard(request);
 

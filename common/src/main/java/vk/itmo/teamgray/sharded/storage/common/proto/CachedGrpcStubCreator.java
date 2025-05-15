@@ -23,33 +23,17 @@ public class CachedGrpcStubCreator {
         return INSTANCE;
     }
 
-    public <S> S getStub(String host, int port, Function<ManagedChannel, S> stubFactory, String fallbackHost) {
+    public <S> S getStub(String host, int port, Function<ManagedChannel, S> stubFactory) {
         String key = host + ":" + port;
 
-        ManagedChannel channel = channelMap.computeIfAbsent(key, k -> createChannelWithFallback(host, port, fallbackHost));
+        ManagedChannel channel = channelMap.computeIfAbsent(
+            key,
+            k -> ManagedChannelBuilder.forAddress(host, port)
+                .usePlaintext()
+                .build()
+        );
 
         return stubFactory.apply(channel);
-    }
-
-    // TODO Remove, absolutely uncool, replace with something more robust later.
-    private ManagedChannel createChannelWithFallback(String host, int port, String fallbackHost) {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(host, port)
-            .usePlaintext()
-            .build();
-
-        try {
-            channel.getState(true);
-        } catch (Exception e) {
-            log.warn("Could not connect via {}:{}, falling back to {}:{}", host, port, fallbackHost, port, e);
-
-            channel.shutdownNow();
-
-            channel = ManagedChannelBuilder.forAddress(fallbackHost, port)
-                .usePlaintext()
-                .build();
-        }
-
-        return channel;
     }
 
     public void shutdownAll() {

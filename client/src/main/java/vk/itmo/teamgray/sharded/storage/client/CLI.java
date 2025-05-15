@@ -101,14 +101,12 @@ public class CLI {
     }
 
     private void handleAddServer() {
-        System.out.print("Enter server IP: ");
-        String ip = scanner.nextLine().trim();
-        System.out.print("Enter server port: ");
-        int port = Integer.parseInt(scanner.nextLine().trim());
+        System.out.print("Enter server ID: ");
+        int id = Integer.parseInt(scanner.nextLine().trim());
         System.out.print("Fork new instance? (y/n): ");
         boolean fork = scanner.nextLine().trim().equalsIgnoreCase("y");
         try {
-            var response = masterClient.addServer(ip, port, fork);
+            var response = masterClient.addServer(id, fork);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -117,12 +115,10 @@ public class CLI {
     }
 
     private void handleDeleteServer() {
-        System.out.print("Enter server IP: ");
-        String ip = scanner.nextLine().trim();
-        System.out.print("Enter server port: ");
-        int port = Integer.parseInt(scanner.nextLine().trim());
+        System.out.print("Enter server ID: ");
+        int id = Integer.parseInt(scanner.nextLine().trim());
         try {
-            var response = masterClient.deleteServer(ip, port);
+            var response = masterClient.deleteServer(id);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -144,7 +140,7 @@ public class CLI {
 
     private void handleGetTopology() {
         try {
-            Map<Integer, String> shardToServer = masterClient.getShardToServerMap();
+            Map<Integer, Integer> shardToServer = masterClient.getShardToServerMap();
             Map<Long, Integer> hashToShard = masterClient.getHashToShardMap();
             
             System.out.println("\nShard to Server mapping:");

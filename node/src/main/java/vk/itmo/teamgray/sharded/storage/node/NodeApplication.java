@@ -6,11 +6,16 @@ import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeManagementService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeStorageService;
 
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class NodeApplication {
@@ -21,10 +26,21 @@ public class NodeApplication {
     public NodeApplication() {
         NodeStorageService nodeStorageService = new NodeStorageService();
 
-        int serverPort = getServerPort("node");
+        int serverPort = getServerPort("node.client");
+
+        var discoveryClient = GrpcClientCachingFactory.getInstance()
+            .getClient(
+                getServerHost("discovery"),
+                DiscoveryClient::new
+            );
+
+        DiscoverableServiceDTO service = getDiscoverableService();
+
+        discoveryClient.register(service);
+
         activeServer = ServerBuilder.forPort(serverPort)
                 .addService(new NodeClientService(nodeStorageService))
-                .addService(new NodeManagementService(nodeStorageService))
+                .addService(new NodeManagementService(nodeStorageService, discoveryClient))
                 .addService(new NodeNodeService(nodeStorageService))
                 .build();
     }

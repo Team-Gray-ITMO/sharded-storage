@@ -17,7 +17,8 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 
 public class ClientService {
-    private record ShardOnServer(String server, int shard) {
+    private record ShardOnServer(int server, int shard) {
+        // No-op.
     }
 
     private static final Logger log = LoggerFactory.getLogger(ClientService.class);
@@ -28,17 +29,17 @@ public class ClientService {
 
     private final NodeClient nodeClient;
 
-    private final Cache<Integer, String> shardToServer = CacheBuilder.newBuilder()
+    private final Cache<Integer, Integer> shardToServer = CacheBuilder.newBuilder()
         .expireAfterWrite(CACHE_EXPIRATION)
         .maximumSize(1000)
         .build(new CacheLoader<>() {
             @Override
-            public String load(Integer shard) {
-                Map<Integer, String> allMappings = masterClient.getShardToServerMap();
+            public Integer load(Integer shard) {
+                Map<Integer, Integer> allMappings = masterClient.getShardToServerMap();
 
                 //TODO Later optimize, now all cache reloads on missing value.
                 shardToServer.putAll(allMappings);
-                return allMappings.getOrDefault(shard, "UNKNOWN");
+                return allMappings.getOrDefault(shard, 0);
             }
         });
 
@@ -102,51 +103,12 @@ public class ClientService {
         return new ShardOnServer(server, shard);
     }
 
-    //TODO: Remove later
-    public void scheduleHeartbeat() throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(10);
-
-        try (ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor()) {
-            scheduler.scheduleAtFixedRate(() -> {
-                log.info("Heartbeat to {}:{} sent at {}", masterClient.getHost(), masterClient.getPort(), Instant.now());
-
-                var masterResponse = masterClient.sendHeartbeat();
-
-                log.info("Heartbeat to {}:{} returned. Healthy: {}, Timestamp: {} ",
-                    masterClient.getHost(),
-                    masterClient.getPort(),
-                    masterResponse.healthy(),
-                    Instant.ofEpochMilli(masterResponse.serverTimestamp()));
-
-                log.info("Heartbeat to {}:{} sent at {}", nodeClient.getHost(), nodeClient.getPort(), Instant.now());
-
-                var nodeResponse = nodeClient.sendHeartbeat();
-
-                log.info("Heartbeat to {}:{} returned. Healthy: {}, Timestamp: {} ",
-                    nodeClient.getHost(),
-                    nodeClient.getPort(),
-                    nodeResponse.healthy(),
-                    Instant.ofEpochMilli(nodeResponse.serverTimestamp()));
-
-                latch.countDown();
-            }, 0, 1, TimeUnit.SECONDS);
-
-            latch.await();
-        }
-
-        masterClient.addServer("0.0.0.0", 9090, true);
-        masterClient.addServer("0.0.0.1", 9091, true);
-
-        log.info(String.valueOf(masterClient.getHashToShardMap()));
-        log.info(String.valueOf(masterClient.getShardToServerMap()));
-    }
-
     /**
      * Get the current shard-to-server mapping as a Map
      *
      * @return Map from shard ID to server address (ip:port)
      */
-    public Map<Integer, String> getShardServerMapping() {
+    public Map<Integer, Integer> getShardServerMapping() {
         return shardToServer.asMap();
     }
 

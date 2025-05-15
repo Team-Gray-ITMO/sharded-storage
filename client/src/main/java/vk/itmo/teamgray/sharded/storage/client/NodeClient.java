@@ -12,10 +12,11 @@ import vk.itmo.teamgray.sharded.storage.node.client.NodeHeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetFromFileRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
+
 public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeClientServiceBlockingStub> {
-    public NodeClient(String host, int port) {
-        //TODO Do a normal host resolving instead of this abomination.
-        super(host, port, "node-containter-" + port);
+    public NodeClient(String host) {
+        super(host, getServerPort("node.client"));
     }
 
     @Override

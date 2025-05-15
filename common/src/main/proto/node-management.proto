@@ -17,21 +17,16 @@ message RearrangeShardsRequest {
 
   repeated MoveFragment fragments = 2;
 
-  map<int32, Server> serverByShardNumber = 3;
+  map<int32, int32> serverByShardNumber = 3;
 }
 
 message RearrangeShardsResponse {
   bool success = 1;
 }
 
-message ServerData {
-  string host = 1;
-  int32 port = 2;
-}
-
 message MoveShardRequest {
   int32 shardId = 1;
-  ServerData targetServer = 2;
+  int32 targetServer = 2;
 }
 
 message MoveShardResponse {
@@ -47,10 +42,4 @@ message MoveFragment {
   int64 rangeFrom = 3;
 
   int64 rangeTo = 4;
-}
-
-message Server {
-  string ip = 1;
-
-  int32 port = 2;
 }

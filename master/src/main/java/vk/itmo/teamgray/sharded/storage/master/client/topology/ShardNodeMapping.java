@@ -4,7 +4,7 @@ import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 
 public record ShardNodeMapping(
     int shardId,
-    ServerDataDTO node
+    int serverId
 ) {
     // No-op.
 }

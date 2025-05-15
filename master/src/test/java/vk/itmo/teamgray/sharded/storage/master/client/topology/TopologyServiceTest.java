@@ -27,53 +27,45 @@ class TopologyServiceTest {
 
     @BeforeEach
     void setUp() {
-        topologyService = new TopologyService();
+        topologyService = new TopologyService(mock());
     }
 
     //TODO Adjust test and add gRPC stubs for responses.
     @Test
     void addServerDistributesShardsEvenly() {
-        ServerDataDTO server1 = new ServerDataDTO("127.0.0.1", 8001);
-        ServerDataDTO server2 = new ServerDataDTO("127.0.0.1", 8002);
+        assertTrue(topologyService.addServer(1).created());
+        assertTrue(topologyService.addServer(2).created());
 
-        assertTrue(topologyService.addServer(server1).created());
-        assertTrue(topologyService.addServer(server2).created());
-
-        ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = topologyService.getServerToShards();
+        ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(2, serverToShards.size());
-        assertTrue(serverToShards.containsKey(server1));
-        assertTrue(serverToShards.containsKey(server2));
+        assertTrue(serverToShards.containsKey(1));
+        assertTrue(serverToShards.containsKey(2));
     }
 
     @Test
     void addServerFailsIfAlreadyExists() {
-        ServerDataDTO server = new ServerDataDTO("127.0.0.1", 8001);
-        topologyService.addServer(server);
+        topologyService.addServer(1);
 
-        assertFalse(topologyService.addServer(server).created());
+        assertFalse(topologyService.addServer(1).created());
     }
 
     //TODO Adjust test and add gRPC stubs for responses.
     @Disabled
     @Test
     void deleteServerRemovesServerAndRedistributesShards() {
-        ServerDataDTO server1 = new ServerDataDTO("127.0.0.1", 8001);
-        ServerDataDTO server2 = new ServerDataDTO("127.0.0.1", 8002);
+        topologyService.addServer(1);
+        topologyService.addServer(2);
 
-        topologyService.addServer(server1);
-        topologyService.addServer(server2);
+        assertTrue(topologyService.deleteServer(1).deleted());
 
-        assertTrue(topologyService.deleteServer(server1).deleted());
-
-        ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = topologyService.getServerToShards();
+        ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(1, serverToShards.size());
-        assertFalse(serverToShards.containsKey(server1));
+        assertFalse(serverToShards.containsKey(1));
     }
 
     @Test
     void deleteServerFailsIfServerDoesNotExist() {
-        ServerDataDTO server = new ServerDataDTO("127.0.0.1", 8001);
-        assertFalse(topologyService.deleteServer(server).deleted());
+        assertFalse(topologyService.deleteServer(1).deleted());
     }
 
     //TODO Adjust test and add gRPC stubs for responses.
@@ -83,7 +75,7 @@ class TopologyServiceTest {
         var serverCount = 2;
 
         IntStream.range(0, serverCount)
-            .forEach(i -> topologyService.addServer(new ServerDataDTO("127.0.0.1", 8000 + i)));
+            .forEach(i -> topologyService.addServer(i));
 
         var shardCount = 10;
         topologyService.changeShardCount(shardCount);
@@ -142,14 +134,11 @@ class TopologyServiceTest {
     @Disabled
     @Test
     void redistributeShardsEvenlyHandlesUnevenShardDistribution() {
-        ServerDataDTO server1 = new ServerDataDTO("127.0.0.1", 8001);
-        ServerDataDTO server2 = new ServerDataDTO("127.0.0.1", 8002);
-
-        topologyService.addServer(server1);
-        topologyService.addServer(server2);
+        topologyService.addServer(1);
+        topologyService.addServer(2);
         topologyService.changeShardCount(7);
 
-        ConcurrentHashMap<ServerDataDTO, List<Integer>> serverToShards = topologyService.getServerToShards();
+        ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(7, serverToShards.values().stream().mapToInt(List::size).sum());
     }
 

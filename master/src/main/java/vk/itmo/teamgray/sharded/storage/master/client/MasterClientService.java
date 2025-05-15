@@ -42,9 +42,7 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
     @Override
     public void addServer(AddServerRequest request, StreamObserver<AddServerResponse> responseObserver) {
-        ServerDataDTO server = new ServerDataDTO(request.getIp(), request.getPort());
-
-        var result = topologyService.addServer(server);
+        var result = topologyService.addServer(request.getId());
 
         responseObserver.onNext(
             AddServerResponse.newBuilder()
@@ -58,9 +56,7 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
     @Override
     public void deleteServer(DeleteServerRequest request, StreamObserver<DeleteServerResponse> responseObserver) {
-        ServerDataDTO server = new ServerDataDTO(request.getIp(), request.getPort());
-
-        var result = topologyService.deleteServer(server);
+        var result = topologyService.deleteServer(request.getId());
 
         responseObserver.onNext(
             DeleteServerResponse.newBuilder()

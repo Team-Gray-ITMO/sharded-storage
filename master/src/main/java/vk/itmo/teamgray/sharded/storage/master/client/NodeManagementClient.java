@@ -13,12 +13,12 @@ import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
+
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
-    public NodeManagementClient(String host, int port) {
-        //TODO Do a normal host resolving instead of this abomination.
-        super(host, port, "node-containter-" + port);
+    public NodeManagementClient(String host) {
+        super(host, getServerPort("node.management"));
     }
 
     @Override
@@ -31,7 +31,7 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         List<FragmentDTO> relevantFragments,
         List<ShardNodeMapping> relevantNodes
     ) {
-        //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's population method modular, so we can easily switch from gRPC.
+        //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's make population method modular, so we can easily switch from gRPC.
         RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder()
             .putAllShardToHash(relevantShardsToHash)
             .addAllFragments(relevantFragments.stream().map(FragmentDTO::toGrpc).toList())
@@ -40,7 +40,7 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
                     .collect(
                         Collectors.toMap(
                             ShardNodeMapping::shardId,
-                            it -> it.node().toGrpc()
+                            ShardNodeMapping::serverId
                         )
                     )
             )
@@ -49,15 +49,10 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return blockingStub.rearrangeShards(request).getSuccess();
     }
 
-    public boolean moveShard(int shardId, ServerDataDTO targetServer) {
-        ServerData serverData = ServerData.newBuilder()
-            .setHost(targetServer.host())
-            .setPort(targetServer.port())
-            .build();
-
+    public boolean moveShard(int shardId, int serverId) {
         MoveShardRequest request = MoveShardRequest.newBuilder()
             .setShardId(shardId)
-            .setTargetServer(serverData)
+            .setTargetServer(serverId)
             .build();
 
         MoveShardResponse response = blockingStub.moveShard(request);

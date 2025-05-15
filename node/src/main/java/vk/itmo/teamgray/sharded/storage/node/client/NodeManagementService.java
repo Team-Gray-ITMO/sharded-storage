@@ -9,11 +9,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.common.dto.ServerDataDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
@@ -22,15 +22,19 @@ import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
-import vk.itmo.teamgray.sharded.storage.node.management.ServerData;
+
+import static java.util.stream.Collectors.toMap;
 
 public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeManagementService.class);
 
     private final NodeStorageService nodeStorageService;
 
-    public NodeManagementService(NodeStorageService nodeStorageService) {
+    private final DiscoveryClient discoveryClient;
+
+    public NodeManagementService(NodeStorageService nodeStorageService, DiscoveryClient discoveryClient) {
         this.nodeStorageService = nodeStorageService;
+        this.discoveryClient = discoveryClient;
     }
 
     @Override
@@ -88,15 +92,11 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
         var keysToRemove = new HashMap<Integer, Set<String>>();
 
-        Map<Integer, ServerDataDTO> nodesByShard = externalFragments.isEmpty()
+        Map<Integer, Integer> nodesByShard = externalFragments.isEmpty()
             ? Collections.emptyMap()
-            : request.getServerByShardNumberMap().entrySet().stream()
-                .collect(
-                    Collectors.toMap(
-                        Map.Entry::getKey,
-                        it -> ServerDataDTO.fromGrpc(it.getValue())
-                    )
-                );
+            : request.getServerByShardNumberMap();
+
+        Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.keySet());
 
         externalFragments.stream()
             .filter(it -> existingShards.containsKey(it.oldShardId()))
@@ -111,13 +111,17 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                         return hash >= fragment.rangeFrom() && hash < fragment.rangeTo();
                     })
                     .collect(
-                        Collectors.toMap(
+                        toMap(
                             Map.Entry::getKey,
                             Map.Entry::getValue
                         )
                     );
 
-                if (!moveShardFragment(nodesByShard.get(fragment.newShardId()), fragment.newShardId(), fragmentsToSend)) {
+                Integer serverId = nodesByShard.get(fragment.newShardId());
+
+                DiscoverableServiceDTO node = nodes.get(serverId);
+
+                if (!moveShardFragment(node, fragment.newShardId(), fragmentsToSend)) {
                     throw new IllegalStateException("Failed to move shard fragment");
                 }
 
@@ -138,12 +142,11 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
-    private boolean moveShardFragment(ServerDataDTO serverDataDTO, int newShardId, Map<String, String> fragmentsToSend) {
+    private boolean moveShardFragment(DiscoverableServiceDTO server, int newShardId, Map<String, String> fragmentsToSend) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
-                serverDataDTO.host(),
-                serverDataDTO.port(),
+                server,
                 NodeNodeClient::new
             );
 
@@ -153,9 +156,10 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
     @Override
     public void moveShard(MoveShardRequest request, StreamObserver<MoveShardResponse> responseObserver) {
         int shardId = request.getShardId();
-        ServerData targetServer = request.getTargetServer();
 
-        log.info("Request to move shard {} to {}:{}", shardId, targetServer.getHost(), targetServer.getPort());
+        DiscoverableServiceDTO targetServer = discoveryClient.getNode(request.getTargetServer());
+
+        log.info("Request to move shard {} to {}", shardId, targetServer);
 
         Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
         if (!existingShards.containsKey(shardId)) {
@@ -190,12 +194,11 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         responseObserver.onCompleted();
     }
 
-    private boolean sendShard(int shardId, Map<String, String> shardData, ServerData targetServer) {
+    private boolean sendShard(int shardId, Map<String, String> shardData, DiscoverableServiceDTO targetServer) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
-                targetServer.getHost(),
-                targetServer.getPort(),
+                targetServer,
                 NodeNodeClient::new
             );
 
