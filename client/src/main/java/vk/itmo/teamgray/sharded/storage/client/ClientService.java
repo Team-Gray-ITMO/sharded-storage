@@ -97,8 +97,8 @@ public class ClientService {
      *
      * @return result of add operation
      */
-    public AddServerResponseDTO addServer(String ip, int port, boolean fork) {
-        AddServerResponseDTO result = masterClient.addServer(ip, port, fork);
+    public AddServerResponseDTO addServer(int serverId, boolean fork) {
+        AddServerResponseDTO result = masterClient.addServer(serverId, fork);
         updateCaches();
         return result;
     }
@@ -108,8 +108,8 @@ public class ClientService {
      *
      * @return result of delete operation
      */
-    public DeleteServerResponseDTO deleteServer(String ip, int port) {
-        DeleteServerResponseDTO result = masterClient.deleteServer(ip, port);
+    public DeleteServerResponseDTO deleteServer(int serverId) {
+        DeleteServerResponseDTO result = masterClient.deleteServer(serverId);
         updateCaches();
         return result;
     }

@@ -33,6 +33,7 @@ public class ClientApplication {
                 discoveryClient.getMasterWithRetries(),
                 MasterClient::new
             );
+
         ClientService clientService = new ClientService(masterClient, nodeClient);
 
         CLI cli = new CLI(clientService);

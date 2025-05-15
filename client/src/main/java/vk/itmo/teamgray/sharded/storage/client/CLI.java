@@ -104,7 +104,7 @@ public class CLI {
         System.out.print("Fork new instance? (y/n): ");
         boolean fork = scanner.nextLine().trim().equalsIgnoreCase("y");
         try {
-            var response = masterClient.addServer(id, fork);
+            var response = clientService.addServer(id, fork);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -116,7 +116,7 @@ public class CLI {
         System.out.print("Enter server ID: ");
         int id = Integer.parseInt(scanner.nextLine().trim());
         try {
-            var response = masterClient.deleteServer(id);
+            var response = clientService.deleteServer(id);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -138,8 +138,8 @@ public class CLI {
 
     private void handleGetTopology() {
         try {
-            Map<Integer, Integer> shardToServer = masterClient.getShardToServerMap();
-            Map<Long, Integer> hashToShard = masterClient.getHashToShardMap();
+            Map<Integer, Integer> shardToServer = clientService.getShardServerMapping();
+            Map<Long, Integer> hashToShard = clientService.getHashToShardMapping();
             
             System.out.println("\nShard to Server mapping:");
             shardToServer.forEach((shard, server) -> 
