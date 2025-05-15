@@ -1,6 +1,5 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 
@@ -34,8 +33,9 @@ public class ClientApplication {
                 discoveryClient.getMasterWithRetries(),
                 MasterClient::new
             );
+        ClientService clientService = new ClientService(masterClient, nodeClient);
 
-        CLI cli = new CLI(nodeClient, masterClient);
+        CLI cli = new CLI(clientService);
         cli.start();
     }
 }
