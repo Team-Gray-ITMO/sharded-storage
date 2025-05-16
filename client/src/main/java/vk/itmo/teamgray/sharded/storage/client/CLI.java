@@ -2,6 +2,7 @@ package vk.itmo.teamgray.sharded.storage.client;
 
 import java.util.Map;
 import java.util.Scanner;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 
 public class CLI {
@@ -44,7 +45,6 @@ public class CLI {
         System.out.println("Welcome to Sharded Storage CLI!");
         System.out.println("Connected to:");
         System.out.println("  Master: " + clientService.getMasterHost() + ":" + clientService.getMasterPort());
-        System.out.println("  Node: " + clientService.getNodeHost() + ":" + clientService.getNodePort());
         printHelp();
     }
 
@@ -138,7 +138,7 @@ public class CLI {
 
     private void handleGetTopology() {
         try {
-            Map<Integer, Integer> shardToServer = clientService.getShardServerMapping();
+            Map<Integer, DiscoverableServiceDTO> shardToServer = clientService.getShardServerMapping();
             Map<Long, Integer> hashToShard = clientService.getHashToShardMapping();
             
             System.out.println("\nShard to Server mapping:");
@@ -158,15 +158,10 @@ public class CLI {
     private void handleHeartbeat() {
         try {
             var masterResponse = clientService.sendMasterHeartbeat();
-            var nodeResponse = clientService.sendNodeHeartbeat();
             
             System.out.println("\nMaster Server Heartbeat:");
             System.out.println("  Healthy: " + masterResponse.healthy());
             System.out.println("  Status: " + masterResponse.statusMessage());
-            
-            System.out.println("\nNode Server Heartbeat:");
-            System.out.println("  Healthy: " + nodeResponse.healthy());
-            System.out.println("  Status: " + nodeResponse.statusMessage());
         } catch (Exception e) {
             System.err.println("Error sending heartbeat: " + e.getMessage());
         }

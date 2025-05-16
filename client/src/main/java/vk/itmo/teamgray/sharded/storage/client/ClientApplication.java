@@ -20,21 +20,13 @@ public class ClientApplication {
         //TODO Later register individual clients
         discoveryClient.register(getDiscoverableService());
 
-        //TODO: Use cached clients resolving here
-        var node = discoveryClient.getNode(1);
-        NodeClient nodeClient = clientFactory
-            .getClient(
-                node,
-                NodeClient::new
-            );
-
         MasterClient masterClient = clientFactory
             .getClient(
                 discoveryClient.getMasterWithRetries(),
                 MasterClient::new
             );
 
-        ClientService clientService = new ClientService(masterClient, nodeClient);
+        ClientService clientService = new ClientService(masterClient, discoveryClient);
 
         CLI cli = new CLI(clientService);
         cli.start();
