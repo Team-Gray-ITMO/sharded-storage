@@ -2,11 +2,12 @@ package vk.itmo.teamgray.sharded.storage.client;
 
 import java.util.Map;
 import java.util.Scanner;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 
 public class CLI {
     private final ClientService clientService;
+
     private final Scanner scanner;
 
     public CLI(ClientService clientService) {
@@ -140,16 +141,17 @@ public class CLI {
         try {
             Map<Integer, DiscoverableServiceDTO> shardToServer = clientService.getShardServerMapping();
             Map<Long, Integer> hashToShard = clientService.getHashToShardMapping();
-            
+
             System.out.println("\nShard to Server mapping:");
-            shardToServer.forEach((shard, server) -> 
-                System.out.println("  Shard " + shard + " -> " + server));
-            
+            shardToServer.forEach((shard, server) ->
+                System.out.println(
+                    "  Shard " + shard + " -> ID: " + server.id() + " Host: " + server.host() + "/" + server.containerName()));
+
             System.out.println("\nHash to Shard mapping:");
             hashToShard.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
                 .forEach(entry ->
-                System.out.println("  Hash " + entry.getKey() + " -> Shard " + entry.getValue()));
+                    System.out.println("  Hash " + entry.getKey() + " -> Shard " + entry.getValue()));
         } catch (Exception e) {
             System.err.println("Error getting topology: " + e.getMessage());
         }
@@ -158,7 +160,7 @@ public class CLI {
     private void handleHeartbeat() {
         try {
             var masterResponse = clientService.sendMasterHeartbeat();
-            
+
             System.out.println("\nMaster Server Heartbeat:");
             System.out.println("  Healthy: " + masterResponse.healthy());
             System.out.println("  Status: " + masterResponse.statusMessage());

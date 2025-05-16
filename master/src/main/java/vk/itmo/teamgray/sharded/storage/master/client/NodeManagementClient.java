@@ -16,11 +16,9 @@ import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeResponse;
 
-import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
-
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
-    public NodeManagementClient(String host) {
-        super(host, getServerPort("node.management"));
+    public NodeManagementClient(String host, int port) {
+        super(host, port);
     }
 
     @Override

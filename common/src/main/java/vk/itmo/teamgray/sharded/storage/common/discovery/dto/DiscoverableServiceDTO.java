@@ -1,5 +1,6 @@
-package vk.itmo.teamgray.sharded.storage.common.discovery;
+package vk.itmo.teamgray.sharded.storage.common.discovery.dto;
 
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType;
 import vk.itmo.teamgray.sharded.storage.discovery.ServiceInfo;
 
 public record DiscoverableServiceDTO(

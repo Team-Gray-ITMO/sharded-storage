@@ -5,9 +5,10 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.discovery.Empty;
@@ -16,11 +17,11 @@ import vk.itmo.teamgray.sharded.storage.discovery.RegisterResponse;
 import vk.itmo.teamgray.sharded.storage.discovery.ServiceInfo;
 
 import static java.util.stream.Collectors.toMap;
-import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
+import static vk.itmo.teamgray.sharded.storage.common.utils.RetryUtils.retryWithAttempts;
 
 public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.DiscoveryServiceBlockingStub> {
-    public DiscoveryClient(String host) {
-        super(host, getServerPort("discovery"));
+    public DiscoveryClient(String host, int port) {
+        super(host, port);
     }
 
     @Override
@@ -83,9 +84,9 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
                 try {
                     ServiceInfo masterInfo = blockingStub.getMaster(Empty.newBuilder().build());
 
-                    return DiscoverableServiceDTO.fromServiceInfo(masterInfo);
+                    return Optional.of(DiscoverableServiceDTO.fromServiceInfo(masterInfo));
                 } catch (Exception e) {
-                    return null;
+                    return Optional.empty();
                 }
             },
             "Failed to retrieve master after retries"
@@ -103,37 +104,12 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
                 Set<Integer> presentIds = nodes.keySet();
 
                 if (presentIds.containsAll(requiredServerIds)) {
-                    return nodes;
+                    return Optional.of(nodes);
                 }
 
-                return null;
+                return Optional.empty();
             },
             "Failed to discover all required nodes after retries: " + requiredServerIds
         );
-    }
-
-    private <T> T retryWithAttempts(
-        int attempts,
-        Duration awaitDuration,
-        Supplier<T> supplier,
-        String errorMessage
-    ) {
-        for (int i = 0; i < attempts; i++) {
-            T result = supplier.get();
-            if (result != null) {
-                return result;
-            }
-
-            if (i < attempts - 1) {
-                try {
-                    Thread.sleep(awaitDuration);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Interrupted during retry delay", e);
-                }
-            }
-        }
-
-        throw new IllegalStateException(errorMessage);
     }
 }

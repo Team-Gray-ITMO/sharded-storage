@@ -5,6 +5,7 @@ import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class ClientApplication {
 
@@ -14,6 +15,7 @@ public class ClientApplication {
 
         DiscoveryClient discoveryClient = clientFactory.getClient(
             getServerHost("discovery"),
+            getServerPort("discovery"),
             DiscoveryClient::new
         );
 

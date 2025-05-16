@@ -26,22 +26,12 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
 
     @Override
     public void registerService(ServiceInfo request, StreamObserver<RegisterResponse> responseObserver) {
-        switch (DiscoverableServiceType.valueOf(request.getType())) {
-            case MASTER -> {
-                master = request;
+        var type = DiscoverableServiceType.valueOf(request.getType());
 
-                log.info("Registered master service: {}", master);
-            }
-            case NODE -> {
-                nodes.put(request.getId(), request);
-
-                log.info("Registered node service: {}", request);
-            }
-            case CLIENT -> {
-                clients.put(request.getId(), request);
-
-                log.info("Registered client service: {}", request);
-            }
+        switch (type) {
+            case MASTER -> master = request;
+            case NODE -> nodes.put(request.getId(), request);
+            case CLIENT -> clients.put(request.getId(), request);
             default -> {
                 responseObserver.onNext(RegisterResponse.newBuilder()
                     .setSuccess(false)
@@ -52,6 +42,8 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
                 return;
             }
         }
+
+        log.info("Registered {} service: {}{}", type, System.lineSeparator(), request);
 
         RegisterResponse response = RegisterResponse.newBuilder()
             .setSuccess(true)

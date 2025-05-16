@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.health";
+
+package vk.itmo.teamgray.sharded.storage;
+
+service HealthService {
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+message HeartbeatRequest {
+  int64 timestamp = 1;
+}
+
+message HeartbeatResponse {
+  bool healthy = 1;
+  int64 serverTimestamp = 2;
+  string statusMessage = 3;
+}

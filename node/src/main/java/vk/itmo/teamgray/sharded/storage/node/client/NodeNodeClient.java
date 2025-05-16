@@ -8,11 +8,9 @@ import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
 
-import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
-
 public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeNodeServiceBlockingStub> {
-    public NodeNodeClient(String host) {
-        super(host, getServerPort("node.node"));
+    public NodeNodeClient(String host, int port) {
+        super(host, port);
     }
 
     @Override

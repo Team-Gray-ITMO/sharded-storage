@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.master.client;
 
 import io.grpc.stub.StreamObserver;
-import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
@@ -77,25 +76,6 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
                 .setMessage("SUCCESS")
                 .build()
         );
-
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void heartbeat(MasterHeartbeatRequest request, StreamObserver<MasterHeartbeatResponse> responseObserver) {
-        // TODO: Implement file import logic
-
-        var now = Instant.now();
-
-        log.info("Received heartbeat request for: {} Sending heartbeat at {}", Instant.ofEpochMilli(request.getTimestamp()), now);
-
-        boolean isHealthy = true;
-
-        responseObserver.onNext(MasterHeartbeatResponse.newBuilder()
-            .setHealthy(isHealthy)
-            .setServerTimestamp(now.toEpochMilli())
-            .setStatusMessage("OK")
-            .build());
 
         responseObserver.onCompleted();
     }

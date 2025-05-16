@@ -2,26 +2,28 @@
 setlocal enabledelayedexpansion
 
 if "%1"=="" (
-    echo Usage: %0 ^<port_for_9001^>
+    echo Usage: %0 ^<server_id^>
     exit /b 1
 )
 
-set PORT_FOR_9001=%1
 set IMAGE_NAME=sharded_storage_node
 set CONTAINER_NAME=node-containter-%1
-set NETWORK_NAME=sharded_storage_network
+set NETWORK_NAME=sharded-storage
 
 echo Building image...
 docker build -f node/Dockerfile -t %IMAGE_NAME% .
 
 echo Creating network...
-docker network inspect "%NETWORK_NAME%" > nul 2>&1 || docker network create "%NETWORK_NAME%"
+call create-network.bat
 
 echo Starting container...
 docker run -d ^
            --name=%CONTAINER_NAME% ^
            --network="%NETWORK_NAME%" ^
-           -p %PORT_FOR_9001%:9001 ^
+           -e SERVICE_CONTAINER_NAME=node-containter-%1 ^
+           -e SERVICE_ID=%1 ^
+           -e DISCOVERY_GRPC_HOST=discovery ^
+           -p 90%11:9001 ^
            %IMAGE_NAME%
 
-echo Container started!
+echo Container started. ID: %1

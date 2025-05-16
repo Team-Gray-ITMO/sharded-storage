@@ -6,6 +6,7 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientService;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
@@ -27,6 +28,7 @@ public class MasterApplication {
         var discoveryClient = GrpcClientCachingFactory.getInstance()
             .getClient(
                 getServerHost("discovery"),
+                getServerPort("discovery"),
                 DiscoveryClient::new
             );
 
@@ -36,8 +38,11 @@ public class MasterApplication {
 
         var masterClientService = new MasterClientService(topologyService);
 
+        var healthService = new HealthService();
+
         this.server = ServerBuilder.forPort(port)
             .addService(masterClientService)
+            .addService(healthService)
             .build();
     }
 

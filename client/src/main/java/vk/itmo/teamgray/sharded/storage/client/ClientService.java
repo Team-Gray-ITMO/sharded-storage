@@ -9,14 +9,14 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
-import vk.itmo.teamgray.sharded.storage.dto.MasterHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.SetFromFileResponseDTO;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils.getShardIdForKey;
@@ -46,6 +46,8 @@ public class ClientService {
     ) {
         this.masterClient = masterClient;
         this.discoveryClient = discoveryClient;
+
+        updateCaches();
     }
 
     /**
@@ -77,6 +79,9 @@ public class ClientService {
         if (server == null) {
             throw new IllegalStateException("Could not find server for key: " + key + " in shard " + shardId);
         }
+
+        //TODO Debug level
+        log.info("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
 
         return GrpcClientCachingFactory.getInstance()
             .getClient(
@@ -215,8 +220,8 @@ public class ClientService {
         return new ShardOnServer(server.id(), shard);
     }
 
-    public MasterHeartbeatResponseDTO sendMasterHeartbeat() {
-        return masterClient.sendHeartbeat();
+    public HeartbeatResponseDTO sendMasterHeartbeat() {
+        return masterClient.heartbeat();
     }
 
     /**

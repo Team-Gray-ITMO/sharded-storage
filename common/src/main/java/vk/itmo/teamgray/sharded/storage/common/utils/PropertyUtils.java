@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 
 public class PropertyUtils {
     private static final Properties SERVICE_PROPS = loadProperties("service.properties", false);

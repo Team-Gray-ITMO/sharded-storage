@@ -15,8 +15,6 @@ service MasterClientService {
   rpc DeleteServer (DeleteServerRequest) returns (DeleteServerResponse);
 
   rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
-
-  rpc Heartbeat (MasterHeartbeatRequest) returns (MasterHeartbeatResponse);
 }
 
 message GetServerToShardRequest {
@@ -65,14 +63,4 @@ message ChangeShardCountRequest {
 message ChangeShardCountResponse {
   bool success = 1;
   string message = 2;
-}
-
-message MasterHeartbeatRequest {
-  int64 timestamp = 1;
-}
-
-message MasterHeartbeatResponse {
-  bool healthy = 1;
-  int64 serverTimestamp = 2;
-  string statusMessage = 3;
 }

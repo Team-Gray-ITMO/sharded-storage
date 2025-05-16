@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
 import io.grpc.ManagedChannel;
-import java.time.Instant;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -9,7 +8,6 @@ import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.dto.AddServerResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.ChangeShardCountResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.DeleteServerResponseDTO;
-import vk.itmo.teamgray.sharded.storage.dto.MasterHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.master.client.AddServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.ChangeShardCountRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.DeleteServerRequest;
@@ -18,13 +16,10 @@ import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.master.client.MasterHeartbeatRequest;
-
-import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.MasterClientServiceBlockingStub> {
-    public MasterClient(String host) {
-        super(host, getServerPort("master"));
+    public MasterClient(String host, int port) {
+        super(host, port);
     }
 
     @Override
@@ -49,20 +44,6 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
 
         var response = blockingStub.deleteServer(request);
         return new DeleteServerResponseDTO(response.getMessage(), response.getSuccess());
-    }
-
-    public MasterHeartbeatResponseDTO sendHeartbeat() {
-        var response = blockingStub
-            .heartbeat(
-                MasterHeartbeatRequest.newBuilder()
-                    .setTimestamp(Instant.now().toEpochMilli())
-                    .build()
-            );
-        return new MasterHeartbeatResponseDTO(
-            response.getHealthy(),
-            response.getServerTimestamp(),
-            response.getStatusMessage()
-        );
     }
 
     //Doing map flipping on the client side to unload master.
