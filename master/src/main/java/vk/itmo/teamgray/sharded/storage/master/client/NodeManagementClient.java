@@ -29,7 +29,8 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
     public boolean rearrangeShards(
         Map<Integer, Long> relevantShardsToHash,
         List<FragmentDTO> relevantFragments,
-        List<ShardNodeMapping> relevantNodes
+        List<ShardNodeMapping> relevantNodes,
+        int fullShardCount
     ) {
         //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's make population method modular, so we can easily switch from gRPC.
         RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder()
@@ -44,6 +45,7 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
                         )
                     )
             )
+            .setFullShardCount(fullShardCount)
             .build();
 
         return blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)

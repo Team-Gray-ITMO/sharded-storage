@@ -47,10 +47,6 @@ public class TopologyService {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
-        if (shardToHash.isEmpty()) {
-            changeShardCount(1);
-        }
     }
 
     public ConcurrentHashMap<Integer, List<Integer>> getServerToShards() {
@@ -293,7 +289,13 @@ public class TopologyService {
                     );
 
                 attemptedNodes.add(serverId);
-                boolean success = nodeManagementClient.rearrangeShards(relevantSchemeSlice, relevantFragments, relevantNodes);
+                
+                boolean success = nodeManagementClient.rearrangeShards(
+                    relevantSchemeSlice,
+                    relevantFragments,
+                    relevantNodes,
+                    newShardToHash.size()
+                );
 
                 if (!success) {
                     log.error("RearrangeShards failed on node: {}. Initiating rollback.", server);

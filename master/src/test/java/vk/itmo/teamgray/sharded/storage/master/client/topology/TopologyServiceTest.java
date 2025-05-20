@@ -84,7 +84,8 @@ class TopologyServiceTest {
             .rearrangeShards(
                 argThat(shards -> shards.size() == shardCount / serverCount),
                 argThat(fragments -> fragments.size() == shardCount),
-                argThat(nodes -> nodes.size() == shardCount)
+                argThat(nodes -> nodes.size() == shardCount),
+                any()
             );
 
         //No fragments here, this server was not populated.
@@ -92,7 +93,8 @@ class TopologyServiceTest {
             .rearrangeShards(
                 argThat(shards -> shards.size() == shardCount / serverCount),
                 argThat(List::isEmpty),
-                argThat(List::isEmpty)
+                argThat(List::isEmpty),
+                any()
             );
 
         var newShardCount = 5;
@@ -103,6 +105,7 @@ class TopologyServiceTest {
             .rearrangeShards(
                 argThat(shards -> shards.size() == newShardCount / serverCount + 1),
                 argThat(fragments -> fragments.size() == 9),
+                any(),
                 any()
             );
 
@@ -110,6 +113,7 @@ class TopologyServiceTest {
             .rearrangeShards(
                 argThat(shards -> shards.size() == newShardCount / serverCount),
                 argThat(fragments -> fragments.size() == 5),
+                any(),
                 any()
             );
     }

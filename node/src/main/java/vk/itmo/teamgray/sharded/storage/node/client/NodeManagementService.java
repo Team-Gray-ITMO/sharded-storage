@@ -35,6 +35,8 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     private Map<Integer, ShardData> originalShardsBackup;
 
+    private int originalFullShardCount;
+
     public NodeManagementService(NodeStorageService nodeStorageService, DiscoveryClient discoveryClient) {
         this.nodeStorageService = nodeStorageService;
         this.discoveryClient = discoveryClient;
@@ -59,6 +61,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
     @Override
     public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<RearrangeShardsResponse> responseObserver) {
         this.originalShardsBackup = deepCopyShards(nodeStorageService.getShards());
+        this.originalFullShardCount = nodeStorageService.getFullShardCount();
 
         try {
             var shardToHash = request.getShardToHashMap();
@@ -155,7 +158,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 keysToRemoveSet.forEach(fragmentStorage::remove);
             });
 
-            nodeStorageService.replace(newShards);
+            nodeStorageService.replace(newShards, request.getFullShardCount());
             responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
 
             log.info("Shards rearranged");
@@ -236,7 +239,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         StreamObserver<RollbackTopologyChangeResponse> responseObserver) {
         if (this.originalShardsBackup != null) {
             try {
-                nodeStorageService.replace(this.originalShardsBackup);
+                nodeStorageService.replace(this.originalShardsBackup, this.originalFullShardCount);
                 this.originalShardsBackup = null;
                 responseObserver.onNext(
                     RollbackTopologyChangeResponse.newBuilder().setSuccess(true).setMessage("Rollback successful").build());

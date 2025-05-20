@@ -29,7 +29,7 @@ public class NodeNodeServiceTest {
         shards.put(2, new ShardData());
 
         nodeStorageService = new NodeStorageService();
-        nodeStorageService.replace(shards);
+        nodeStorageService.replace(shards, 3);
         nodeNodeService = new NodeNodeService(nodeStorageService);
     }
 

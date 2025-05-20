@@ -13,12 +13,10 @@ public class NodeStorageService {
 
     private Map<Integer, ShardData> shards = new ConcurrentHashMap<>();
 
-    public void set(String key, String value) {
-        var shardId = ShardUtils.getShardIdForKey(key, shards.size());
+    private int fullShardCount;
 
-        if (shardId == null || !shards.containsKey(shardId)) {
-            throw new NodeException("No shard found for key: " + key);
-        }
+    public void set(String key, String value) {
+        var shardId = getAndValidateShardId(key);
 
         //TODO Change to debug
         log.info("Setting key {} on shard {} to {}", key, shardId, value);
@@ -29,11 +27,7 @@ public class NodeStorageService {
     }
 
     public String get(String key) {
-        var shardId = ShardUtils.getShardIdForKey(key, shards.size());
-
-        if (shardId == null || !shards.containsKey(shardId)) {
-            throw new NodeException("No shard found for key: " + key);
-        }
+        var shardId = getAndValidateShardId(key);
 
         //TODO Change to debug
         log.info("Getting value for key {} on shard {}", key, shardId);
@@ -46,6 +40,20 @@ public class NodeStorageService {
         }
 
         return returnValue;
+    }
+
+    private Integer getAndValidateShardId(String key) {
+        var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
+
+        if (shardId == null) {
+            throw new NodeException("No shard found for key: " + key);
+        }
+
+        if (!shards.containsKey(shardId)) {
+            throw new NodeException("Shard " + shardId + " is not found on this node. Existing shards: " + shards.keySet());
+        }
+
+        return shardId;
     }
 
     public Map<Integer, ShardData> getShards() {
@@ -65,23 +73,30 @@ public class NodeStorageService {
         if (shards.containsKey(shardId)) {
             throw new NodeException("Shard already exists for id: " + shardId);
         }
+
         shards.put(shardId, new ShardData());
     }
 
     //TODO Add locks?
-    public void replace(Map<Integer, ShardData> newStorage) {
+    public void replace(Map<Integer, ShardData> newStorage, int fullShardCount) {
         log.info("Replacing shard scheme {}", newStorage);
 
         shards.clear();
         shards.putAll(newStorage);
 
+        this.fullShardCount = fullShardCount;
+
         log.info("Replaced shard scheme.");
     }
 
     public void checkKeyForShard(int shardId, String key) {
-        Integer shardIdForKey = ShardUtils.getShardIdForKey(key, shards.size());
+        Integer shardIdForKey = ShardUtils.getShardIdForKey(key, fullShardCount);
         if (shardIdForKey == null || shardIdForKey.compareTo(shardId) != 0) {
             throw new NodeException("Incorrect shard for key: " + key);
         }
+    }
+
+    public int getFullShardCount() {
+        return fullShardCount;
     }
 }
