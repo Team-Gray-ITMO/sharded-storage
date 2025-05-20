@@ -1,14 +1,11 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
 import io.grpc.ManagedChannel;
-import java.time.Instant;
 import java.util.function.Function;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
-import vk.itmo.teamgray.sharded.storage.dto.NodeHeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.dto.SetFromFileResponseDTO;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeHeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetFromFileRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
@@ -53,19 +50,5 @@ public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeCli
 
         var response = blockingStub.setFromFile(request);
         return new SetFromFileResponseDTO(response.getMessage(), response.getSuccess());
-    }
-
-    public NodeHeartbeatResponseDTO sendHeartbeat() {
-        var response = blockingStub
-            .heartbeat(
-                NodeHeartbeatRequest.newBuilder()
-                    .setTimestamp(Instant.now().toEpochMilli())
-                    .build()
-            );
-        return new NodeHeartbeatResponseDTO(
-            response.getHealthy(),
-            response.getServerTimestamp(),
-            response.getStatusMessage()
-        );
     }
 }

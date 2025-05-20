@@ -11,8 +11,6 @@ service NodeClientService {
   rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
 
   rpc SetFromFile (SetFromFileRequest) returns (SetFromFileResponse);
-
-  rpc Heartbeat (NodeHeartbeatRequest) returns (NodeHeartbeatResponse);
 }
 
 message GetKeyRequest {
@@ -41,14 +39,4 @@ message SetFromFileResponse {
   //TODO Negotiate format
   bool success = 1;
   string message = 2;
-}
-
-message NodeHeartbeatRequest {
-  int64 timestamp = 1;
-}
-
-message NodeHeartbeatResponse {
-  bool healthy = 1;
-  int64 serverTimestamp = 2;
-  string statusMessage = 3;
 }

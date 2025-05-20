@@ -2,16 +2,16 @@ package vk.itmo.teamgray.sharded.storage.client;
 
 import java.util.Map;
 import java.util.Scanner;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 
 public class CLI {
-    private final NodeClient nodeClient;
-    private final MasterClient masterClient;
+    private final ClientService clientService;
+
     private final Scanner scanner;
 
-    public CLI(NodeClient nodeClient, MasterClient masterClient) {
-        this.nodeClient = nodeClient;
-        this.masterClient = masterClient;
+    public CLI(ClientService clientService) {
+        this.clientService = clientService;
         this.scanner = new Scanner(System.in);
     }
 
@@ -45,8 +45,7 @@ public class CLI {
     private void printWelcomeMessage() {
         System.out.println("Welcome to Sharded Storage CLI!");
         System.out.println("Connected to:");
-        System.out.println("  Master: " + masterClient.getHost() + ":" + masterClient.getPort());
-        System.out.println("  Node: " + nodeClient.getHost() + ":" + nodeClient.getPort());
+        System.out.println("  Master: " + clientService.getMasterHost() + ":" + clientService.getMasterPort());
         printHelp();
     }
 
@@ -68,7 +67,7 @@ public class CLI {
         System.out.print("Enter key: ");
         String key = scanner.nextLine().trim();
         try {
-            String value = nodeClient.getKey(key);
+            String value = clientService.getValue(key);
             System.out.println("Value: " + value);
         } catch (Exception e) {
             System.err.println("Error getting value: " + e.getMessage());
@@ -81,7 +80,7 @@ public class CLI {
         System.out.print("Enter value: ");
         String value = scanner.nextLine().trim();
         try {
-            boolean success = nodeClient.setKey(key, value);
+            boolean success = clientService.setValue(key, value);
             System.out.println(success ? "Value set successfully" : "Failed to set value");
         } catch (Exception e) {
             System.err.println("Error setting value: " + e.getMessage());
@@ -92,7 +91,7 @@ public class CLI {
         System.out.print("Enter file path: ");
         String filePath = scanner.nextLine().trim();
         try {
-            var response = nodeClient.setFromFile(filePath);
+            var response = clientService.setFromFile(filePath);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -101,14 +100,12 @@ public class CLI {
     }
 
     private void handleAddServer() {
-        System.out.print("Enter server IP: ");
-        String ip = scanner.nextLine().trim();
-        System.out.print("Enter server port: ");
-        int port = Integer.parseInt(scanner.nextLine().trim());
+        System.out.print("Enter server ID: ");
+        int id = Integer.parseInt(scanner.nextLine().trim());
         System.out.print("Fork new instance? (y/n): ");
         boolean fork = scanner.nextLine().trim().equalsIgnoreCase("y");
         try {
-            var response = masterClient.addServer(ip, port, fork);
+            var response = clientService.addServer(id, fork);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -117,12 +114,10 @@ public class CLI {
     }
 
     private void handleDeleteServer() {
-        System.out.print("Enter server IP: ");
-        String ip = scanner.nextLine().trim();
-        System.out.print("Enter server port: ");
-        int port = Integer.parseInt(scanner.nextLine().trim());
+        System.out.print("Enter server ID: ");
+        int id = Integer.parseInt(scanner.nextLine().trim());
         try {
-            var response = masterClient.deleteServer(ip, port);
+            var response = clientService.deleteServer(id);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -134,7 +129,7 @@ public class CLI {
         System.out.print("Enter new shard count: ");
         int newCount = Integer.parseInt(scanner.nextLine().trim());
         try {
-            var response = masterClient.changeShardCount(newCount);
+            var response = clientService.changeShardCount(newCount);
             System.out.println(response.message());
             System.out.println(response.success() ? "Success" : "Failed");
         } catch (Exception e) {
@@ -144,16 +139,19 @@ public class CLI {
 
     private void handleGetTopology() {
         try {
-            Map<Integer, String> shardToServer = masterClient.getShardToServerMap();
-            Map<Long, Integer> hashToShard = masterClient.getHashToShardMap();
-            
+            Map<Integer, DiscoverableServiceDTO> shardToServer = clientService.getShardServerMapping();
+            Map<Long, Integer> hashToShard = clientService.getHashToShardMapping();
+
             System.out.println("\nShard to Server mapping:");
-            shardToServer.forEach((shard, server) -> 
-                System.out.println("  Shard " + shard + " -> " + server));
-            
+            shardToServer.forEach((shard, server) ->
+                System.out.println(
+                    "  Shard " + shard + " -> ID: " + server.id() + " Host: " + server.host() + "/" + server.containerName()));
+
             System.out.println("\nHash to Shard mapping:");
-            hashToShard.forEach((hash, shard) -> 
-                System.out.println("  Hash " + hash + " -> Shard " + shard));
+            hashToShard.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .forEach(entry ->
+                    System.out.println("  Hash " + entry.getKey() + " -> Shard " + entry.getValue()));
         } catch (Exception e) {
             System.err.println("Error getting topology: " + e.getMessage());
         }
@@ -161,16 +159,11 @@ public class CLI {
 
     private void handleHeartbeat() {
         try {
-            var masterResponse = masterClient.sendHeartbeat();
-            var nodeResponse = nodeClient.sendHeartbeat();
-            
+            var masterResponse = clientService.sendMasterHeartbeat();
+
             System.out.println("\nMaster Server Heartbeat:");
             System.out.println("  Healthy: " + masterResponse.healthy());
             System.out.println("  Status: " + masterResponse.statusMessage());
-            
-            System.out.println("\nNode Server Heartbeat:");
-            System.out.println("  Healthy: " + nodeResponse.healthy());
-            System.out.println("  Status: " + nodeResponse.statusMessage());
         } catch (Exception e) {
             System.err.println("Error sending heartbeat: " + e.getMessage());
         }

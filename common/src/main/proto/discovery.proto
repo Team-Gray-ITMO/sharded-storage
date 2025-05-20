@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.discovery";
+
+package vk.itmo.teamgray.sharded.storage;
+
+service DiscoveryService {
+  rpc RegisterService(ServiceInfo) returns (RegisterResponse);
+  rpc GetNode(IdRequest) returns (ServiceInfo);
+  rpc GetNodes(Empty) returns (NodeList);
+  rpc GetMaster(Empty) returns (ServiceInfo);
+  rpc GetClient(IdRequest) returns (ServiceInfo);
+  rpc GetClients(Empty) returns (ClientList);
+}
+
+message Empty {
+  // No-op.
+}
+message IdRequest {
+  int32 id = 1;
+}
+
+message ServiceInfo {
+  int32 id = 1;
+  string type = 2;
+  string host = 3;
+  string containerName = 4; // optional: populated if dockerized
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message NodeList {
+  repeated ServiceInfo nodes = 1;
+}
+
+message ClientList {
+  repeated ServiceInfo clients = 1;
+}

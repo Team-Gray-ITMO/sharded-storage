@@ -3,14 +3,19 @@ package vk.itmo.teamgray.sharded.storage.node;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import java.io.IOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeManagementService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeService;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeStorageService;
 
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class NodeApplication {
@@ -22,11 +27,24 @@ public class NodeApplication {
         NodeStorageService nodeStorageService = new NodeStorageService();
 
         int serverPort = getServerPort("node");
+
+        var discoveryClient = GrpcClientCachingFactory.getInstance()
+            .getClient(
+                getServerHost("discovery"),
+                getServerPort("discovery"),
+                DiscoveryClient::new
+            );
+
+        DiscoverableServiceDTO service = getDiscoverableService();
+
+        discoveryClient.register(service);
+
         activeServer = ServerBuilder.forPort(serverPort)
-                .addService(new NodeClientService(nodeStorageService))
-                .addService(new NodeManagementService(nodeStorageService))
-                .addService(new NodeNodeService(nodeStorageService))
-                .build();
+            .addService(new NodeClientService(nodeStorageService))
+            .addService(new NodeManagementService(nodeStorageService, discoveryClient))
+            .addService(new NodeNodeService(nodeStorageService))
+            .addService(new HealthService())
+            .build();
     }
 
     public Server getActiveServer() {
@@ -48,15 +66,15 @@ public class NodeApplication {
     }
 
     public void stop() {
-        if (activeServer != null && !activeServer.isShutdown()){
+        if (activeServer != null && !activeServer.isShutdown()) {
             activeServer.shutdown();
         }
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        NodeApplication storageService = new NodeApplication();
-        storageService.start();
+        NodeApplication nodeApplication = new NodeApplication();
+        nodeApplication.start();
 
-        storageService.getActiveServer().awaitTermination();
+        nodeApplication.getActiveServer().awaitTermination();
     }
 }

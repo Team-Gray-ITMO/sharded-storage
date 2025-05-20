@@ -15,16 +15,14 @@ service MasterClientService {
   rpc DeleteServer (DeleteServerRequest) returns (DeleteServerResponse);
 
   rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
-
-  rpc Heartbeat (MasterHeartbeatRequest) returns (MasterHeartbeatResponse);
 }
 
 message GetServerToShardRequest {
 }
 
 message GetServerToShardResponse{
-  // Map of server address (ip:port) to shard IDs
-  map<string, IntList> serverToShard = 1;
+  // Map of server IDs to shard IDs
+  map<int32, IntList> serverToShard = 1;
 }
 
 message GetShardToHashRequest {
@@ -40,21 +38,17 @@ message IntList {
 }
 
 message AddServerRequest {
-  //TODO Negotiate format
-  string ip = 1;
-  int32 port = 2;
+  int32 id = 1;
   bool forkNewInstance = 3;
 }
 
 message AddServerResponse {
-  //TODO Negotiate format
   bool success = 1;
   string message = 2;
 }
 
 message DeleteServerRequest {
-  string ip = 1;
-  int32 port = 2;
+  int32 id = 1;
 }
 
 message DeleteServerResponse {
@@ -69,14 +63,4 @@ message ChangeShardCountRequest {
 message ChangeShardCountResponse {
   bool success = 1;
   string message = 2;
-}
-
-message MasterHeartbeatRequest {
-  int64 timestamp = 1;
-}
-
-message MasterHeartbeatResponse {
-  bool healthy = 1;
-  int64 serverTimestamp = 2;
-  string statusMessage = 3;
 }

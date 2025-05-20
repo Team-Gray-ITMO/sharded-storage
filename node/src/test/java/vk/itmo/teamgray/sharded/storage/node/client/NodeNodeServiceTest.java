@@ -1,6 +1,8 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.stub.StreamObserver;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -8,16 +10,15 @@ import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentResponse;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 public class NodeNodeServiceTest {
 
     private NodeNodeService nodeNodeService;
+
     private NodeStorageService nodeStorageService;
 
     @BeforeEach

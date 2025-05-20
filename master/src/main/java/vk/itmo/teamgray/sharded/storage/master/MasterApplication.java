@@ -5,9 +5,14 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientService;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
 
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class MasterApplication {
@@ -20,11 +25,24 @@ public class MasterApplication {
     public MasterApplication(int port) {
         this.port = port;
 
-        var topologyService = new TopologyService();
+        var discoveryClient = GrpcClientCachingFactory.getInstance()
+            .getClient(
+                getServerHost("discovery"),
+                getServerPort("discovery"),
+                DiscoveryClient::new
+            );
+
+        discoveryClient.register(getDiscoverableService());
+
+        var topologyService = new TopologyService(discoveryClient);
+
         var masterClientService = new MasterClientService(topologyService);
+
+        var healthService = new HealthService();
 
         this.server = ServerBuilder.forPort(port)
             .addService(masterClientService)
+            .addService(healthService)
             .build();
     }
 

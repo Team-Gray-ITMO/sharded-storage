@@ -7,7 +7,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.text.MessageFormat;
-import java.time.Instant;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,23 +108,6 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
                 .setMessage(message)
                 .build()
         );
-
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void heartbeat(NodeHeartbeatRequest request, StreamObserver<NodeHeartbeatResponse> responseObserver) {
-        var now = Instant.now();
-
-        log.info("Received heartbeat request for: {} Sending heartbeat at {}", Instant.ofEpochMilli(request.getTimestamp()), now);
-
-        boolean isHealthy = true;
-
-        responseObserver.onNext(NodeHeartbeatResponse.newBuilder()
-            .setHealthy(isHealthy)
-            .setServerTimestamp(now.toEpochMilli())
-            .setStatusMessage("OK")
-            .build());
 
         responseObserver.onCompleted();
     }
