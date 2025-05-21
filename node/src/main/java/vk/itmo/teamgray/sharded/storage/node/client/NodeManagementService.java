@@ -132,8 +132,13 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                     Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
 
                     // TODO Set level to debug
-                    log.info("Moving fragment {}-{} from shard {} to shard {}", fragment.rangeFrom(), fragment.rangeTo(), oldShardId,
-                        fragment.newShardId());
+                    log.info(
+                        "Moving fragment [{}]-[{}] from shard {} to shard {}",
+                        fragment.rangeFrom(),
+                        fragment.rangeTo(),
+                        oldShardId,
+                        fragment.newShardId()
+                    );
 
                     var fragmentsToSend = fragmentStorage.entrySet().stream()
                         .filter(entry -> {

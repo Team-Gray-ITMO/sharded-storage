@@ -32,7 +32,12 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         // TODO Set debug level
         log.info("Received shard {}. Processing", request.getShardId());
 
+        // TODO Looks like we have a problem: we need to push those changes to staged shards, not to existing ones!!!
         try {
+            if (!nodeStorageService.containsShard(request.getShardId())) {
+                throw new NodeException("Shard " + request.getShardId() + " does not exist");
+            }
+
             shard.forEach((key, value) -> {
                 nodeStorageService.checkKeyForShard(shardId, key);
                 nodeStorageService.set(key, value);
@@ -65,7 +70,12 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         // TODO Set debug level
         log.info("Received fragment for shard {}. Processing", shardId);
 
+        // TODO Looks like we have a problem: we need to push those changes to staged shards, not to existing ones!!!
         try {
+            if (!nodeStorageService.containsShard(request.getShardId())) {
+                throw new NodeException("Shard " + request.getShardId() + " does not exist");
+            }
+
             request.getShardFragmentsMap()
                 .forEach((key, value) -> {
                     nodeStorageService.checkKeyForShard(shardId, key);
