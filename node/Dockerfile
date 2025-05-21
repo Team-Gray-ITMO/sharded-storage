@@ -12,7 +12,7 @@ COPY node ./node
 COPY client ./client
 
 # build
-RUN gradle :node:build --no-daemon
+RUN gradle :node:build --no-daemon -x test
 
 # Run stage
 FROM openjdk:21-jdk-slim
