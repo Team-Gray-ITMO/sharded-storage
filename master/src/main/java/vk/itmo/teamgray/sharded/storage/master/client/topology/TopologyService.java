@@ -118,13 +118,17 @@ public class TopologyService {
                 Collections.list(shardToHash.keys())
             );
 
-            handleShardMovement(oldServerToShards, newServerToShards);
+            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
 
-            replaceServerToShards(newServerToShards);
+            if (result.success()) {
+                replaceServerToShards(newServerToShards);
 
-            log.info("Added server {}", serverId);
+                log.info("Added server {}", serverId);
 
-            return new StatusResponseDTO(true, "SERVER ADDED");
+                return new StatusResponseDTO(true, "SERVER ADDED");
+            } else {
+                return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.message());
+            }
         } finally {
             lock.writeLock().unlock();
         }
@@ -149,24 +153,30 @@ public class TopologyService {
                 Collections.list(shardToHash.keys())
             );
 
-            // move shards to new server
-            handleShardMovement(oldServerToShards, newServerToShards);
+            // move shards to the new server
+            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
 
-            log.info("Removed server {}", serverId);
+            if (result.success()) {
+                log.info("Removed server {}", serverId);
 
-            replaceServerToShards(newServerToShards);
+                replaceServerToShards(newServerToShards);
 
-            return new StatusResponseDTO(true, "SERVER REMOVED");
+                return new StatusResponseDTO(true, "SERVER REMOVED");
+            } else {
+                return new StatusResponseDTO(false, "Could not delete server: " + System.lineSeparator() + result.message());
+            }
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private void handleShardMovement(
+    private StatusResponseDTO handleShardMovement(
         ConcurrentHashMap<Integer, List<Integer>> oldMapping,
         ConcurrentHashMap<Integer, List<Integer>> newMapping
     ) {
         Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(oldMapping.keySet());
+
+        List<String> errorMessages = new ArrayList<>();
 
         // find shards that need to be moved
         for (Map.Entry<Integer, List<Integer>> oldEntry : oldMapping.entrySet()) {
@@ -188,12 +198,29 @@ public class TopologyService {
                             NodeManagementClient::new
                         );
 
-                    boolean success = nodeManagementClient.moveShard(shardId, targetServer);
-                    if (!success) {
-                        log.error("Failed to move shard {} from {} to {}", shardId, sourceServer, targetServer);
+                    StatusResponseDTO response = nodeManagementClient.moveShard(shardId, targetServer);
+
+                    if (!response.success()) {
+                        //TODO Consider rollback
+                        var message = "Failed to move shard " + shardId
+                            + " from " + sourceServer
+                            + " to " + targetServer + ":"
+                            + System.lineSeparator()
+                            + sourceServer.getIdForLogging() + ": "
+                            + response.message();
+
+                        log.error(message);
+
+                        errorMessages.add(message);
                     }
                 }
             }
+        }
+
+        if (errorMessages.isEmpty()) {
+            return new StatusResponseDTO(true, "Shards Moved");
+        } else {
+            return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
         }
     }
 
@@ -283,7 +310,7 @@ public class TopologyService {
                     relevantNodes
                 );
 
-                var server = nodes.get(serverId);
+                DiscoverableServiceDTO server = nodes.get(serverId);
 
                 //TODO Invert mapping and revert on the node side.
                 NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
@@ -304,7 +331,7 @@ public class TopologyService {
 
                 if (!response.success()) {
                     log.error("RearrangeShards failed on node: {}. Initiating rollback. Error message: {}", server, response.message());
-                    errorMessages.push("[Node " + server.id() + "]:" + response.message());
+                    errorMessages.push(server.getIdForLogging() + ": " + response.message());
                     oneNodeFailed = true;
                     break;
                 }

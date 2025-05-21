@@ -2,6 +2,8 @@ package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.stub.StreamObserver;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
@@ -10,8 +12,9 @@ import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardResponse;
 
 public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase {
+    private static final Logger log = LoggerFactory.getLogger(NodeNodeService.class);
 
-    private final String SUCCESS_MESSAGE = "SUCCESS";
+    private static final String SUCCESS_MESSAGE = "SUCCESS";
 
     private final NodeStorageService nodeStorageService;
 
@@ -26,45 +29,59 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         boolean success = true;
         String message = SUCCESS_MESSAGE;
 
+        // TODO Set debug level
+        log.info("Received shard {}. Processing", request.getShardId());
+
         try {
-            for (Map.Entry<String, String> entry : shard.entrySet()) {
-                nodeStorageService.checkKeyForShard(shardId, entry.getKey());
-                nodeStorageService.set(entry.getKey(), entry.getValue());
-            }
+            shard.forEach((key, value) -> {
+                nodeStorageService.checkKeyForShard(shardId, key);
+                nodeStorageService.set(key, value);
+            });
         } catch (Exception e) {
             success = false;
             message = "ERROR: " + e.getMessage();
+
+            log.error(message, e);
         }
 
         SendShardResponse response = SendShardResponse.newBuilder()
-                .setSuccess(success)
-                .setMessage(message)
-                .build();
+            .setSuccess(success)
+            .setMessage(message)
+            .build();
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void sendShardFragment(SendShardFragmentRequest request,
-        StreamObserver<SendShardFragmentResponse> responseObserver) {
+    public void sendShardFragment(
+        SendShardFragmentRequest request,
+        StreamObserver<SendShardFragmentResponse> responseObserver
+    ) {
         boolean success = true;
         String message = SUCCESS_MESSAGE;
+        int shardId = request.getShardId();
+
+        // TODO Set debug level
+        log.info("Received fragment for shard {}. Processing", shardId);
 
         try {
-            if (!nodeStorageService.containsShard(request.getShardId())) {
-                nodeStorageService.addNewShard(request.getShardId());
-            }
-            request.getShardFragmentsMap().forEach(nodeStorageService::set);
+            request.getShardFragmentsMap()
+                .forEach((key, value) -> {
+                    nodeStorageService.checkKeyForShard(shardId, key);
+                    nodeStorageService.set(key, value);
+                });
         } catch (NodeException e) {
             success = false;
             message = "ERROR: " + e.getMessage();
+
+            log.error(message, e);
         }
 
         responseObserver.onNext(SendShardFragmentResponse.newBuilder()
-                .setSuccess(success)
-                .setMessage(message)
-                .build());
+            .setSuccess(success)
+            .setMessage(message)
+            .build());
 
         responseObserver.onCompleted();
     }

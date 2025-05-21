@@ -56,14 +56,15 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
-    public boolean moveShard(int shardId, int serverId) {
+    public StatusResponseDTO moveShard(int shardId, int serverId) {
         MoveShardRequest request = MoveShardRequest.newBuilder()
             .setShardId(shardId)
             .setTargetServer(serverId)
             .build();
 
         MoveShardResponse response = blockingStub.moveShard(request);
-        return response.getSuccess();
+
+        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 
     public boolean rollbackTopologyChange() {
