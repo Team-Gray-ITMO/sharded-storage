@@ -120,7 +120,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 ? Collections.emptyMap()
                 : request.getServerByShardNumberMap();
 
-            Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.keySet());
+            Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.values());
 
             externalFragments.stream()
                 .filter(it -> existingShards.containsKey(it.oldShardId()))
