@@ -164,8 +164,16 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
             log.info("Shards rearranged");
 
         } catch (Exception e) {
+            String message = "Failed during rearrange: ";
+
+            log.error(message, e);
+
             responseObserver.onNext(
-                RearrangeShardsResponse.newBuilder().setSuccess(false).setMessage("Failed during rearrange: " + e.getMessage()).build());
+                RearrangeShardsResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage(message + e.getMessage())
+                    .build())
+            ;
         } finally {
             responseObserver.onCompleted();
         }
@@ -246,12 +254,20 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
             } catch (Exception e) {
                 log.error("Error during node rollback while replacing shards", e);
                 responseObserver.onNext(
-                    RollbackTopologyChangeResponse.newBuilder().setSuccess(false).setMessage("Rollback failed").build());
+                    RollbackTopologyChangeResponse.newBuilder()
+                        .setSuccess(false)
+                        .setMessage("Rollback failed")
+                        .build()
+                );
             }
         } else {
             log.warn("Node rollback called but no backup found.");
             responseObserver.onNext(
-                RollbackTopologyChangeResponse.newBuilder().setSuccess(false).setMessage("No data for rollback").build());
+                RollbackTopologyChangeResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage("No data for rollback")
+                    .build()
+            );
         }
         responseObserver.onCompleted();
     }

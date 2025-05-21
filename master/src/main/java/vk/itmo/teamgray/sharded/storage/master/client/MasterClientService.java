@@ -44,7 +44,7 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
         responseObserver.onNext(
             AddServerResponse.newBuilder()
-                .setSuccess(result.created())
+                .setSuccess(result.success())
                 .setMessage(result.message())
                 .build()
         );
@@ -58,7 +58,7 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
         responseObserver.onNext(
             DeleteServerResponse.newBuilder()
-                .setSuccess(result.deleted())
+                .setSuccess(result.success())
                 .setMessage(result.message())
                 .build()
         );
@@ -68,12 +68,12 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
     @Override
     public void changeShardCount(ChangeShardCountRequest request, StreamObserver<ChangeShardCountResponse> responseObserver) {
-        var success = topologyService.changeShardCount(request.getNewShardCount());
+        var result = topologyService.changeShardCount(request.getNewShardCount());
 
         responseObserver.onNext(
             ChangeShardCountResponse.newBuilder()
-                .setSuccess(success)
-                .setMessage("SUCCESS")
+                .setSuccess(result.success())
+                .setMessage(result.message())
                 .build()
         );
 

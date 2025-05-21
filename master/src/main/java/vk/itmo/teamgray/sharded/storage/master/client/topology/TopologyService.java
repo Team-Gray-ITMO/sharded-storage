@@ -1,9 +1,12 @@
 package vk.itmo.teamgray.sharded.storage.master.client.topology;
 
+import io.grpc.netty.shaded.io.netty.util.internal.StringUtil;
 import java.math.BigInteger;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
@@ -95,13 +99,13 @@ public class TopologyService {
         }
     }
 
-    public AddServerResult addServer(int serverId) {
+    public StatusResponseDTO addServer(int serverId) {
         lock.writeLock().lock();
         try {
             log.info("Adding server {}", serverId);
 
             if (serverToShards.containsKey(serverId)) {
-                return new AddServerResult(false, "SERVER NOT ADDED");
+                return new StatusResponseDTO(false, "SERVER NOT ADDED");
             }
 
             var updatedServers = Collections.list(serverToShards.keys());
@@ -120,19 +124,19 @@ public class TopologyService {
 
             log.info("Added server {}", serverId);
 
-            return new AddServerResult(true, "SERVER ADDED");
+            return new StatusResponseDTO(true, "SERVER ADDED");
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    public DeleteServerResult deleteServer(int serverId) {
+    public StatusResponseDTO deleteServer(int serverId) {
         lock.writeLock().lock();
         try {
             log.info("Removing server {}", serverId);
 
             if (!serverToShards.containsKey(serverId)) {
-                return new DeleteServerResult(false, "SERVER NOT REMOVED");
+                return new StatusResponseDTO(false, "SERVER NOT REMOVED");
             }
 
             var updatedServers = Collections.list(serverToShards.keys()).stream()
@@ -152,7 +156,7 @@ public class TopologyService {
 
             replaceServerToShards(newServerToShards);
 
-            return new DeleteServerResult(true, "SERVER REMOVED");
+            return new StatusResponseDTO(true, "SERVER REMOVED");
         } finally {
             lock.writeLock().unlock();
         }
@@ -205,7 +209,7 @@ public class TopologyService {
         return null;
     }
 
-    public boolean changeShardCount(int shardCount) {
+    public StatusResponseDTO changeShardCount(int shardCount) {
         lock.writeLock().lock();
         try {
             log.info("Changing shard count to {}", shardCount);
@@ -247,6 +251,7 @@ public class TopologyService {
 
             boolean oneNodeFailed = false;
             List<Integer> attemptedNodes = new ArrayList<>();
+            Deque<String> errorMessages = new ArrayDeque<>();
 
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
@@ -289,23 +294,28 @@ public class TopologyService {
                     );
 
                 attemptedNodes.add(serverId);
-                
-                boolean success = nodeManagementClient.rearrangeShards(
+
+                StatusResponseDTO response = nodeManagementClient.rearrangeShards(
                     relevantSchemeSlice,
                     relevantFragments,
                     relevantNodes,
                     newShardToHash.size()
                 );
 
-                if (!success) {
-                    log.error("RearrangeShards failed on node: {}. Initiating rollback.", server);
+                if (!response.success()) {
+                    log.error("RearrangeShards failed on node: {}. Initiating rollback. Error message: {}", server, response.message());
+                    errorMessages.push("[Node " + server.id() + "]:" + response.message());
                     oneNodeFailed = true;
                     break;
                 }
             }
 
             if (oneNodeFailed) {
-                log.warn("One or more nodes failed during rearrange. Rolling back.");
+                String rollbackMessage = "One or more nodes failed during rearrange. Rolling back.";
+
+                log.warn(rollbackMessage);
+                errorMessages.push(rollbackMessage);
+
                 for (Integer nodeIdToRollback : attemptedNodes) {
                     var nodeToRollback = nodes.get(nodeIdToRollback);
 
@@ -316,21 +326,28 @@ public class TopologyService {
                         );
 
                     boolean rollbackSuccess = client.rollbackTopologyChange();
+
                     if (!rollbackSuccess) {
-                        log.error("Rollback failed for node {}. System may be inconsistent.", nodeToRollback);
+                        String rollbackFailedMessage = "Rollback failed for node " + nodeToRollback + ". System may be inconsistent.";
+                        log.error(rollbackFailedMessage);
+                        errorMessages.push(rollbackFailedMessage);
                     }
                 }
+
                 this.shardToHash = originalShardToHash;
                 this.serverToShards = originalServerToShards;
 
-                log.info("changeShardCount failed");
-                return false;
+                log.info("Change Shard Count Failed");
+
+                return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
             } else {
                 replaceBothMaps(newShardToHash, newServerToShards);
 
-                log.info("Changed shard count");
+                String message = "Changed shard count successfully.";
 
-                return true;
+                log.info(message);
+
+                return new StatusResponseDTO(true, message);
             }
         } finally {
             lock.writeLock().unlock();

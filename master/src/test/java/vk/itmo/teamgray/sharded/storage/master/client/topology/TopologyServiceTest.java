@@ -32,8 +32,8 @@ class TopologyServiceTest {
     //TODO Adjust test and add gRPC stubs for responses.
     @Test
     void addServerDistributesShardsEvenly() {
-        assertTrue(topologyService.addServer(1).created());
-        assertTrue(topologyService.addServer(2).created());
+        assertTrue(topologyService.addServer(1).success());
+        assertTrue(topologyService.addServer(2).success());
 
         ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(2, serverToShards.size());
@@ -45,7 +45,7 @@ class TopologyServiceTest {
     void addServerFailsIfAlreadyExists() {
         topologyService.addServer(1);
 
-        assertFalse(topologyService.addServer(1).created());
+        assertFalse(topologyService.addServer(1).success());
     }
 
     //TODO Adjust test and add gRPC stubs for responses.
@@ -55,7 +55,7 @@ class TopologyServiceTest {
         topologyService.addServer(1);
         topologyService.addServer(2);
 
-        assertTrue(topologyService.deleteServer(1).deleted());
+        assertTrue(topologyService.deleteServer(1).success());
 
         ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(1, serverToShards.size());
@@ -64,7 +64,7 @@ class TopologyServiceTest {
 
     @Test
     void deleteServerFailsIfServerDoesNotExist() {
-        assertFalse(topologyService.deleteServer(1).deleted());
+        assertFalse(topologyService.deleteServer(1).success());
     }
 
     //TODO Adjust test and add gRPC stubs for responses.

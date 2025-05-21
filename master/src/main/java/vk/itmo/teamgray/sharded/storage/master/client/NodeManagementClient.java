@@ -7,12 +7,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.master.client.topology.ShardNodeMapping;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeResponse;
 
@@ -26,7 +28,7 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return NodeManagementServiceGrpc::newBlockingStub;
     }
 
-    public boolean rearrangeShards(
+    public StatusResponseDTO rearrangeShards(
         Map<Integer, Long> relevantShardsToHash,
         List<FragmentDTO> relevantFragments,
         List<ShardNodeMapping> relevantNodes,
@@ -48,9 +50,10 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
             .setFullShardCount(fullShardCount)
             .build();
 
-        return blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .rearrangeShards(request)
-            .getSuccess();
+        RearrangeShardsResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .rearrangeShards(request);
+
+        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
     public boolean moveShard(int shardId, int serverId) {
