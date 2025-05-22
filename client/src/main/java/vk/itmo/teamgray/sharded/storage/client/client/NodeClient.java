@@ -2,7 +2,7 @@ package vk.itmo.teamgray.sharded.storage.client.client;
 
 import io.grpc.ManagedChannel;
 import java.util.function.Function;
-import vk.itmo.teamgray.sharded.storage.client.dto.SetFromFileResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
@@ -43,12 +43,12 @@ public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeCli
         return value;
     }
 
-    public SetFromFileResponseDTO setFromFile(String filePath) {
+    public StatusResponseDTO setFromFile(String filePath) {
         SetFromFileRequest request = SetFromFileRequest.newBuilder()
             .setFilePath(filePath)
             .build();
 
         var response = blockingStub.setFromFile(request);
-        return new SetFromFileResponseDTO(response.getMessage(), response.getSuccess());
+        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 }

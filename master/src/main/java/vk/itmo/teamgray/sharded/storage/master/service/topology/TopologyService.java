@@ -123,14 +123,14 @@ public class TopologyService {
 
             StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
 
-            if (result.success()) {
+            if (result.isSuccess()) {
                 replaceServerToShards(newServerToShards);
 
                 log.info("Added server {}", serverId);
 
                 return new StatusResponseDTO(true, "SERVER ADDED");
             } else {
-                return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.message());
+                return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
             lock.writeLock().unlock();
@@ -159,14 +159,14 @@ public class TopologyService {
             // move shards to the new server
             StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
 
-            if (result.success()) {
+            if (result.isSuccess()) {
                 log.info("Removed server {}", serverId);
 
                 replaceServerToShards(newServerToShards);
 
                 return new StatusResponseDTO(true, "SERVER REMOVED");
             } else {
-                return new StatusResponseDTO(false, "Could not delete server: " + System.lineSeparator() + result.message());
+                return new StatusResponseDTO(false, "Could not delete server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
             lock.writeLock().unlock();
@@ -202,14 +202,14 @@ public class TopologyService {
 
                     StatusResponseDTO response = nodeManagementClient.moveShard(shardId, targetServer);
 
-                    if (!response.success()) {
+                    if (!response.isSuccess()) {
                         //TODO Consider rollback
                         var message = "Failed to move shard " + shardId
                             + " from " + sourceServer
                             + " to " + targetServer + ":"
                             + System.lineSeparator()
                             + sourceServer.getIdForLogging() + ": "
-                            + response.message();
+                            + response.getMessage();
 
                         log.error(message);
 
@@ -330,9 +330,9 @@ public class TopologyService {
                     newShardToHash.size()
                 );
 
-                if (!response.success()) {
-                    log.error("RearrangeShards failed on node: {}. Initiating rollback. Error message: {}", server, response.message());
-                    errorMessages.push(server.getIdForLogging() + ": " + response.message());
+                if (!response.isSuccess()) {
+                    log.error("RearrangeShards failed on node: {}. Initiating rollback. Error message: {}", server, response.getMessage());
+                    errorMessages.push(server.getIdForLogging() + ": " + response.getMessage());
                     oneNodeFailed = true;
                     break;
                 }

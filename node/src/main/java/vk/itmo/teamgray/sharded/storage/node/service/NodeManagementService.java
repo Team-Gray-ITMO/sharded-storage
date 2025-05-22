@@ -1,6 +1,5 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
-import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -12,22 +11,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.Empty;
-import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeClient;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
-// TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
-public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
+public class NodeManagementService {
     private static final Logger log = LoggerFactory.getLogger(NodeManagementService.class);
 
     private final NodeStorageService nodeStorageService;
@@ -60,14 +54,16 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         return copy;
     }
 
-    @Override
-    public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void rearrangeShards(
+        Map<Integer, Long> shardToHash,
+        List<FragmentDTO> fragments,
+        Map<Integer, Integer> serverByShardNumber,
+        int fullShardCount,
+        StatusResponseWriter responseWriter) {
         this.originalShardsBackup = deepCopyShards(nodeStorageService.getShards());
         this.originalFullShardCount = nodeStorageService.getFullShardCount();
 
         try {
-            var shardToHash = request.getShardToHashMap();
-
             log.info("Rearranging shards. [request={}]", shardToHash);
 
             Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
@@ -76,15 +72,12 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
             shardToHashMap.sort(Comparator.comparingLong(Map.Entry::getValue));
 
             if (shardToHashMap.isEmpty()) {
-                responseObserver.onNext(StatusResponse.newBuilder().setSuccess(true).build());
+                responseWriter.writeResponse(true, "");
+
                 return;
             }
 
             shardToHashMap.forEach(shard -> newShards.put(shard.getKey(), new ShardData()));
-
-            var fragments = request.getFragmentsList().stream()
-                .map(FragmentDTO::fromGrpc)
-                .toList();
 
             var localFragments = fragments.stream()
                 .filter(fragment -> newShards.containsKey(fragment.newShardId()))
@@ -119,7 +112,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
             Map<Integer, Integer> nodesByShard = externalFragments.isEmpty()
                 ? Collections.emptyMap()
-                : request.getServerByShardNumberMap();
+                : serverByShardNumber;
 
             Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.values());
 
@@ -157,12 +150,12 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
                     StatusResponseDTO moveResponse = moveShardFragment(node, fragment.newShardId(), fragmentsToSend);
 
-                    if (!moveResponse.success()) {
+                    if (!moveResponse.isSuccess()) {
                         throw new IllegalStateException(
                             "Failed to move shard fragment: "
                                 + System.lineSeparator()
                                 + node.getIdForLogging() + ": "
-                                + moveResponse.message()
+                                + moveResponse.getMessage()
                         );
                     }
 
@@ -175,8 +168,8 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 keysToRemoveSet.forEach(fragmentStorage::remove);
             });
 
-            nodeStorageService.replace(newShards, request.getFullShardCount());
-            responseObserver.onNext(StatusResponse.newBuilder().setSuccess(true).build());
+            nodeStorageService.replace(newShards, fullShardCount);
+            responseWriter.writeResponse(true, "");
 
             log.info("Shards rearranged");
 
@@ -185,14 +178,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
             log.error(message, e);
 
-            responseObserver.onNext(
-                StatusResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage(message + e.getMessage())
-                    .build())
-            ;
-        } finally {
-            responseObserver.onCompleted();
+            responseWriter.writeResponse(false, message + e.getMessage());
         }
     }
 
@@ -210,21 +196,15 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         return nodeNodeClient.sendShardFragment(newShardId, fragmentsToSend);
     }
 
-    @Override
-    public void moveShard(MoveShardRequest request, StreamObserver<StatusResponse> responseObserver) {
-        int shardId = request.getShardId();
-
-        DiscoverableServiceDTO targetServer = discoveryClient.getNode(request.getTargetServer());
+    public void moveShard(int shardId, int targetServerId, StatusResponseWriter responseWriter) {
+        DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
 
         log.info("Request to move shard {} to {}", shardId, targetServer);
 
         Map<Integer, ShardData> existingShards = nodeStorageService.getShards();
         if (!existingShards.containsKey(shardId)) {
-            responseObserver.onNext(StatusResponse.newBuilder()
-                .setSuccess(false)
-                .setMessage("Shard " + shardId + " not found in this node")
-                .build());
-            responseObserver.onCompleted();
+            responseWriter.writeResponse(false, "Shard " + shardId + " not found in this node");
+
             return;
         }
 
@@ -233,27 +213,20 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
         StatusResponseDTO sendResponse = sendShard(shardId, shardData, targetServer);
 
-        if (sendResponse.success()) {
+        if (sendResponse.isSuccess()) {
             // remove shard only after a successful transfer
             nodeStorageService.removeShard(shardId);
 
-            responseObserver.onNext(StatusResponse.newBuilder()
-                .setSuccess(true)
-                .setMessage("Shard successfully moved")
-                .build());
+            responseWriter.writeResponse(true, "Shard successfully moved");
         } else {
-            responseObserver.onNext(StatusResponse.newBuilder()
-                .setSuccess(false)
-                .setMessage(
-                    "Failed to send shard to target server: "
-                        + System.lineSeparator()
-                        + targetServer.getIdForLogging() + ": "
-                        + sendResponse.message()
-                )
-                .build());
+            responseWriter.writeResponse(
+                false,
+                "Failed to send shard to target server: "
+                    + System.lineSeparator()
+                    + targetServer.getIdForLogging() + ": "
+                    + sendResponse.getMessage()
+            );
         }
-
-        responseObserver.onCompleted();
     }
 
     private StatusResponseDTO sendShard(int shardId, Map<String, String> shardData, DiscoverableServiceDTO targetServer) {
@@ -270,33 +243,22 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         return nodeNodeClient.sendShard(shardId, shardData);
     }
 
-    @Override
-    public void rollbackTopologyChange(Empty request,
-        StreamObserver<StatusResponse> responseObserver) {
+    public void rollbackTopologyChange(StatusResponseWriter responseWriter) {
         if (this.originalShardsBackup != null) {
             try {
                 nodeStorageService.replace(this.originalShardsBackup, this.originalFullShardCount);
                 this.originalShardsBackup = null;
-                responseObserver.onNext(
-                    StatusResponse.newBuilder().setSuccess(true).setMessage("Rollback successful").build());
+
+                responseWriter.writeResponse(true, "Rollback successful");
             } catch (Exception e) {
                 log.error("Error during node rollback while replacing shards", e);
-                responseObserver.onNext(
-                    StatusResponse.newBuilder()
-                        .setSuccess(false)
-                        .setMessage("Rollback failed")
-                        .build()
-                );
+
+                responseWriter.writeResponse(false, "Rollback failed");
             }
         } else {
             log.warn("Node rollback called but no backup found.");
-            responseObserver.onNext(
-                StatusResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage("No data for rollback")
-                    .build()
-            );
+
+            responseWriter.writeResponse(false, "No data for rollback");
         }
-        responseObserver.onCompleted();
     }
 }

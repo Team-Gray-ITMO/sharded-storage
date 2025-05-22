@@ -93,8 +93,8 @@ public class CLI {
         String filePath = scanner.nextLine().trim();
         try {
             var response = clientService.setFromFile(filePath);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error setting from file: " + e.getMessage());
         }
@@ -107,8 +107,8 @@ public class CLI {
         boolean fork = scanner.nextLine().trim().equalsIgnoreCase("y");
         try {
             var response = clientService.addServer(id, fork);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error adding server: " + e.getMessage());
         }
@@ -119,8 +119,8 @@ public class CLI {
         int id = Integer.parseInt(scanner.nextLine().trim());
         try {
             var response = clientService.deleteServer(id);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error deleting server: " + e.getMessage());
         }
@@ -131,8 +131,8 @@ public class CLI {
         int newCount = Integer.parseInt(scanner.nextLine().trim());
         try {
             var response = clientService.changeShardCount(newCount);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error changing shard count: " + e.getMessage());
         }

@@ -4,9 +4,7 @@ import io.grpc.ManagedChannel;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import vk.itmo.teamgray.sharded.storage.client.dto.AddServerResponseDTO;
-import vk.itmo.teamgray.sharded.storage.client.dto.ChangeShardCountResponseDTO;
-import vk.itmo.teamgray.sharded.storage.client.dto.DeleteServerResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.master.client.AddServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.ChangeShardCountRequest;
@@ -27,23 +25,23 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
         return MasterClientServiceGrpc::newBlockingStub;
     }
 
-    public AddServerResponseDTO addServer(int server, boolean forkNewInstance) {
+    public StatusResponseDTO addServer(int server, boolean forkNewInstance) {
         AddServerRequest request = AddServerRequest.newBuilder()
             .setId(server)
             .setForkNewInstance(forkNewInstance)
             .build();
 
         var response = blockingStub.addServer(request);
-        return new AddServerResponseDTO(response.getMessage(), response.getSuccess());
+        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 
-    public DeleteServerResponseDTO deleteServer(int server) {
+    public StatusResponseDTO deleteServer(int server) {
         DeleteServerRequest request = DeleteServerRequest.newBuilder()
             .setId(server)
             .build();
 
         var response = blockingStub.deleteServer(request);
-        return new DeleteServerResponseDTO(response.getMessage(), response.getSuccess());
+        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 
     //Doing map flipping on the client side to unload master.
@@ -76,12 +74,12 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
             );
     }
 
-    public ChangeShardCountResponseDTO changeShardCount(int newShardCount) {
+    public StatusResponseDTO changeShardCount(int newShardCount) {
         ChangeShardCountRequest request = ChangeShardCountRequest.newBuilder()
             .setNewShardCount(newShardCount)
             .build();
 
         var response = blockingStub.changeShardCount(request);
-        return new ChangeShardCountResponseDTO(response.getMessage(), response.getSuccess());
+        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 }

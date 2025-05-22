@@ -56,8 +56,8 @@ class TopologyServiceTest {
 
     @Test
     void addServerDistributesShardsEvenly() {
-        assertTrue(topologyService.addServer(1).success());
-        assertTrue(topologyService.addServer(2).success());
+        assertTrue(topologyService.addServer(1).isSuccess());
+        assertTrue(topologyService.addServer(2).isSuccess());
 
         ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(2, serverToShards.size());
@@ -69,7 +69,7 @@ class TopologyServiceTest {
     void addServerFailsIfAlreadyExists() {
         topologyService.addServer(1);
 
-        assertFalse(topologyService.addServer(1).success());
+        assertFalse(topologyService.addServer(1).isSuccess());
     }
 
     @Test
@@ -77,7 +77,7 @@ class TopologyServiceTest {
         topologyService.addServer(1);
         topologyService.addServer(2);
 
-        assertTrue(topologyService.deleteServer(1).success());
+        assertTrue(topologyService.deleteServer(1).isSuccess());
 
         ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(1, serverToShards.size());
@@ -86,7 +86,7 @@ class TopologyServiceTest {
 
     @Test
     void deleteServerFailsIfServerDoesNotExist() {
-        assertFalse(topologyService.deleteServer(1).success());
+        assertFalse(topologyService.deleteServer(1).isSuccess());
     }
 
     // TODO Double-check test logic

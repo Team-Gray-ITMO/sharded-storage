@@ -11,12 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
 import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
-import vk.itmo.teamgray.sharded.storage.client.dto.AddServerResponseDTO;
-import vk.itmo.teamgray.sharded.storage.client.dto.ChangeShardCountResponseDTO;
-import vk.itmo.teamgray.sharded.storage.client.dto.DeleteServerResponseDTO;
-import vk.itmo.teamgray.sharded.storage.client.dto.SetFromFileResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
@@ -114,7 +111,7 @@ public class ClientService {
      *
      * @return result of set operation
      */
-    public SetFromFileResponseDTO setFromFile(String filePath) {
+    public StatusResponseDTO setFromFile(String filePath) {
         //var nodeClient = getNodeClient(key);
 
         throw new UnsupportedOperationException("Not implemented yet");
@@ -128,8 +125,8 @@ public class ClientService {
      *
      * @return result of add operation
      */
-    public AddServerResponseDTO addServer(int serverId, boolean fork) {
-        AddServerResponseDTO result = masterClient.addServer(serverId, fork);
+    public StatusResponseDTO addServer(int serverId, boolean fork) {
+        StatusResponseDTO result = masterClient.addServer(serverId, fork);
         updateCaches();
         return result;
     }
@@ -139,8 +136,8 @@ public class ClientService {
      *
      * @return result of delete operation
      */
-    public DeleteServerResponseDTO deleteServer(int serverId) {
-        DeleteServerResponseDTO result = masterClient.deleteServer(serverId);
+    public StatusResponseDTO deleteServer(int serverId) {
+        StatusResponseDTO result = masterClient.deleteServer(serverId);
         updateCaches();
         return result;
     }
@@ -152,8 +149,8 @@ public class ClientService {
      *
      * @return result of change shards operation
      */
-    public ChangeShardCountResponseDTO changeShardCount(int newCount) {
-        ChangeShardCountResponseDTO result = masterClient.changeShardCount(newCount);
+    public StatusResponseDTO changeShardCount(int newCount) {
+        StatusResponseDTO result = masterClient.changeShardCount(newCount);
         updateCaches();
         return result;
     }

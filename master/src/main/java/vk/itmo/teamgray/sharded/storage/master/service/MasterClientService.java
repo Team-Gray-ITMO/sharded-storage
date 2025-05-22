@@ -54,8 +54,8 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
         responseObserver.onNext(
             StatusResponse.newBuilder()
-                .setSuccess(result.success())
-                .setMessage(result.message())
+                .setSuccess(result.isSuccess())
+                .setMessage(result.getMessage())
                 .build()
         );
 
@@ -68,8 +68,8 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
         responseObserver.onNext(
             StatusResponse.newBuilder()
-                .setSuccess(result.success())
-                .setMessage(result.message())
+                .setSuccess(result.isSuccess())
+                .setMessage(result.getMessage())
                 .build()
         );
 
@@ -82,8 +82,8 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
 
         responseObserver.onNext(
             StatusResponse.newBuilder()
-                .setSuccess(result.success())
-                .setMessage(result.message())
+                .setSuccess(result.isSuccess())
+                .setMessage(result.getMessage())
                 .build()
         );
 
