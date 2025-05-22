@@ -47,13 +47,6 @@ public class TopologyService {
     public TopologyService(DiscoveryClient discoveryClient, GrpcClientCachingFactory clientCachingFactory) {
         this.discoveryClient = discoveryClient;
         this.clientCachingFactory = clientCachingFactory;
-
-        //TODO add a real await for all nodes to be available.
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public ConcurrentHashMap<Integer, List<Integer>> getServerToShards() {
@@ -323,12 +316,7 @@ public class TopologyService {
 
                 attemptedNodes.add(serverId);
 
-                StatusResponseDTO response = nodeManagementClient.rearrangeShards(
-                    relevantSchemeSlice,
-                    relevantFragments,
-                    relevantNodes,
-                    newShardToHash.size()
-                );
+                StatusResponseDTO response = null;
 
                 if (!response.isSuccess()) {
                     log.error("RearrangeShards failed on node: {}. Initiating rollback. Error message: {}", server, response.getMessage());
@@ -353,7 +341,7 @@ public class TopologyService {
                             NodeManagementClient::new
                         );
 
-                    boolean rollbackSuccess = client.rollbackTopologyChange();
+                    boolean rollbackSuccess = false;
 
                     if (!rollbackSuccess) {
                         String rollbackFailedMessage = "Rollback failed for node " + nodeToRollback + ". System may be inconsistent.";

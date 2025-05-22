@@ -37,7 +37,9 @@ public class NodeNodeServiceTest {
             ));
 
         nodeStorageService = new NodeStorageService();
-        nodeStorageService.replace(shards, shardCount);
+        nodeStorageService.stageShards(shards, shardCount);
+        nodeStorageService.swapWithStaged();
+
         nodeNodeService = new NodeNodeService(nodeStorageService);
     }
 
@@ -64,7 +66,7 @@ public class NodeNodeServiceTest {
 
         assertTrue(response.getSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        assertEquals(shardCount, nodeStorageService.getShards().size());
+        assertEquals(shardCount, nodeStorageService.getShards().getShardMap().size());
     }
 
     @Test
@@ -89,7 +91,6 @@ public class NodeNodeServiceTest {
 
         assertTrue(response.getSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        assertEquals(shardCount, nodeStorageService.getShards().size());
+        assertEquals(shardCount, nodeStorageService.getShards().getShardMap().size());
     }
-
 }

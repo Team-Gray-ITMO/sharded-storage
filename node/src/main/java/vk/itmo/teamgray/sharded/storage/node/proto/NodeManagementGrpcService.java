@@ -6,7 +6,8 @@ import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.PrepareRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.ProcessRequest;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
 
 public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
@@ -17,14 +18,59 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
     }
 
     @Override
-    public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void prepareRearrange(PrepareRequest request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
-        nodeManagementService.rearrangeShards(
+        nodeManagementService.prepareRearrange(
             request.getShardToHashMap(),
+            request.getFullShardCount(),
+            (success, message) -> {
+                builder.setSuccess(success);
+                builder.setMessage(message);
+            }
+        );
+
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void processRearrange(ProcessRequest request, StreamObserver<StatusResponse> responseObserver) {
+        var builder = StatusResponse.newBuilder();
+
+        nodeManagementService.processRearrange(
             request.getFragmentsList().stream().map(FragmentDTO::fromGrpc).toList(),
             request.getServerByShardNumberMap(),
-            request.getFullShardCount(),
+            (success, message) -> {
+                builder.setSuccess(success);
+                builder.setMessage(message);
+            }
+        );
+
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void applyRearrange(Empty request, StreamObserver<StatusResponse> responseObserver) {
+        var builder = StatusResponse.newBuilder();
+
+        nodeManagementService.applyRearrange(
+            (success, message) -> {
+                builder.setSuccess(success);
+                builder.setMessage(message);
+            }
+        );
+
+        responseObserver.onNext(builder.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void rollbackRearrange(Empty request, StreamObserver<StatusResponse> responseObserver) {
+        var builder = StatusResponse.newBuilder();
+
+        nodeManagementService.rollbackRearrange(
             (success, message) -> {
                 builder.setSuccess(success);
                 builder.setMessage(message);
@@ -42,24 +88,6 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
         nodeManagementService.moveShard(
             request.getShardId(),
             request.getTargetServer(),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
-        );
-
-        responseObserver.onNext(builder.build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void rollbackTopologyChange(
-        Empty request,
-        StreamObserver<StatusResponse> responseObserver
-    ) {
-        var builder = StatusResponse.newBuilder();
-
-        nodeManagementService.rollbackTopologyChange(
             (success, message) -> {
                 builder.setSuccess(success);
                 builder.setMessage(message);

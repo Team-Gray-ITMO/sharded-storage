@@ -12,44 +12,18 @@ message PrepareRequest {
   int32 fullShardCount = 2;
 }
 
-message PrepareResponse {
-  bool success = 1;
-  string message = 2;
-}
-
 message ProcessRequest {
   repeated MoveFragment fragments = 1;
   map<int32, int32> serverByShardNumber = 2;
 }
 
-message ProcessResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message ApplyRequest {}
-
-message ApplyResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message RollbackRequest {}
-
-message RollbackResponse {
-  bool success = 1;
-  string message = 2;
-}
-
 service NodeManagementService {
-  rpc PrepareRearrange (PrepareRequest) returns (PrepareResponse);
-  rpc ProcessRearrange (ProcessRequest) returns (ProcessResponse);
-  rpc ApplyRearrange (ApplyRequest) returns (ApplyResponse);
-  rpc RollbackRearrange (RollbackRequest) returns (RollbackResponse);
+  rpc PrepareRearrange (PrepareRequest) returns (StatusResponse);
+  rpc ProcessRearrange (ProcessRequest) returns (StatusResponse);
+  rpc ApplyRearrange (Empty) returns (StatusResponse);
+  rpc RollbackRearrange (Empty) returns (StatusResponse);
 
-  rpc RearrangeShards (RearrangeShardsRequest) returns (StatusResponse);
   rpc MoveShard (MoveShardRequest) returns (StatusResponse);
-  rpc RollbackTopologyChange (Empty) returns (StatusResponse);
 }
 
 message RearrangeShardsRequest {
