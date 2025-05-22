@@ -5,13 +5,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
-import vk.itmo.teamgray.sharded.storage.master.service.topology.ShardNodeMapping;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareRequest;
@@ -38,12 +36,9 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 
-    public StatusResponseDTO prepareRearrange(
-        Map<Integer, Long> relevantShardsToHash,
-        int fullShardCount
-    ) {
+    public StatusResponseDTO prepareRearrange(Map<Integer, Long> shardToHash, int fullShardCount) {
         PrepareRequest request = PrepareRequest.newBuilder()
-            .putAllShardToHash(relevantShardsToHash)
+            .putAllShardToHash(shardToHash)
             .setFullShardCount(fullShardCount)
             .build();
 
@@ -53,21 +48,10 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
-    public StatusResponseDTO processRearrange(
-        List<FragmentDTO> relevantFragments,
-        List<ShardNodeMapping> relevantNodes
-    ) {
+    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> serverByShardNumber) {
         ProcessRequest request = ProcessRequest.newBuilder()
-            .addAllFragments(relevantFragments.stream().map(FragmentDTO::toGrpc).toList())
-            .putAllServerByShardNumber(
-                relevantNodes.stream()
-                    .collect(
-                        Collectors.toMap(
-                            ShardNodeMapping::shardId,
-                            ShardNodeMapping::serverId
-                        )
-                    )
-            )
+            .addAllFragments(fragments.stream().map(FragmentDTO::toGrpc).toList())
+            .putAllServerByShardNumber(serverByShardNumber)
             .build();
 
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)

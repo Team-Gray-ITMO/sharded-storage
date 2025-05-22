@@ -254,14 +254,6 @@ public class TopologyService {
 
             List<FragmentDTO> fragments = findFragmentsToMove(shardCount, newShardToHash, allBounds);
 
-            var fragmentsByOldShards = fragments.stream()
-                .collect(
-                    Collectors.groupingBy(
-                        FragmentDTO::oldShardId,
-                        Collectors.mapping(Function.identity(), Collectors.toList())
-                    )
-                );
-
             var newShardsToServer = newServerToShards.entrySet().stream()
                 .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
                 .collect(toMap(
@@ -270,11 +262,10 @@ public class TopologyService {
                 ));
 
             var nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
+            List<String> errorMessages = new ArrayList<>();
 
-            boolean oneNodeFailed = false;
-            List<Integer> attemptedNodes = new ArrayList<>();
-            Deque<String> errorMessages = new ArrayDeque<>();
-
+            // Phase 1: Prepare
+            log.info("Starting prepare phase");
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
                 var shards = entry.getValue();
@@ -287,87 +278,96 @@ public class TopologyService {
                         )
                     );
 
+                DiscoverableServiceDTO server = nodes.get(serverId);
+                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
+
+                StatusResponseDTO response = client.prepareRearrange(relevantSchemeSlice, newShardToHash.size());
+                if (!response.isSuccess()) {
+                    String message = server.getIdForLogging() + ": " + response.getMessage();
+                    log.error("Preparation stage failed on node: {}. Error message: {}", server, response.getMessage());
+                    errorMessages.add(message);
+                    return rollbackAndReturnError(nodes, errorMessages, originalShardToHash, originalServerToShards);
+                }
+            }
+
+            // Phase 2: Process
+            log.info("Starting process phase");
+            for (var entry : newServerToShards.entrySet()) {
+                var serverId = entry.getKey();
+                var shards = entry.getValue();
+
                 var relevantFragments = serverToShards.get(serverId).stream()
-                    .flatMap(it -> fragmentsByOldShards.get(it).stream())
+                    .flatMap(it -> fragments.stream().filter(f -> f.oldShardId() == it))
                     .toList();
-
-                var relevantNodes = relevantFragments.stream()
-                    .map(FragmentDTO::newShardId)
-                    .distinct()
-                    .map(it -> new ShardNodeMapping(it, newShardsToServer.get(it)))
-                    .toList();
-
-                log.info(
-                    "Sending rearrange request [node={}, relevantScheme={}, fragments={}, nodeMapping={}]",
-                    serverId,
-                    relevantSchemeSlice,
-                    relevantFragments,
-                    relevantNodes
-                );
 
                 DiscoverableServiceDTO server = nodes.get(serverId);
+                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
-                //TODO Invert mapping and revert on the node side.
-                NodeManagementClient nodeManagementClient = clientCachingFactory
-                    .getClient(
-                        server,
-                        NodeManagementClient::new
-                    );
-
-                attemptedNodes.add(serverId);
-
-                StatusResponseDTO response = null;
-
+                StatusResponseDTO response = client.processRearrange(relevantFragments, newShardsToServer);
                 if (!response.isSuccess()) {
-                    log.error("RearrangeShards failed on node: {}. Initiating rollback. Error message: {}", server, response.getMessage());
-                    errorMessages.push(server.getIdForLogging() + ": " + response.getMessage());
-                    oneNodeFailed = true;
-                    break;
+                    String message = server.getIdForLogging() + ": " + response.getMessage();
+                    log.error("Process stage failed on node: {}. Error message: {}", server, response.getMessage());
+                    errorMessages.add(message);
+                    return rollbackAndReturnError(nodes, errorMessages, originalShardToHash, originalServerToShards);
                 }
             }
 
-            if (oneNodeFailed) {
-                String rollbackMessage = "One or more nodes failed during rearrange. Rolling back.";
+            // Phase 3: Apply
+            log.info("Starting apply phase");
+            for (var entry : newServerToShards.entrySet()) {
+                var serverId = entry.getKey();
+                DiscoverableServiceDTO server = nodes.get(serverId);
+                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
-                log.warn(rollbackMessage);
-                errorMessages.push(rollbackMessage);
-
-                for (Integer nodeIdToRollback : attemptedNodes) {
-                    var nodeToRollback = nodes.get(nodeIdToRollback);
-
-                    NodeManagementClient client = clientCachingFactory
-                        .getClient(
-                            nodeToRollback,
-                            NodeManagementClient::new
-                        );
-
-                    boolean rollbackSuccess = false;
-
-                    if (!rollbackSuccess) {
-                        String rollbackFailedMessage = "Rollback failed for node " + nodeToRollback + ". System may be inconsistent.";
-                        log.error(rollbackFailedMessage);
-                        errorMessages.push(rollbackFailedMessage);
-                    }
+                StatusResponseDTO response = client.applyRearrange();
+                if (!response.isSuccess()) {
+                    String message = server.getIdForLogging() + ": " + response.getMessage();
+                    log.error("Apply failed on node: {}. Error message: {}", server, response.getMessage());
+                    errorMessages.add(message);
+                    // No compensation or recovery actions on involved nodes
+                    // End up change shards process and return error response
+                    return new StatusResponseDTO(
+                            false,
+                            StringUtil.join(System.lineSeparator(), errorMessages).toString()
+                    );
                 }
-
-                this.shardToHash = originalShardToHash;
-                this.serverToShards = originalServerToShards;
-
-                log.info("Change Shard Count Failed");
-
-                return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
-            } else {
-                replaceBothMaps(newShardToHash, newServerToShards);
-
-                String message = "Changed shard count successfully.";
-
-                log.info(message);
-
-                return new StatusResponseDTO(true, message);
             }
+
+            replaceBothMaps(newShardToHash, newServerToShards);
+            log.info("Changed shard count successfully");
+            return new StatusResponseDTO(true, "Changed shard count successfully");
+
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    private StatusResponseDTO rollbackAndReturnError(
+        Map<Integer, DiscoverableServiceDTO> nodes,
+        List<String> errorMessages,
+        ConcurrentHashMap<Integer, Long> originalShardToHash,
+        ConcurrentHashMap<Integer, List<Integer>> originalServerToShards
+    ) {
+        String rollbackMessage = "One or more nodes failed during rearrange. Rolling back.";
+        log.warn(rollbackMessage);
+        errorMessages.add(rollbackMessage);
+
+        for (var node : nodes.values()) {
+            NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient::new);
+            StatusResponseDTO response = client.rollbackRearrange();
+            if (!response.isSuccess()) {
+                // Just logging error, no compensation moves - continuing rollback of other nodes
+                String message = node.getIdForLogging() + ": " + response.getMessage();
+                log.error("Rollback failed for node: {}. Error message: {}", node, response.getMessage());
+                errorMessages.add(message);
+            }
+        }
+
+        this.shardToHash = originalShardToHash;
+        this.serverToShards = originalServerToShards;
+
+        log.info("Change Shard Count Failed");
+        return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
     }
 
     private List<FragmentDTO> findFragmentsToMove(
