@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +15,6 @@ import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableService
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
-import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils.getShardIdForKey;
 
@@ -180,47 +178,6 @@ public class ClientService {
         hashToShard.putAll(masterClient.getHashToShardMap());
 
         cacheLastUpdate = Instant.now();
-    }
-
-    //TODO Ultraslow, store sorted and do a binary search
-    private ShardOnServer getShardAndServerForKey(String key) {
-        long hash = HashingUtils.calculate64BitHash(key);
-
-        List<Long> sortedHashes = hashToShard.keySet().stream()
-            .sorted()
-            .toList();
-
-        long previous = Long.MIN_VALUE;
-        long next = Long.MAX_VALUE;
-        Integer shard = null;
-
-        for (Long upperHash : sortedHashes) {
-            if (hash <= upperHash) {
-                next = upperHash;
-                shard = hashToShard.get(upperHash);
-                break;
-            }
-
-            previous = upperHash;
-        }
-
-        // Last shard must be marked as MAX_VALUE
-        if (next == Long.MAX_VALUE) {
-            shard = hashToShard.get(next);
-        }
-
-        // If no previous key is found return shard from next key
-        if (previous == Long.MIN_VALUE) {
-            shard = hashToShard.get(next);
-        }
-
-        if (shard == null) {
-            throw new IllegalStateException("Shard not found for hash: " + hash);
-        }
-
-        var server = shardToServer.get(shard);
-
-        return new ShardOnServer(server.id(), shard);
     }
 
     public HeartbeatResponseDTO sendMasterHeartbeat() {

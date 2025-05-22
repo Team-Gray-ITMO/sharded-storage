@@ -57,8 +57,6 @@ public class NodeManagementServiceTest {
 
         assertTrue(response.isSuccess());
         assertEquals(shardToHash.size(), nodeStorageService.getShards().size());
-        nodeStorageService.getShards().forEach((shardNum, shardData) -> {
-            assertTrue(shardData.getStorage().isEmpty());
-        });
+        nodeStorageService.getShards().forEach((shardNum, shardData) -> assertTrue(shardData.getStorage().isEmpty()));
     }
 }
