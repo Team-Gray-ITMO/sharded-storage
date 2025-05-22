@@ -243,18 +243,16 @@ public class TopologyService {
         try {
             log.info("Changing shard count to {}", shardCount);
 
-            // Store original state for rollback
             ConcurrentHashMap<Integer, Long> originalShardToHash = new ConcurrentHashMap<>(this.shardToHash);
-            ConcurrentHashMap<Integer, List<Integer>> originalServerToShards = new ConcurrentHashMap<>(this.serverToShards);
+            ConcurrentHashMap<Integer, List<Integer>> originalServerToShards =
+                    new ConcurrentHashMap<>(this.serverToShards);
 
-            // Calculate new topology
             ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
             ConcurrentHashMap<Integer, List<Integer>> newServerToShards = redistributeShardsEvenly(
                 Collections.list(serverToShards.keys()),
                 Collections.list(newShardToHash.keys())
             );
 
-            // Calculate fragments to move
             List<Bound> allBounds = Stream.concat(
                     shardToHash.entrySet().stream().map(it -> new Bound(false, it.getKey(), it.getValue())),
                     newShardToHash.entrySet().stream().map(it -> new Bound(true, it.getKey(), it.getValue()))
@@ -264,7 +262,6 @@ public class TopologyService {
 
             List<FragmentDTO> fragments = findFragmentsToMove(shardCount, newShardToHash, allBounds);
 
-            // Calculate server mappings
             var newShardsToServer = newServerToShards.entrySet().stream()
                 .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
                 .collect(toMap(
@@ -317,7 +314,7 @@ public class TopologyService {
                 StatusResponseDTO response = client.processRearrange(relevantFragments, newShardsToServer);
                 if (!response.isSuccess()) {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
-                    log.error("Process failed on node: {}. Error message: {}", server, response.getMessage());
+                    log.error("Process stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
                     return rollbackAndReturnError(nodes, errorMessages, originalShardToHash, originalServerToShards);
                 }
@@ -335,12 +332,15 @@ public class TopologyService {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
                     log.error("Apply failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
-                    // At this point we can't rollback since some nodes might have already applied changes
-                    return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
+                    // No compensation or recovery actions on involved nodes
+                    // End up change shards process and return error response
+                    return new StatusResponseDTO(
+                            false,
+                            StringUtil.join(System.lineSeparator(), errorMessages).toString()
+                    );
                 }
             }
 
-            // Update master's topology
             replaceBothMaps(newShardToHash, newServerToShards);
             log.info("Changed shard count successfully");
             return new StatusResponseDTO(true, "Changed shard count successfully");
@@ -360,18 +360,17 @@ public class TopologyService {
         log.warn(rollbackMessage);
         errorMessages.add(rollbackMessage);
 
-        // Rollback all nodes
         for (var node : nodes.values()) {
             NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient::new);
             StatusResponseDTO response = client.rollbackRearrange();
             if (!response.isSuccess()) {
+                // Just logging error, no compensation moves - continuing rollback of other nodes
                 String message = node.getIdForLogging() + ": " + response.getMessage();
                 log.error("Rollback failed for node: {}. Error message: {}", node, response.getMessage());
                 errorMessages.add(message);
             }
         }
 
-        // Restore original state
         this.shardToHash = originalShardToHash;
         this.serverToShards = originalServerToShards;
 
