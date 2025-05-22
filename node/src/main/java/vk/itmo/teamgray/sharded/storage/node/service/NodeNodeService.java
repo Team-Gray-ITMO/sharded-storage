@@ -10,6 +10,7 @@ import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
 
+// TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
 public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeNodeService.class);
 

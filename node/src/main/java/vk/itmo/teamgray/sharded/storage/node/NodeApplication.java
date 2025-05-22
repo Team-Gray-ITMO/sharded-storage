@@ -7,7 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
-import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
+import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeClientService;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
@@ -43,7 +44,7 @@ public class NodeApplication {
             .addService(new NodeClientService(nodeStorageService))
             .addService(new NodeManagementService(nodeStorageService, discoveryClient))
             .addService(new NodeNodeService(nodeStorageService))
-            .addService(new HealthService())
+            .addService(new HealthGrpcService(new HealthService()))
             .build();
     }
 

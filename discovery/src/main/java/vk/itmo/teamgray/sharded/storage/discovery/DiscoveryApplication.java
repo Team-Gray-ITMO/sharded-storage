@@ -5,7 +5,8 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
+import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
 import vk.itmo.teamgray.sharded.storage.discovery.service.DiscoveryService;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
@@ -21,7 +22,7 @@ public class DiscoveryApplication {
         this.port = port;
 
         var discoveryService = new DiscoveryService();
-        var healthService = new HealthService();
+        var healthService = new HealthGrpcService(new HealthService());
 
         this.server = ServerBuilder.forPort(port)
             .addService(discoveryService)

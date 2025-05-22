@@ -18,6 +18,7 @@ import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.client.SetFromFileRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
+// TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
 

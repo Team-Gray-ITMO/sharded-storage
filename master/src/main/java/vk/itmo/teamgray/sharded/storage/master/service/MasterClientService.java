@@ -14,6 +14,7 @@ import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.master.service.topology.TopologyService;
 
+// TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
 public class MasterClientService extends MasterClientServiceGrpc.MasterClientServiceImplBase {
     private static final Logger log = LoggerFactory.getLogger(MasterClientService.class);
 
