@@ -36,14 +36,17 @@ public class TopologyService {
 
     private final DiscoveryClient discoveryClient;
 
+    private final GrpcClientCachingFactory clientCachingFactory;
+
     private ConcurrentHashMap<Integer, List<Integer>> serverToShards = new ConcurrentHashMap<>();
 
     private ConcurrentHashMap<Integer, Long> shardToHash = new ConcurrentHashMap<>();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public TopologyService(DiscoveryClient discoveryClient) {
+    public TopologyService(DiscoveryClient discoveryClient, GrpcClientCachingFactory clientCachingFactory) {
         this.discoveryClient = discoveryClient;
+        this.clientCachingFactory = clientCachingFactory;
 
         //TODO add a real await for all nodes to be available.
         try {
@@ -191,8 +194,7 @@ public class TopologyService {
                 if (targetServer != null && !targetServer.equals(sourceServerId)) {
                     log.info("Moving shard {} from {} to {}", shardId, sourceServer, targetServer);
 
-                    NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
-                        .getInstance()
+                    NodeManagementClient nodeManagementClient = clientCachingFactory
                         .getClient(
                             sourceServer,
                             NodeManagementClient::new
@@ -313,8 +315,7 @@ public class TopologyService {
                 DiscoverableServiceDTO server = nodes.get(serverId);
 
                 //TODO Invert mapping and revert on the node side.
-                NodeManagementClient nodeManagementClient = GrpcClientCachingFactory
-                    .getInstance()
+                NodeManagementClient nodeManagementClient = clientCachingFactory
                     .getClient(
                         server,
                         NodeManagementClient::new
@@ -346,7 +347,7 @@ public class TopologyService {
                 for (Integer nodeIdToRollback : attemptedNodes) {
                     var nodeToRollback = nodes.get(nodeIdToRollback);
 
-                    NodeManagementClient client = GrpcClientCachingFactory.getInstance()
+                    NodeManagementClient client = clientCachingFactory
                         .getClient(
                             nodeToRollback,
                             NodeManagementClient::new

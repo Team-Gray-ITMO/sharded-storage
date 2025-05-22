@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.stub.StreamObserver;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
@@ -14,8 +13,6 @@ import static org.mockito.Mockito.verify;
 
 public class NodeManagementServiceTest {
 
-    //TODO Investigate
-    @Disabled
     @Test
     public void testRearrangeShardsWithEmptyMapping() {
         NodeStorageService nodeStorageService = new NodeStorageService();

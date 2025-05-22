@@ -14,6 +14,7 @@ public class GrpcClientCachingFactory {
     private final Map<GrpcClientCacheKey, AbstractGrpcClient<?>> clientCache = new ConcurrentHashMap<>();
 
     private GrpcClientCachingFactory() {
+        // No-op.
     }
 
     public static GrpcClientCachingFactory getInstance() {

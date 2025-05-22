@@ -77,7 +77,6 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
             if (shardToHashMap.isEmpty()) {
                 responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
-                responseObserver.onCompleted();
                 return;
             }
 
