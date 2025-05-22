@@ -29,10 +29,8 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         boolean success = true;
         String message = SUCCESS_MESSAGE;
 
-        // TODO Set debug level
         log.info("Received shard {}. Processing", request.getShardId());
 
-        // TODO Looks like we have a problem: we need to push those changes to staged shards, not to existing ones!!!
         try {
             if (!nodeStorageService.containsShard(request.getShardId())) {
                 throw new NodeException("Shard " + request.getShardId() + " does not exist");
@@ -45,7 +43,6 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         } catch (Exception e) {
             success = false;
             message = "ERROR: " + e.getMessage();
-
             log.error(message, e);
         }
 
@@ -59,40 +56,32 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
     }
 
     @Override
-    public void sendShardFragment(
-        SendShardFragmentRequest request,
-        StreamObserver<StatusResponse> responseObserver
-    ) {
+    public void sendShardFragment(SendShardFragmentRequest request, StreamObserver<StatusResponse> responseObserver) {
+        int shardId = request.getShardId();
+        Map<String, String> fragments = request.getShardFragmentsMap();
         boolean success = true;
         String message = SUCCESS_MESSAGE;
-        int shardId = request.getShardId();
 
-        // TODO Set debug level
-        log.info("Received fragment for shard {}. Processing", shardId);
+        log.info("Received shard fragment for shard {}. Processing", shardId);
 
-        // TODO Looks like we have a problem: we need to push those changes to staged shards, not to existing ones!!!
         try {
-            if (!nodeStorageService.containsShard(request.getShardId())) {
-                throw new NodeException("Shard " + request.getShardId() + " does not exist");
+            if (!nodeStorageService.getStagedShards().containsKey(shardId)) {
+                throw new NodeException("Staged shard " + shardId + " does not exist");
             }
 
-            request.getShardFragmentsMap()
-                .forEach((key, value) -> {
-                    nodeStorageService.checkKeyForShard(shardId, key);
-                    nodeStorageService.set(key, value);
-                });
-        } catch (NodeException e) {
+            nodeStorageService.getStagedShards().get(shardId).getStorage().putAll(fragments);
+        } catch (Exception e) {
             success = false;
             message = "ERROR: " + e.getMessage();
-
             log.error(message, e);
         }
 
-        responseObserver.onNext(StatusResponse.newBuilder()
+        StatusResponse response = StatusResponse.newBuilder()
             .setSuccess(success)
             .setMessage(message)
-            .build());
+            .build();
 
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 }
