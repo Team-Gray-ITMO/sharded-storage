@@ -15,6 +15,14 @@ import vk.itmo.teamgray.sharded.storage.master.service.topology.ShardNodeMapping
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.PrepareRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.PrepareResponse;
+import vk.itmo.teamgray.sharded.storage.node.management.ProcessRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.ProcessResponse;
+import vk.itmo.teamgray.sharded.storage.node.management.ApplyRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.ApplyResponse;
+import vk.itmo.teamgray.sharded.storage.node.management.RollbackRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.RollbackResponse;
 
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
     public NodeManagementClient(String host, int port) {
@@ -73,5 +81,47 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public StatusResponseDTO prepareRearrange(Map<Integer, Long> shardToHash, int fullShardCount) {
+        PrepareRequest request = PrepareRequest.newBuilder()
+            .putAllShardToHash(shardToHash)
+            .setFullShardCount(fullShardCount)
+            .build();
+
+        PrepareResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .prepareRearrange(request);
+
+        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+    }
+
+    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> serverByShardNumber) {
+        ProcessRequest request = ProcessRequest.newBuilder()
+            .addAllFragments(fragments.stream().map(FragmentDTO::toGrpc).toList())
+            .putAllServerByShardNumber(serverByShardNumber)
+            .build();
+
+        ProcessResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .processRearrange(request);
+
+        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+    }
+
+    public StatusResponseDTO applyRearrange() {
+        ApplyRequest request = ApplyRequest.newBuilder().build();
+
+        ApplyResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .applyRearrange(request);
+
+        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+    }
+
+    public StatusResponseDTO rollbackRearrange() {
+        RollbackRequest request = RollbackRequest.newBuilder().build();
+
+        RollbackResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .rollbackRearrange(request);
+
+        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 }
