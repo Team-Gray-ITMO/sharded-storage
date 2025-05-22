@@ -34,7 +34,7 @@ public class MasterApplication {
 
         discoveryClient.register(getDiscoverableService());
 
-        var topologyService = new TopologyService(discoveryClient);
+        var topologyService = new TopologyService(discoveryClient, GrpcClientCachingFactory.getInstance());
 
         var masterClientService = new MasterClientService(topologyService);
 

@@ -3,9 +3,13 @@ package vk.itmo.teamgray.sharded.storage.node.client;
 import io.grpc.stub.StreamObserver;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentResponse;
@@ -21,30 +25,36 @@ public class NodeNodeServiceTest {
 
     private NodeStorageService nodeStorageService;
 
+    private int shardCount = 3;
+
     @BeforeEach
     public void setUp() {
-        Map<Integer, ShardData> shards = new HashMap<>();
-        shards.put(0, new ShardData());
-        shards.put(1, new ShardData());
-        shards.put(2, new ShardData());
+        Map<Integer, ShardData> shards = IntStream.range(0, shardCount)
+            .boxed()
+            .collect(Collectors.toMap(
+                it -> it,
+                it -> new ShardData()
+            ));
 
         nodeStorageService = new NodeStorageService();
-        nodeStorageService.replace(shards);
+        nodeStorageService.replace(shards, shardCount);
         nodeNodeService = new NodeNodeService(nodeStorageService);
     }
 
     @Test
     public void sendShardFragment_forExistentShard_shouldReturnSuccessAndSaveFragments() {
         Map<String, String> fragments = new HashMap<>();
-        fragments.put("key6", "bar");
+        String key = "key6";
+
+        fragments.put(key, "bar");
 
         SendShardFragmentRequest request = SendShardFragmentRequest.newBuilder()
-                .setShardId(2)
-                .putAllShardFragments(fragments)
-                .build();
+            .setShardId(Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount)))
+            .putAllShardFragments(fragments)
+            .build();
         StreamObserver<SendShardFragmentResponse> responseObserver = mock(StreamObserver.class);
         ArgumentCaptor<SendShardFragmentResponse> responseCaptor = ArgumentCaptor.forClass(
-                SendShardFragmentResponse.class
+            SendShardFragmentResponse.class
         );
 
         nodeNodeService.sendShardFragment(request, responseObserver);
@@ -54,21 +64,22 @@ public class NodeNodeServiceTest {
 
         assertTrue(response.getSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        assertEquals(3, nodeStorageService.getShards().size());
+        assertEquals(shardCount, nodeStorageService.getShards().size());
     }
 
     @Test
     public void sendShardFragment_forNewShard_shouldReturnSuccessAndSaveFragments() {
         Map<String, String> fragments = new HashMap<>();
-        fragments.put("key12", "bar");
+        String key = "key12";
+        fragments.put(key, "bar");
 
         SendShardFragmentRequest request = SendShardFragmentRequest.newBuilder()
-                .setShardId(3)
-                .putAllShardFragments(fragments)
-                .build();
+            .setShardId(Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount)))
+            .putAllShardFragments(fragments)
+            .build();
         StreamObserver<SendShardFragmentResponse> responseObserver = mock(StreamObserver.class);
         ArgumentCaptor<SendShardFragmentResponse> responseCaptor = ArgumentCaptor.forClass(
-                SendShardFragmentResponse.class
+            SendShardFragmentResponse.class
         );
 
         nodeNodeService.sendShardFragment(request, responseObserver);
@@ -78,7 +89,7 @@ public class NodeNodeServiceTest {
 
         assertTrue(response.getSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        assertEquals(4, nodeStorageService.getShards().size());
+        assertEquals(shardCount, nodeStorageService.getShards().size());
     }
 
 }

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.shards.ShardData;
@@ -35,6 +36,8 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
     private Map<Integer, ShardData> originalShardsBackup;
 
+    private int originalFullShardCount;
+
     public NodeManagementService(NodeStorageService nodeStorageService, DiscoveryClient discoveryClient) {
         this.nodeStorageService = nodeStorageService;
         this.discoveryClient = discoveryClient;
@@ -44,6 +47,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         if (original == null) {
             return new ConcurrentHashMap<>();
         }
+
         Map<Integer, ShardData> copy = new ConcurrentHashMap<>();
         for (Map.Entry<Integer, ShardData> entry : original.entrySet()) {
             ShardData originalData = entry.getValue();
@@ -59,6 +63,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
     @Override
     public void rearrangeShards(RearrangeShardsRequest request, StreamObserver<RearrangeShardsResponse> responseObserver) {
         this.originalShardsBackup = deepCopyShards(nodeStorageService.getShards());
+        this.originalFullShardCount = nodeStorageService.getFullShardCount();
 
         try {
             var shardToHash = request.getShardToHashMap();
@@ -72,7 +77,6 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
             if (shardToHashMap.isEmpty()) {
                 responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
-                responseObserver.onCompleted();
                 return;
             }
 
@@ -117,7 +121,7 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 ? Collections.emptyMap()
                 : request.getServerByShardNumberMap();
 
-            Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.keySet());
+            Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.values());
 
             externalFragments.stream()
                 .filter(it -> existingShards.containsKey(it.oldShardId()))
@@ -125,6 +129,15 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                     int oldShardId = fragment.oldShardId();
 
                     Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
+
+                    // TODO Set level to debug
+                    log.info(
+                        "Moving fragment [{}]-[{}] from shard {} to shard {}",
+                        fragment.rangeFrom(),
+                        fragment.rangeTo(),
+                        oldShardId,
+                        fragment.newShardId()
+                    );
 
                     var fragmentsToSend = fragmentStorage.entrySet().stream()
                         .filter(entry -> {
@@ -142,8 +155,15 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
 
                     DiscoverableServiceDTO node = nodes.get(serverId);
 
-                    if (!moveShardFragment(node, fragment.newShardId(), fragmentsToSend)) {
-                        throw new IllegalStateException("Failed to move shard fragment");
+                    StatusResponseDTO moveResponse = moveShardFragment(node, fragment.newShardId(), fragmentsToSend);
+
+                    if (!moveResponse.success()) {
+                        throw new IllegalStateException(
+                            "Failed to move shard fragment: "
+                                + System.lineSeparator()
+                                + node.getIdForLogging() + ": "
+                                + moveResponse.message()
+                        );
                     }
 
                     keysToRemove.put(oldShardId, fragmentsToSend.keySet());
@@ -155,26 +175,37 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
                 keysToRemoveSet.forEach(fragmentStorage::remove);
             });
 
-            nodeStorageService.replace(newShards);
+            nodeStorageService.replace(newShards, request.getFullShardCount());
             responseObserver.onNext(RearrangeShardsResponse.newBuilder().setSuccess(true).build());
 
             log.info("Shards rearranged");
 
         } catch (Exception e) {
+            String message = "Failed during rearrange: ";
+
+            log.error(message, e);
+
             responseObserver.onNext(
-                RearrangeShardsResponse.newBuilder().setSuccess(false).setMessage("Failed during rearrange: " + e.getMessage()).build());
+                RearrangeShardsResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage(message + e.getMessage())
+                    .build())
+            ;
         } finally {
             responseObserver.onCompleted();
         }
     }
 
-    private boolean moveShardFragment(DiscoverableServiceDTO server, int newShardId, Map<String, String> fragmentsToSend) {
+    private StatusResponseDTO moveShardFragment(DiscoverableServiceDTO server, int newShardId, Map<String, String> fragmentsToSend) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
                 server,
                 NodeNodeClient::new
             );
+
+        // TODO Set debug level
+        log.info("Sending fragment from shard {} to node {}", newShardId, server);
 
         return nodeNodeClient.sendShardFragment(newShardId, fragmentsToSend);
     }
@@ -200,10 +231,10 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         ShardData shardToMove = existingShards.get(shardId);
         Map<String, String> shardData = shardToMove.getStorage();
 
-        boolean sendSuccess = sendShard(shardId, shardData, targetServer);
+        StatusResponseDTO sendResponse = sendShard(shardId, shardData, targetServer);
 
-        if (sendSuccess) {
-            // remove shard only after successful transfer
+        if (sendResponse.success()) {
+            // remove shard only after a successful transfer
             nodeStorageService.removeShard(shardId);
 
             responseObserver.onNext(MoveShardResponse.newBuilder()
@@ -213,20 +244,28 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         } else {
             responseObserver.onNext(MoveShardResponse.newBuilder()
                 .setSuccess(false)
-                .setMessage("Failed to send shard to target server")
+                .setMessage(
+                    "Failed to send shard to target server: "
+                        + System.lineSeparator()
+                        + targetServer.getIdForLogging() + ": "
+                        + sendResponse.message()
+                )
                 .build());
         }
 
         responseObserver.onCompleted();
     }
 
-    private boolean sendShard(int shardId, Map<String, String> shardData, DiscoverableServiceDTO targetServer) {
+    private StatusResponseDTO sendShard(int shardId, Map<String, String> shardData, DiscoverableServiceDTO targetServer) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
                 targetServer,
                 NodeNodeClient::new
             );
+
+        // TODO Set debug level
+        log.info("Sending shard {} to node {}", shardId, targetServer);
 
         return nodeNodeClient.sendShard(shardId, shardData);
     }
@@ -236,19 +275,27 @@ public class NodeManagementService extends NodeManagementServiceGrpc.NodeManagem
         StreamObserver<RollbackTopologyChangeResponse> responseObserver) {
         if (this.originalShardsBackup != null) {
             try {
-                nodeStorageService.replace(this.originalShardsBackup);
+                nodeStorageService.replace(this.originalShardsBackup, this.originalFullShardCount);
                 this.originalShardsBackup = null;
                 responseObserver.onNext(
                     RollbackTopologyChangeResponse.newBuilder().setSuccess(true).setMessage("Rollback successful").build());
             } catch (Exception e) {
                 log.error("Error during node rollback while replacing shards", e);
                 responseObserver.onNext(
-                    RollbackTopologyChangeResponse.newBuilder().setSuccess(false).setMessage("Rollback failed").build());
+                    RollbackTopologyChangeResponse.newBuilder()
+                        .setSuccess(false)
+                        .setMessage("Rollback failed")
+                        .build()
+                );
             }
         } else {
             log.warn("Node rollback called but no backup found.");
             responseObserver.onNext(
-                RollbackTopologyChangeResponse.newBuilder().setSuccess(false).setMessage("No data for rollback").build());
+                RollbackTopologyChangeResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage("No data for rollback")
+                    .build()
+            );
         }
         responseObserver.onCompleted();
     }

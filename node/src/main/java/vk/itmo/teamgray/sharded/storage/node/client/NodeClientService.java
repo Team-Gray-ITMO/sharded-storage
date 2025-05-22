@@ -30,10 +30,17 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
             nodeStorageService.set(key, value);
         } catch (NodeException e) {
             Metadata metadata = new Metadata();
+
             String errMessage = MessageFormat.format("Error while setting key=[{0}] value=[{1}]", key, value);
+
             log.warn(errMessage, e);
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(errMessage)
-                .asRuntimeException(metadata));
+
+            responseObserver.onError(
+                Status.INVALID_ARGUMENT
+                    .withDescription(errMessage)
+                    .asRuntimeException(metadata)
+            );
+
             return;
         }
 
@@ -55,10 +62,16 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
             returnValue = nodeStorageService.get(key);
         } catch (NodeException e) {
             Metadata metadata = new Metadata();
+
             String errMessage = MessageFormat.format("Error while getting by key=[{0}]", key);
+
             log.warn(errMessage, e);
-            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription(errMessage)
-                .asRuntimeException(metadata));
+
+            responseObserver.onError(
+                Status.INVALID_ARGUMENT
+                    .withDescription(errMessage)
+                    .asRuntimeException(metadata)
+            );
             return;
         }
 

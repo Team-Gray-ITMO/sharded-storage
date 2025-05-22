@@ -22,7 +22,7 @@ docker run -d \
            -e SERVICE_CONTAINER_NAME=node-containter-$1 \
            -e SERVICE_ID=$1 \
            -e DISCOVERY_GRPC_HOST=discovery \
-
+           -p 90$11:9001 \
            ${IMAGE_NAME}
 
 echo "Контейнер запущен! ID: $1"

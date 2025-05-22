@@ -66,6 +66,8 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
             return;
         }
 
+        log.info("Returning node: {}", node);
+
         responseObserver.onNext(node);
         responseObserver.onCompleted();
     }
@@ -75,6 +77,8 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
         NodeList nodeList = NodeList.newBuilder()
             .addAllNodes(nodes.values())
             .build();
+
+        log.info("Returning nodes: {}", nodeList);
 
         responseObserver.onNext(nodeList);
         responseObserver.onCompleted();
@@ -86,6 +90,8 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
             responseObserver.onError(Status.NOT_FOUND.withDescription("No master registered").asRuntimeException());
             return;
         }
+
+        log.info("Returning master: {}", master);
 
         responseObserver.onNext(master);
         responseObserver.onCompleted();
@@ -103,6 +109,8 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
             return;
         }
 
+        log.info("Returning client: {}", client);
+
         responseObserver.onNext(client);
         responseObserver.onCompleted();
     }
@@ -112,6 +120,8 @@ public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplB
         ClientList clientList = ClientList.newBuilder()
             .addAllClients(clients.values())
             .build();
+
+        log.info("Returning clients: {}", clients);
 
         responseObserver.onNext(clientList);
         responseObserver.onCompleted();

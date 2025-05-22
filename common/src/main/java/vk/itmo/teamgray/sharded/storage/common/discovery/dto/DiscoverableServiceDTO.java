@@ -21,4 +21,8 @@ public record DiscoverableServiceDTO(
     public boolean isDockerized() {
         return containerName != null && !containerName.isBlank();
     }
+
+    public String getIdForLogging() {
+        return "[Node " + id() + "]";
+    }
 }

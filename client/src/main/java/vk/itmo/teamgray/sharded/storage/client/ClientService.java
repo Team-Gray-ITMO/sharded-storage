@@ -76,6 +76,10 @@ public class ClientService {
             server = shardToServer.get(shardId);
         }
 
+        if (shardToServer.isEmpty()) {
+            throw new IllegalStateException("No shards are created yet.");
+        }
+
         if (server == null) {
             throw new IllegalStateException("Could not find server for key: " + key + " in shard " + shardId);
         }

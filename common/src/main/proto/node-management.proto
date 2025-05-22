@@ -19,6 +19,8 @@ message RearrangeShardsRequest {
   repeated MoveFragment fragments = 2;
 
   map<int32, int32> serverByShardNumber = 3;
+
+  int32 fullShardCount = 4;
 }
 
 message RearrangeShardsResponse {

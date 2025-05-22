@@ -3,11 +3,14 @@ package vk.itmo.teamgray.sharded.storage.common.discovery;
 import io.grpc.ManagedChannel;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc;
@@ -20,6 +23,8 @@ import static java.util.stream.Collectors.toMap;
 import static vk.itmo.teamgray.sharded.storage.common.utils.RetryUtils.retryWithAttempts;
 
 public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.DiscoveryServiceBlockingStub> {
+    private static final Logger log = LoggerFactory.getLogger(DiscoveryClient.class);
+
     public DiscoveryClient(String host, int port) {
         super(host, port);
     }
@@ -93,13 +98,18 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
         );
     }
 
-    public Map<Integer, DiscoverableServiceDTO> getNodeMapWithRetries(Set<Integer> requiredServerIds) {
+    public Map<Integer, DiscoverableServiceDTO> getNodeMapWithRetries(Collection<Integer> requiredServerIds) {
         return retryWithAttempts(
             3,
             Duration.of(3, ChronoUnit.SECONDS),
             () -> {
                 Map<Integer, DiscoverableServiceDTO> nodes = getNodes().stream()
-                    .collect(toMap(DiscoverableServiceDTO::id, Function.identity()));
+                    .collect(
+                        toMap(
+                            DiscoverableServiceDTO::id,
+                            Function.identity()
+                        )
+                    );
 
                 Set<Integer> presentIds = nodes.keySet();
 
