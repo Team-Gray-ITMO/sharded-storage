@@ -8,8 +8,8 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
-import vk.itmo.teamgray.sharded.storage.master.client.MasterClientService;
-import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
+import vk.itmo.teamgray.sharded.storage.master.service.MasterClientService;
+import vk.itmo.teamgray.sharded.storage.master.service.topology.TopologyService;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;

@@ -11,7 +11,7 @@ import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.RetryUtils.retryWithAttempts;
 
-//Should be relatively computationally cheap to create clients every time, given that channels are cached.
+//Should be relatively computationally inexpensive to create clients every time, given that channels are cached.
 public abstract class AbstractGrpcClient<S extends AbstractBlockingStub> {
     protected final S blockingStub;
 

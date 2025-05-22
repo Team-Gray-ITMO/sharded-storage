@@ -6,17 +6,15 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import vk.itmo.teamgray.sharded.storage.common.Empty;
+import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
-import vk.itmo.teamgray.sharded.storage.master.client.topology.ShardNodeMapping;
+import vk.itmo.teamgray.sharded.storage.master.service.topology.ShardNodeMapping;
 import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsResponse;
-import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.RollbackTopologyChangeResponse;
 
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
     public NodeManagementClient(String host, int port) {
@@ -50,7 +48,7 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
             .setFullShardCount(fullShardCount)
             .build();
 
-        RearrangeShardsResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
             .rearrangeShards(request);
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
@@ -62,15 +60,15 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
             .setTargetServer(serverId)
             .build();
 
-        MoveShardResponse response = blockingStub.moveShard(request);
+        StatusResponse response = blockingStub.moveShard(request);
 
         return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }
 
     public boolean rollbackTopologyChange() {
-        RollbackTopologyChangeRequest request = RollbackTopologyChangeRequest.newBuilder().build();
+        Empty request = Empty.newBuilder().build();
         try {
-            RollbackTopologyChangeResponse response = blockingStub.rollbackTopologyChange(request);
+            StatusResponse response = blockingStub.rollbackTopologyChange(request);
             return response.getSuccess();
         } catch (Exception e) {
             return false;

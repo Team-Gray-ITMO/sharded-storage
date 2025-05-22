@@ -2,6 +2,7 @@ package vk.itmo.teamgray.sharded.storage.client;
 
 import java.util.Map;
 import java.util.Scanner;
+import vk.itmo.teamgray.sharded.storage.client.service.ClientService;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 

@@ -1,5 +1,7 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
+import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
+import vk.itmo.teamgray.sharded.storage.client.service.ClientService;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 

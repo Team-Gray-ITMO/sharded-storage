@@ -3,13 +3,12 @@ package vk.itmo.teamgray.sharded.storage.node.client;
 import io.grpc.ManagedChannel;
 import java.util.Map;
 import java.util.function.Function;
+import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentResponse;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardResponse;
 
 public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeNodeServiceBlockingStub> {
     public NodeNodeClient(String host, int port) {
@@ -27,7 +26,7 @@ public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeN
             .putAllShard(shard)
             .build();
 
-        SendShardResponse grpcResponse = blockingStub.sendShard(request);
+        StatusResponse grpcResponse = blockingStub.sendShard(request);
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
@@ -38,7 +37,7 @@ public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeN
             .putAllShardFragments(fragmentsToSend)
             .build();
 
-        SendShardFragmentResponse grpcResponse = blockingStub.sendShardFragment(request);
+        StatusResponse grpcResponse = blockingStub.sendShardFragment(request);
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }

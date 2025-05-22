@@ -9,10 +9,10 @@ import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeClientService;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeManagementService;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeService;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeStorageService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeClientService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeNodeService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeStorageService;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;

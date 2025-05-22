@@ -5,10 +5,12 @@ option java_package = "vk.itmo.teamgray.sharded.storage.node.management";
 
 package vk.itmo.teamgray.sharded.storage;
 
+import "common.proto";
+
 service NodeManagementService {
-  rpc RearrangeShards (RearrangeShardsRequest) returns (RearrangeShardsResponse);
-  rpc MoveShard (MoveShardRequest) returns (MoveShardResponse);
-  rpc RollbackTopologyChange (RollbackTopologyChangeRequest) returns (RollbackTopologyChangeResponse);
+  rpc RearrangeShards (RearrangeShardsRequest) returns (StatusResponse);
+  rpc MoveShard (MoveShardRequest) returns (StatusResponse);
+  rpc RollbackTopologyChange (Empty) returns (StatusResponse);
 }
 
 message RearrangeShardsRequest {
@@ -23,19 +25,9 @@ message RearrangeShardsRequest {
   int32 fullShardCount = 4;
 }
 
-message RearrangeShardsResponse {
-  bool success = 1;
-  string message = 2;
-}
-
 message MoveShardRequest {
   int32 shardId = 1;
   int32 targetServer = 2;
-}
-
-message MoveShardResponse {
-  bool success = 1;
-  string message = 2;
 }
 
 message MoveFragment {
@@ -46,13 +38,4 @@ message MoveFragment {
   int64 rangeFrom = 3;
 
   int64 rangeTo = 4;
-}
-
-message RollbackTopologyChangeRequest {
-  // Empty, node knows its previous state
-}
-
-message RollbackTopologyChangeResponse {
-  bool success = 1;
-  string message = 2; // For status/error
 }

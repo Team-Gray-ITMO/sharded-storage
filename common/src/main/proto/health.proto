@@ -5,6 +5,8 @@ option java_package = "vk.itmo.teamgray.sharded.storage.health";
 
 package vk.itmo.teamgray.sharded.storage;
 
+import "common.proto";
+
 service HealthService {
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
