@@ -54,12 +54,37 @@ public class NodeManagementService {
         return copy;
     }
 
+    public void prepareRearrange(
+        Map<Integer, Long> shardToHash,
+        int fullShardCount,
+        StatusResponseWriter responseWriter
+    ) {
+        // TODO Implement
+    }
+
+    public void processRearrange(
+        List<FragmentDTO> fragments,
+        Map<Integer, Integer> serverByShardNumber,
+        StatusResponseWriter responseWriter
+    ) {
+        // TODO Implement
+    }
+
+    public void applyRearrange(StatusResponseWriter responseWriter) {
+        // TODO Implement
+    }
+
+    public void rollbackRearrange(StatusResponseWriter responseWriter) {
+        // TODO Implement
+    }
+
     public void rearrangeShards(
         Map<Integer, Long> shardToHash,
         List<FragmentDTO> fragments,
         Map<Integer, Integer> serverByShardNumber,
         int fullShardCount,
-        StatusResponseWriter responseWriter) {
+        StatusResponseWriter responseWriter
+    ) {
         this.originalShardsBackup = deepCopyShards(nodeStorageService.getShards());
         this.originalFullShardCount = nodeStorageService.getFullShardCount();
 
