@@ -99,7 +99,7 @@ public class TopologyService {
             log.info("Adding server {}", serverId);
 
             if (serverToShards.containsKey(serverId)) {
-                return new StatusResponseDTO(false, "SERVER NOT ADDED");
+                return new StatusResponseDTO(false, "Could not add server " + serverId + " because it is already registered.");
             }
 
             var updatedServers = Collections.list(serverToShards.keys());
@@ -119,7 +119,7 @@ public class TopologyService {
 
                 log.info("Added server {}", serverId);
 
-                return new StatusResponseDTO(true, "SERVER ADDED");
+                return new StatusResponseDTO(true, "Server Added");
             } else {
                 return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.getMessage());
             }
@@ -134,7 +134,7 @@ public class TopologyService {
             log.info("Removing server {}", serverId);
 
             if (!serverToShards.containsKey(serverId)) {
-                return new StatusResponseDTO(false, "SERVER NOT REMOVED");
+                return new StatusResponseDTO(false, "Could not remove server " + serverId + " because it is not registered.");
             }
 
             var updatedServers = Collections.list(serverToShards.keys()).stream()
@@ -155,9 +155,9 @@ public class TopologyService {
 
                 replaceServerToShards(newServerToShards);
 
-                return new StatusResponseDTO(true, "SERVER REMOVED");
+                return new StatusResponseDTO(true, "Server Removed");
             } else {
-                return new StatusResponseDTO(false, "Could not delete server: " + System.lineSeparator() + result.getMessage());
+                return new StatusResponseDTO(false, "Could not remove server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
             lock.writeLock().unlock();

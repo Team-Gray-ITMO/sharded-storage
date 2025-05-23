@@ -102,7 +102,13 @@ public class CLI {
 
     private void handleAddServer() {
         print("Enter server ID: ");
-        int id = Integer.parseInt(scanner.nextLine().trim());
+
+        Integer id = parseIntSafely(scanner.nextLine().trim());
+
+        if (id == null) {
+            return;
+        }
+
         print("Fork new instance? (y/n): ");
         boolean fork = scanner.nextLine().trim().equalsIgnoreCase("y");
         try {
@@ -116,7 +122,12 @@ public class CLI {
 
     private void handleDeleteServer() {
         print("Enter server ID: ");
-        int id = Integer.parseInt(scanner.nextLine().trim());
+        Integer id = parseIntSafely(scanner.nextLine().trim());
+
+        if (id == null) {
+            return;
+        }
+
         try {
             var response = clientService.deleteServer(id);
             println(response.getMessage());
@@ -128,7 +139,12 @@ public class CLI {
 
     private void handleChangeShardCount() {
         print("Enter new shard count: ");
-        int newCount = Integer.parseInt(scanner.nextLine().trim());
+        Integer newCount = parseIntSafely(scanner.nextLine().trim());
+
+        if (newCount == null) {
+            return;
+        }
+
         try {
             var response = clientService.changeShardCount(newCount);
             println(response.getMessage());
@@ -167,6 +183,16 @@ public class CLI {
             println("  Status: " + masterResponse.statusMessage());
         } catch (Exception e) {
             errPrintln("Error sending heartbeat: " + e.getMessage());
+        }
+    }
+
+    private Integer parseIntSafely(String line) {
+        try {
+            return Integer.parseInt(line);
+        } catch (NumberFormatException e) {
+            errPrintln("Not a valid number: '" + line + "'");
+
+            return null;
         }
     }
 
