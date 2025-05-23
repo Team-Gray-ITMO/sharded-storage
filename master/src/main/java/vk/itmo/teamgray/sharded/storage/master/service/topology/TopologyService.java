@@ -2,11 +2,9 @@ package vk.itmo.teamgray.sharded.storage.master.service.topology;
 
 import io.grpc.netty.shaded.io.netty.util.internal.StringUtil;
 import java.math.BigInteger;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -236,9 +234,6 @@ public class TopologyService {
         try {
             log.info("Changing shard count to {}", shardCount);
 
-            ConcurrentHashMap<Integer, Long> originalShardToHash = new ConcurrentHashMap<>(this.shardToHash);
-            ConcurrentHashMap<Integer, List<Integer>> originalServerToShards = new ConcurrentHashMap<>(this.serverToShards);
-
             ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
             ConcurrentHashMap<Integer, List<Integer>> newServerToShards = redistributeShardsEvenly(
                 Collections.list(serverToShards.keys()),
@@ -262,6 +257,7 @@ public class TopologyService {
                 ));
 
             var nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
+
             List<String> errorMessages = new ArrayList<>();
 
             // Phase 1: Prepare
@@ -282,20 +278,19 @@ public class TopologyService {
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
                 StatusResponseDTO response = client.prepareRearrange(relevantSchemeSlice, newShardToHash.size());
+
                 if (!response.isSuccess()) {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
                     log.error("Preparation stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
-                    return rollbackAndReturnError(nodes, errorMessages, originalShardToHash, originalServerToShards);
+
+                    return rollbackAndReturnError(nodes, errorMessages);
                 }
             }
 
             // Phase 2: Process
             log.info("Starting process phase");
-            for (var entry : newServerToShards.entrySet()) {
-                var serverId = entry.getKey();
-                var shards = entry.getValue();
-
+            for (var serverId : newServerToShards.keySet()) {
                 var relevantFragments = serverToShards.get(serverId).stream()
                     .flatMap(it -> fragments.stream().filter(f -> f.oldShardId() == it))
                     .toList();
@@ -303,12 +298,22 @@ public class TopologyService {
                 DiscoverableServiceDTO server = nodes.get(serverId);
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
-                StatusResponseDTO response = client.processRearrange(relevantFragments, newShardsToServer);
+                var relevantNodes = relevantFragments.stream()
+                    .map(FragmentDTO::newShardId)
+                    .distinct()
+                    .collect(toMap(
+                        Function.identity(),
+                        newShardsToServer::get
+                    ));
+
+                StatusResponseDTO response = client.processRearrange(relevantFragments, relevantNodes);
+
                 if (!response.isSuccess()) {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
                     log.error("Process stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
-                    return rollbackAndReturnError(nodes, errorMessages, originalShardToHash, originalServerToShards);
+
+                    return rollbackAndReturnError(nodes, errorMessages);
                 }
             }
 
@@ -320,15 +325,17 @@ public class TopologyService {
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
                 StatusResponseDTO response = client.applyRearrange();
+
                 if (!response.isSuccess()) {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
-                    log.error("Apply failed on node: {}. Error message: {}", server, response.getMessage());
+                    log.error("Apply failed on node, System is in inconsistent state: {}. Error message: {}", server,
+                        response.getMessage());
                     errorMessages.add(message);
                     // No compensation or recovery actions on involved nodes
                     // End up change shards process and return error response
                     return new StatusResponseDTO(
-                            false,
-                            StringUtil.join(System.lineSeparator(), errorMessages).toString()
+                        false,
+                        StringUtil.join(System.lineSeparator(), errorMessages).toString()
                     );
                 }
             }
@@ -344,9 +351,7 @@ public class TopologyService {
 
     private StatusResponseDTO rollbackAndReturnError(
         Map<Integer, DiscoverableServiceDTO> nodes,
-        List<String> errorMessages,
-        ConcurrentHashMap<Integer, Long> originalShardToHash,
-        ConcurrentHashMap<Integer, List<Integer>> originalServerToShards
+        List<String> errorMessages
     ) {
         String rollbackMessage = "One or more nodes failed during rearrange. Rolling back.";
         log.warn(rollbackMessage);
@@ -363,10 +368,10 @@ public class TopologyService {
             }
         }
 
-        this.shardToHash = originalShardToHash;
-        this.serverToShards = originalServerToShards;
+        // No need to swap maps, old ones are still intact, we just do not apply old ones.
 
         log.info("Change Shard Count Failed");
+
         return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
     }
 

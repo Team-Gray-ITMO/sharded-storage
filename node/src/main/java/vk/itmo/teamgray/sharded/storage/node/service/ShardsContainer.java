@@ -34,7 +34,7 @@ public class ShardsContainer {
     }
 
     public void set(String key, String value) {
-        var shardId = getAndValidateShardId(key);
+        var shardId = getAndValidateShardId(key, false);
 
         shardMap
             .computeIfAbsent(shardId, k -> new ShardData())
@@ -42,7 +42,7 @@ public class ShardsContainer {
     }
 
     public String get(String key) {
-        var shardId = getAndValidateShardId(key);
+        var shardId = getAndValidateShardId(key, true);
 
         ShardData shardData = shardMap.get(shardId);
 
@@ -55,10 +55,16 @@ public class ShardsContainer {
         return returnValue;
     }
 
-    public void removeShard(int shardId) {
-        shardMap.remove(shardId);
+    public void createShard(int shardId) {
+        shardMap.put(shardId, new ShardData());
 
-        log.info("Shard {} removed", shardId);
+        log.info("Shard {} created", shardId);
+    }
+
+    public void clearShard(int shardId) {
+        shardMap.get(shardId).clearStorage();
+
+        log.info("Shard {} cleared", shardId);
     }
 
     public boolean containsShard(int shardId) {
@@ -73,14 +79,14 @@ public class ShardsContainer {
         }
     }
 
-    private Integer getAndValidateShardId(String key) {
+    private Integer getAndValidateShardId(String key, boolean checkShardExists) {
         var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
 
         if (shardId == null) {
             throw new NodeException("No shard found for key: " + key);
         }
 
-        if (!shardMap.containsKey(shardId)) {
+        if (checkShardExists && !shardMap.containsKey(shardId)) {
             throw new NodeException("Shard " + shardId + " is not found on this node. Existing shards: " + shardMap.keySet());
         }
 

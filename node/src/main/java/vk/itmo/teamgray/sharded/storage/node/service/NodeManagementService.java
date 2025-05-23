@@ -52,7 +52,7 @@ public class NodeManagementService {
 
             nodeStorageService.changeState(NodeState.RUNNING, REARRANGE_PREPARING);
 
-            Map<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
+            ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
 
             shardToHash.entrySet().stream()
                 .sorted(Comparator.comparingLong(Map.Entry::getValue))
@@ -264,21 +264,26 @@ public class NodeManagementService {
 
         log.info("Request to move shard {} to {}", shardId, targetServer);
 
-        Map<Integer, ShardData> existingShards = nodeStorageService.getShards().getShardMap();
-        if (!existingShards.containsKey(shardId)) {
-            responseWriter.writeResponse(false, "Shard " + shardId + " not found in this node");
+        var existingShards = nodeStorageService.getShards();
+
+        if (!existingShards.containsShard(shardId)) {
+            var errorMessage = "Shard " + shardId + " not found in this node";
+
+            log.error(errorMessage);
+
+            responseWriter.writeResponse(false, errorMessage);
 
             return;
         }
 
-        ShardData shardToMove = existingShards.get(shardId);
+        ShardData shardToMove = existingShards.getShardMap().get(shardId);
         Map<String, String> shardData = shardToMove.getStorage();
 
         StatusResponseDTO sendResponse = sendShard(shardId, shardData, targetServer);
 
         if (sendResponse.isSuccess()) {
             // remove shard only after a successful transfer
-            nodeStorageService.getShards().removeShard(shardId);
+            nodeStorageService.getShards().clearShard(shardId);
 
             responseWriter.writeResponse(true, "Shard successfully moved");
         } else {

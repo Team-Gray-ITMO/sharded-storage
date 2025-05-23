@@ -48,10 +48,10 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
-    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> serverByShardNumber) {
+    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> relevantNodes) {
         ProcessRequest request = ProcessRequest.newBuilder()
             .addAllFragments(fragments.stream().map(FragmentDTO::toGrpc).toList())
-            .putAllServerByShardNumber(serverByShardNumber)
+            .putAllServerByShardNumber(relevantNodes)
             .build();
 
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)

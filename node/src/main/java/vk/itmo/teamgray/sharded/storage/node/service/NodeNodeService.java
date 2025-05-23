@@ -27,24 +27,22 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         SendShardRequest request,
         StreamObserver<StatusResponse> responseObserver
     ) {
-        int shardId = request.getShardId();
         Map<String, String> shard = request.getShardMap();
 
         boolean success = true;
         String message = SUCCESS_MESSAGE;
 
         // TODO Set debug level
-        log.info("Received shard {}. Processing", request.getShardId());
+        int shardId = request.getShardId();
+
+        log.info("Received shard {}. Processing", shardId);
 
         try {
-            if (!nodeStorageService.getShards().containsShard(request.getShardId())) {
-                throw new NodeException("Shard " + request.getShardId() + " does not exist");
+            if (nodeStorageService.getShards().containsShard(shardId)) {
+                nodeStorageService.getShards().createShard(shardId);
             }
 
-            shard.forEach((key, value) -> {
-                nodeStorageService.getShards().checkKeyForShard(shardId, key);
-                nodeStorageService.set(key, value);
-            });
+            shard.forEach(nodeStorageService::set);
         } catch (Exception e) {
             success = false;
             message = "ERROR: " + e.getMessage();

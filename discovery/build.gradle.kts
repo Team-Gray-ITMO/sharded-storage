@@ -3,7 +3,7 @@ plugins {
     id("com.github.johnrengelman.shadow") apply true
 }
 
-private val mainClassName = "vk.itmo.teamgray.sharded.storage.master.DiscoveryApplication"
+private val mainClassName = "vk.itmo.teamgray.sharded.storage.discovery.DiscoveryApplication"
 
 application {
     mainClass.set(mainClassName)
