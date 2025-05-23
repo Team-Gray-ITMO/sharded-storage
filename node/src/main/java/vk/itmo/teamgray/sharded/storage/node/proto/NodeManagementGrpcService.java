@@ -4,7 +4,8 @@ import io.grpc.stub.StreamObserver;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
+import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.ProcessRequest;
@@ -82,12 +83,11 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
     }
 
     @Override
-    public void moveShard(MoveShardRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void moveShards(MoveShardsRequest request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
-        nodeManagementService.moveShard(
-            request.getShardId(),
-            request.getTargetServer(),
+        nodeManagementService.moveShards(
+            request.getShardsList().stream().map(MoveShardDTO::fromGrpc).toList(),
             (success, message) -> {
                 builder.setSuccess(success);
                 builder.setMessage(message);

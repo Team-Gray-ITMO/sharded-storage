@@ -23,7 +23,7 @@ service NodeManagementService {
   rpc ApplyRearrange (Empty) returns (StatusResponse);
   rpc RollbackRearrange (Empty) returns (StatusResponse);
 
-  rpc MoveShard (MoveShardRequest) returns (StatusResponse);
+  rpc MoveShards (MoveShardsRequest) returns (StatusResponse);
 }
 
 message RearrangeShardsRequest {
@@ -38,7 +38,11 @@ message RearrangeShardsRequest {
   int32 fullShardCount = 4;
 }
 
-message MoveShardRequest {
+message MoveShardsRequest {
+  repeated MoveShard shards = 1;
+}
+
+message MoveShard {
   int32 shardId = 1;
   int32 targetServer = 2;
 }

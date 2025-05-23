@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
@@ -301,7 +302,7 @@ public class NodeManagementServiceTest {
         when(discoveryClient.getNode(anyInt())).thenReturn(null);
 
         StatusResponseDTO response = new StatusResponseDTO();
-        service.moveShard(1, 99, (success, message) -> {
+        service.moveShards(List.of(new MoveShardDTO(1, 99)), (success, message) -> {
             response.setSuccess(success);
             response.setMessage(message);
         });
@@ -313,7 +314,7 @@ public class NodeManagementServiceTest {
     @Test
     public void testMoveNonExistentShard() {
         StatusResponseDTO response = new StatusResponseDTO();
-        service.moveShard(99, 1, (success, message) -> {
+        service.moveShards(List.of(new MoveShardDTO(99, 1)), (success, message) -> {
             response.setSuccess(success);
             response.setMessage(message);
         });

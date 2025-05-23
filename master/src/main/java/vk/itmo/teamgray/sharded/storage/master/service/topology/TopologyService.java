@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
@@ -179,34 +180,41 @@ public class TopologyService {
 
             var sourceServer = nodes.get(sourceServerId);
 
+            List<MoveShardDTO> moveShards = new ArrayList<>();
+
             for (Integer shardId : oldShards) {
                 Integer targetServer = findServerForShard(newMapping, shardId);
 
                 if (targetServer != null && !targetServer.equals(sourceServerId)) {
-                    log.info("Moving shard {} from {} to {}", shardId, sourceServer, targetServer);
+                    log.info("Preparing to move shard {} from {} to {}", shardId, sourceServer, targetServer);
 
-                    NodeManagementClient nodeManagementClient = clientCachingFactory
-                        .getClient(
-                            sourceServer,
-                            NodeManagementClient::new
-                        );
-
-                    StatusResponseDTO response = nodeManagementClient.moveShard(shardId, targetServer);
-
-                    if (!response.isSuccess()) {
-                        //TODO Consider rollback
-                        var message = "Failed to move shard " + shardId
-                            + " from " + sourceServer
-                            + " to " + targetServer + ":"
-                            + System.lineSeparator()
-                            + sourceServer.getIdForLogging() + ": "
-                            + response.getMessage();
-
-                        log.error(message);
-
-                        errorMessages.add(message);
-                    }
+                    moveShards.add(new MoveShardDTO(shardId, targetServer));
                 }
+            }
+
+            if (moveShards.isEmpty()) {
+                continue;
+            }
+
+            NodeManagementClient nodeManagementClient = clientCachingFactory
+                .getClient(
+                    sourceServer,
+                    NodeManagementClient::new
+                );
+
+            StatusResponseDTO response = nodeManagementClient.moveShards(moveShards);
+
+            if (!response.isSuccess()) {
+                //TODO Consider rollback
+                String message = "Failed to move shards " + moveShards
+                    + " from " + sourceServer + ":"
+                    + System.lineSeparator()
+                    + sourceServer.getIdForLogging() + ": "
+                    + response.getMessage();
+
+                log.error(message);
+
+                errorMessages.add(message);
             }
         }
 

@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
@@ -257,45 +259,64 @@ public class NodeManagementService {
         return nodeNodeClient.sendShardFragment(newShardId, fragmentsToSend);
     }
 
-    public void moveShard(int shardId, int targetServerId, StatusResponseWriter responseWriter) {
-        DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
-
-        log.info("Request to move shard {} to {}", shardId, targetServer);
-
-        var existingShards = nodeStorageService.getShards();
-
-        if (!existingShards.containsShard(shardId)) {
-            var errorMessage = "Shard " + shardId + " not found in this node";
-
-            log.error(errorMessage);
-
-            responseWriter.writeResponse(false, errorMessage);
-
-            return;
-        }
-
-        ShardData shardToMove = existingShards.getShardMap().get(shardId);
-        Map<String, String> shardData = shardToMove.getStorage();
-
-        StatusResponseDTO sendResponse = sendShard(shardId, shardData, targetServer);
-
-        if (sendResponse.isSuccess()) {
-            // remove shard only after a successful transfer
-            nodeStorageService.getShards().clearShard(shardId);
-
-            responseWriter.writeResponse(true, "Shard successfully moved");
-        } else {
-            responseWriter.writeResponse(
-                false,
-                "Failed to send shard to target server: "
-                    + System.lineSeparator()
-                    + targetServer.getIdForLogging() + ": "
-                    + sendResponse.getMessage()
+    public void moveShards(List<MoveShardDTO> moveShards, StatusResponseWriter responseWriter) {
+        Map<Integer, List<Integer>> shardsByTargetServers = moveShards.stream()
+            .collect(Collectors.groupingBy(
+                    MoveShardDTO::targetServer,
+                    Collectors.mapping(MoveShardDTO::shardId, Collectors.toList())
+                )
             );
-        }
+
+        ShardsContainer existingShards = nodeStorageService.getShards();
+
+        Map<Integer, ShardData> shardMap = existingShards.getShardMap();
+
+        shardsByTargetServers.forEach((targetServerId, shardIds) -> {
+            DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
+
+            log.info("Request to move shards {} to {}", shardIds, targetServer);
+
+            List<Integer> absentShards = shardIds.stream()
+                .filter(it -> !existingShards.containsShard(it))
+                .toList();
+
+            if (!absentShards.isEmpty()) {
+                var errorMessage = "Shards " + absentShards + " not found in this node";
+
+                log.error(errorMessage);
+
+                responseWriter.writeResponse(false, errorMessage);
+
+                return;
+            }
+
+            List<SendShardDTO> shardsToSend = shardIds.stream()
+                .map(shardId -> new SendShardDTO(shardId, shardMap.get(shardId).getStorage()))
+                .toList();
+
+            StatusResponseDTO sendResponse = sendShards(shardsToSend, targetServer);
+
+            if (sendResponse.isSuccess()) {
+                shardsToSend
+                    .forEach(shard -> {
+                        // remove shard only after a successful transfer
+                        nodeStorageService.getShards().clearShard(shard.shardId());
+                    });
+
+                responseWriter.writeResponse(true, "Shard successfully moved");
+            } else {
+                responseWriter.writeResponse(
+                    false,
+                    "Failed to send shard to target server: "
+                        + System.lineSeparator()
+                        + targetServer.getIdForLogging() + ": "
+                        + sendResponse.getMessage()
+                );
+            }
+        });
     }
 
-    private StatusResponseDTO sendShard(int shardId, Map<String, String> shardData, DiscoverableServiceDTO targetServer) {
+    private StatusResponseDTO sendShards(List<SendShardDTO> sendShards, DiscoverableServiceDTO targetServer) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
@@ -303,8 +324,8 @@ public class NodeManagementService {
                 NodeNodeClient::new
             );
 
-        log.debug("Sending shard {} to node {}", shardId, targetServer);
+        log.debug("Sending shards {} to node {}", sendShards.stream().map(SendShardDTO::shardId).toList(), targetServer);
 
-        return nodeNodeClient.sendShard(shardId, shardData);
+        return nodeNodeClient.sendShard(sendShards);
     }
 }

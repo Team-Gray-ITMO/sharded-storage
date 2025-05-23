@@ -5,12 +5,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.ProcessRequest;
@@ -25,13 +27,12 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return NodeManagementServiceGrpc::newBlockingStub;
     }
 
-    public StatusResponseDTO moveShard(int shardId, int serverId) {
-        MoveShardRequest request = MoveShardRequest.newBuilder()
-            .setShardId(shardId)
-            .setTargetServer(serverId)
+    public StatusResponseDTO moveShards(List<MoveShardDTO> shards) {
+        MoveShardsRequest request = MoveShardsRequest.newBuilder()
+            .addAllShards(shards.stream().map(MoveShardDTO::toGrpc).collect(Collectors.toList()))
             .build();
 
-        StatusResponse response = blockingStub.moveShard(request);
+        StatusResponse response = blockingStub.moveShards(request);
 
         return new StatusResponseDTO(response.getSuccess(), response.getMessage());
     }

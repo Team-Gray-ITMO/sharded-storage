@@ -1,14 +1,18 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
+import io.grpc.netty.shaded.io.netty.util.internal.StringUtil;
 import io.grpc.stub.StreamObserver;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShard;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardsRequest;
 
 // TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
 public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase {
@@ -23,35 +27,43 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
     }
 
     @Override
-    public void sendShard(
-        SendShardRequest request,
+    public void sendShards(
+        SendShardsRequest request,
         StreamObserver<StatusResponse> responseObserver
     ) {
-        Map<String, String> shard = request.getShardMap();
-
-        boolean success = true;
         String message = SUCCESS_MESSAGE;
 
-        int shardId = request.getShardId();
+        log.debug("Received shards {}. Processing", request.getShardsList().stream().map(SendShard::getShardId).toList());
 
-        log.debug("Received shard {}. Processing", shardId);
+        List<String> errorMessages = request.getShardsList().stream()
+            .map(sendShard -> {
+                int shardId = sendShard.getShardId();
+                Map<String, String> shard = sendShard.getShardMap();
 
-        try {
-            if (nodeStorageService.getShards().containsShard(shardId)) {
-                nodeStorageService.getShards().createShard(shardId);
-            }
+                try {
+                    if (nodeStorageService.getShards().containsShard(shardId)) {
+                        nodeStorageService.getShards().createShard(shardId);
+                    }
 
-            shard.forEach(nodeStorageService::set);
-        } catch (Exception e) {
-            success = false;
-            message = "ERROR: " + e.getMessage();
+                    shard.forEach(nodeStorageService::set);
 
-            log.error(message, e);
-        }
+                    return null;
+                } catch (Exception e) {
+                    log.error(message, e);
+
+                    return "ERROR: " + e.getMessage();
+                }
+            })
+            .filter(Objects::nonNull)
+            .toList();
 
         StatusResponse response = StatusResponse.newBuilder()
-            .setSuccess(success)
-            .setMessage(message)
+            .setSuccess(errorMessages.isEmpty())
+            .setMessage(
+                errorMessages.isEmpty()
+                    ? message
+                    : StringUtil.join(System.lineSeparator(), errorMessages).toString()
+            )
             .build();
 
         responseObserver.onNext(response);

@@ -1,14 +1,16 @@
 package vk.itmo.teamgray.sharded.storage.node.client;
 
 import io.grpc.ManagedChannel;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.node.SendShardsRequest;
 
 public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeNodeServiceBlockingStub> {
     public NodeNodeClient(String host, int port) {
@@ -20,13 +22,12 @@ public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeN
         return NodeNodeServiceGrpc::newBlockingStub;
     }
 
-    public StatusResponseDTO sendShard(int shardId, Map<String, String> shard) {
-        SendShardRequest request = SendShardRequest.newBuilder()
-            .setShardId(shardId)
-            .putAllShard(shard)
+    public StatusResponseDTO sendShard(List<SendShardDTO> shards) {
+        SendShardsRequest request = SendShardsRequest.newBuilder()
+            .addAllShards(shards.stream().map(SendShardDTO::toGrpc).toList())
             .build();
 
-        StatusResponse grpcResponse = blockingStub.sendShard(request);
+        StatusResponse grpcResponse = blockingStub.sendShards(request);
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
