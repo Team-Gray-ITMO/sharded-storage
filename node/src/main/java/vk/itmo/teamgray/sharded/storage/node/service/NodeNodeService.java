@@ -35,7 +35,7 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         // TODO Set debug level
         int shardId = request.getShardId();
 
-        log.info("Received shard {}. Processing", shardId);
+        log.debug("Received shard {}. Processing", shardId);
 
         try {
             if (nodeStorageService.getShards().containsShard(shardId)) {
@@ -69,7 +69,7 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         int shardId = request.getShardId();
 
         // TODO Set debug level
-        log.info("Received fragment for shard {}. Processing", shardId);
+        log.debug("Received fragment for shard {}. Processing", shardId);
 
         try {
             var stagedShards = nodeStorageService.getStagedShards();

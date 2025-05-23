@@ -82,7 +82,7 @@ public class ClientService {
         }
 
         //TODO Debug level
-        log.info("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
+        log.debug("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
 
         return GrpcClientCachingFactory.getInstance()
             .getClient(

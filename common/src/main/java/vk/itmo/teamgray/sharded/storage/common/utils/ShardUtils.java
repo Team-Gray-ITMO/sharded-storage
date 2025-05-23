@@ -34,7 +34,7 @@ public class ShardUtils {
         }
 
         //TODO Set to debug
-        log.info("Finding shard for hash: {}", hash);
+        log.debug("Finding shard for hash: {}", hash);
 
         BigInteger range = BigInteger
             .valueOf(Long.MAX_VALUE)

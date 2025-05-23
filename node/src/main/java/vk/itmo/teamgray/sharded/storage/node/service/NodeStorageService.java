@@ -32,14 +32,14 @@ public class NodeStorageService {
         }
 
         //TODO Change to debug
-        log.info("Setting key {} to {}", key, value);
+        log.debug("Setting key {} to {}", key, value);
 
         shards.set(key, value);
     }
 
     public String get(String key) {
         //TODO Change to debug
-        log.info("Getting value for key {}", key);
+        log.debug("Getting value for key {}", key);
 
         return shards.get(key);
     }
