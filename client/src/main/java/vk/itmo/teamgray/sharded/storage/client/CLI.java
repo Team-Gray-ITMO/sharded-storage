@@ -2,6 +2,7 @@ package vk.itmo.teamgray.sharded.storage.client;
 
 import java.util.Map;
 import java.util.Scanner;
+import vk.itmo.teamgray.sharded.storage.client.service.ClientService;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 
@@ -92,8 +93,8 @@ public class CLI {
         String filePath = scanner.nextLine().trim();
         try {
             var response = clientService.setFromFile(filePath);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error setting from file: " + e.getMessage());
         }
@@ -101,13 +102,19 @@ public class CLI {
 
     private void handleAddServer() {
         print("Enter server ID: ");
-        int id = Integer.parseInt(scanner.nextLine().trim());
+
+        Integer id = parseIntSafely(scanner.nextLine().trim());
+
+        if (id == null) {
+            return;
+        }
+
         print("Fork new instance? (y/n): ");
         boolean fork = scanner.nextLine().trim().equalsIgnoreCase("y");
         try {
             var response = clientService.addServer(id, fork);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error adding server: " + e.getMessage());
         }
@@ -115,11 +122,16 @@ public class CLI {
 
     private void handleDeleteServer() {
         print("Enter server ID: ");
-        int id = Integer.parseInt(scanner.nextLine().trim());
+        Integer id = parseIntSafely(scanner.nextLine().trim());
+
+        if (id == null) {
+            return;
+        }
+
         try {
             var response = clientService.deleteServer(id);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error deleting server: " + e.getMessage());
         }
@@ -127,11 +139,16 @@ public class CLI {
 
     private void handleChangeShardCount() {
         print("Enter new shard count: ");
-        int newCount = Integer.parseInt(scanner.nextLine().trim());
+        Integer newCount = parseIntSafely(scanner.nextLine().trim());
+
+        if (newCount == null) {
+            return;
+        }
+
         try {
             var response = clientService.changeShardCount(newCount);
-            println(response.message());
-            println(response.success() ? "Success" : "Failed");
+            println(response.getMessage());
+            println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
             errPrintln("Error changing shard count: " + e.getMessage());
         }
@@ -166,6 +183,16 @@ public class CLI {
             println("  Status: " + masterResponse.statusMessage());
         } catch (Exception e) {
             errPrintln("Error sending heartbeat: " + e.getMessage());
+        }
+    }
+
+    private Integer parseIntSafely(String line) {
+        try {
+            return Integer.parseInt(line);
+        } catch (NumberFormatException e) {
+            errPrintln("Not a valid number: '" + line + "'");
+
+            return null;
         }
     }
 

@@ -9,22 +9,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.Empty;
+import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.discovery.Empty;
 import vk.itmo.teamgray.sharded.storage.discovery.IdRequest;
-import vk.itmo.teamgray.sharded.storage.discovery.RegisterResponse;
 import vk.itmo.teamgray.sharded.storage.discovery.ServiceInfo;
 
 import static java.util.stream.Collectors.toMap;
 import static vk.itmo.teamgray.sharded.storage.common.utils.RetryUtils.retryWithAttempts;
 
 public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.DiscoveryServiceBlockingStub> {
-    private static final Logger log = LoggerFactory.getLogger(DiscoveryClient.class);
-
     public DiscoveryClient(String host, int port) {
         super(host, port);
     }
@@ -42,7 +38,7 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
             .setContainerName(service.containerName() == null ? "" : service.containerName())
             .build();
 
-        RegisterResponse response = blockingStub.registerService(info);
+        StatusResponse response = blockingStub.registerService(info);
 
         if (!response.getSuccess()) {
             throw new IllegalStateException(

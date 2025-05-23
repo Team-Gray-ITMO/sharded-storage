@@ -7,12 +7,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
-import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
+import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeClientService;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeManagementService;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeService;
-import vk.itmo.teamgray.sharded.storage.node.client.NodeStorageService;
+import vk.itmo.teamgray.sharded.storage.node.proto.NodeManagementGrpcService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeClientService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeNodeService;
+import vk.itmo.teamgray.sharded.storage.node.service.NodeStorageService;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
@@ -41,9 +43,9 @@ public class NodeApplication {
 
         activeServer = ServerBuilder.forPort(serverPort)
             .addService(new NodeClientService(nodeStorageService))
-            .addService(new NodeManagementService(nodeStorageService, discoveryClient))
+            .addService(new NodeManagementGrpcService(new NodeManagementService(nodeStorageService, discoveryClient)))
             .addService(new NodeNodeService(nodeStorageService))
-            .addService(new HealthService())
+            .addService(new HealthGrpcService(new HealthService()))
             .build();
     }
 

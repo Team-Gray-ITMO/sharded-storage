@@ -5,16 +5,18 @@ option java_package = "vk.itmo.teamgray.sharded.storage.master.client";
 
 package vk.itmo.teamgray.sharded.storage;
 
+import "common.proto";
+
 service MasterClientService {
   rpc GetServerToShard (GetServerToShardRequest) returns (GetServerToShardResponse);
 
   rpc GetShardToHash (GetShardToHashRequest) returns (GetShardToHashResponse);
 
-  rpc AddServer (AddServerRequest) returns (AddServerResponse);
+  rpc AddServer (AddServerRequest) returns (StatusResponse);
 
-  rpc DeleteServer (DeleteServerRequest) returns (DeleteServerResponse);
+  rpc DeleteServer (DeleteServerRequest) returns (StatusResponse);
 
-  rpc ChangeShardCount (ChangeShardCountRequest) returns (ChangeShardCountResponse);
+  rpc ChangeShardCount (ChangeShardCountRequest) returns (StatusResponse);
 }
 
 message GetServerToShardRequest {
@@ -42,25 +44,10 @@ message AddServerRequest {
   bool forkNewInstance = 3;
 }
 
-message AddServerResponse {
-  bool success = 1;
-  string message = 2;
-}
-
 message DeleteServerRequest {
   int32 id = 1;
 }
 
-message DeleteServerResponse {
-  bool success = 1;
-  string message = 2;
-}
-
 message ChangeShardCountRequest {
   int32 newShardCount = 1;
-}
-
-message ChangeShardCountResponse {
-  bool success = 1;
-  string message = 2;
 }

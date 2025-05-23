@@ -5,8 +5,10 @@ option java_package = "vk.itmo.teamgray.sharded.storage.discovery";
 
 package vk.itmo.teamgray.sharded.storage;
 
+import "common.proto";
+
 service DiscoveryService {
-  rpc RegisterService(ServiceInfo) returns (RegisterResponse);
+  rpc RegisterService(ServiceInfo) returns (StatusResponse);
   rpc GetNode(IdRequest) returns (ServiceInfo);
   rpc GetNodes(Empty) returns (NodeList);
   rpc GetMaster(Empty) returns (ServiceInfo);
@@ -14,9 +16,6 @@ service DiscoveryService {
   rpc GetClients(Empty) returns (ClientList);
 }
 
-message Empty {
-  // No-op.
-}
 message IdRequest {
   int32 id = 1;
 }
@@ -26,11 +25,6 @@ message ServiceInfo {
   string type = 2;
   string host = 3;
   string containerName = 4; // optional: populated if dockerized
-}
-
-message RegisterResponse {
-  bool success = 1;
-  string message = 2;
 }
 
 message NodeList {

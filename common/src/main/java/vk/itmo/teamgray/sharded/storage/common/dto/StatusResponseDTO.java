@@ -1,8 +1,64 @@
 package vk.itmo.teamgray.sharded.storage.common.dto;
 
-public record StatusResponseDTO(
-    boolean success,
-    String message
-) {
-    // No-op.
+import java.util.Objects;
+
+public final class StatusResponseDTO {
+    private boolean success;
+
+    private String message;
+
+    public StatusResponseDTO() {
+        // No-op.
+    }
+
+    public StatusResponseDTO(
+        boolean success,
+        String message
+    ) {
+        this.success = success;
+        this.message = message;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) {
+            return true;
+        }
+        if (obj == null || obj.getClass() != this.getClass()) {
+            return false;
+        }
+
+        var that = (StatusResponseDTO)obj;
+
+        return this.success == that.success &&
+            Objects.equals(this.message, that.message);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(success, message);
+    }
+
+    @Override
+    public String toString() {
+        return "StatusResponseDTO[" +
+            "success=" + success + ", " +
+            "message=" + message + ']';
+    }
 }

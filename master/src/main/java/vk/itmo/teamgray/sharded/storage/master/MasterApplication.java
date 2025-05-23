@@ -6,10 +6,11 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
-import vk.itmo.teamgray.sharded.storage.common.health.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
+import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
-import vk.itmo.teamgray.sharded.storage.master.client.MasterClientService;
-import vk.itmo.teamgray.sharded.storage.master.client.topology.TopologyService;
+import vk.itmo.teamgray.sharded.storage.master.service.MasterClientService;
+import vk.itmo.teamgray.sharded.storage.master.service.topology.TopologyService;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
@@ -38,7 +39,7 @@ public class MasterApplication {
 
         var masterClientService = new MasterClientService(topologyService);
 
-        var healthService = new HealthService();
+        var healthService = new HealthGrpcService(new HealthService());
 
         this.server = ServerBuilder.forPort(port)
             .addService(masterClientService)
