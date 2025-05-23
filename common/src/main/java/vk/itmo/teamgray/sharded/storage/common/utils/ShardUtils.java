@@ -33,7 +33,6 @@ public class ShardUtils {
             return 0;
         }
 
-        //TODO Set to debug
         log.debug("Finding shard for hash: {}", hash);
 
         BigInteger range = BigInteger

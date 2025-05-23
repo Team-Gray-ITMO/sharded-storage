@@ -31,14 +31,12 @@ public class NodeStorageService {
             throw new NodeException("Node is frozen, cannot perform operations");
         }
 
-        //TODO Change to debug
         log.debug("Setting key {} to {}", key, value);
 
         shards.set(key, value);
     }
 
     public String get(String key) {
-        //TODO Change to debug
         log.debug("Getting value for key {}", key);
 
         return shards.get(key);

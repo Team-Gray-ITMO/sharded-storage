@@ -125,7 +125,6 @@ public class NodeManagementService {
 
                     Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
 
-                    // TODO Set level to debug
                     log.debug(
                         "Moving fragment [{}]-[{}] from shard {} to shard {}",
                         fragment.rangeFrom(),
@@ -253,7 +252,6 @@ public class NodeManagementService {
                 NodeNodeClient::new
             );
 
-        // TODO Set debug level
         log.debug("Sending fragment from shard {} to node {}", newShardId, server);
 
         return nodeNodeClient.sendShardFragment(newShardId, fragmentsToSend);
@@ -305,7 +303,6 @@ public class NodeManagementService {
                 NodeNodeClient::new
             );
 
-        // TODO Set debug level
         log.debug("Sending shard {} to node {}", shardId, targetServer);
 
         return nodeNodeClient.sendShard(shardId, shardData);

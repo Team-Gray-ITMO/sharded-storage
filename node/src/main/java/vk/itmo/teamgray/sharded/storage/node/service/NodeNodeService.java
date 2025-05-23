@@ -32,7 +32,6 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         boolean success = true;
         String message = SUCCESS_MESSAGE;
 
-        // TODO Set debug level
         int shardId = request.getShardId();
 
         log.debug("Received shard {}. Processing", shardId);
@@ -68,7 +67,6 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         String message = SUCCESS_MESSAGE;
         int shardId = request.getShardId();
 
-        // TODO Set debug level
         log.debug("Received fragment for shard {}. Processing", shardId);
 
         try {
