@@ -271,6 +271,13 @@ public class NodeManagementService {
 
         Map<Integer, ShardData> shardMap = existingShards.getShardMap();
 
+        //TODO Do this on addServer stage instead.
+        int fullShardCount = shardMap.size();
+
+        if (existingShards.getFullShardCount() != fullShardCount) {
+            existingShards.setFullShardCount(fullShardCount);
+        }
+
         shardsByTargetServers.forEach((targetServerId, shardIds) -> {
             DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
 
@@ -294,7 +301,7 @@ public class NodeManagementService {
                 .map(shardId -> new SendShardDTO(shardId, shardMap.get(shardId).getStorage()))
                 .toList();
 
-            StatusResponseDTO sendResponse = sendShards(shardsToSend, targetServer);
+            StatusResponseDTO sendResponse = sendShards(shardsToSend, targetServer, fullShardCount);
 
             if (sendResponse.isSuccess()) {
                 shardsToSend
@@ -316,7 +323,7 @@ public class NodeManagementService {
         });
     }
 
-    private StatusResponseDTO sendShards(List<SendShardDTO> sendShards, DiscoverableServiceDTO targetServer) {
+    private StatusResponseDTO sendShards(List<SendShardDTO> sendShards, DiscoverableServiceDTO targetServer, int fullShardCount) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
@@ -326,6 +333,6 @@ public class NodeManagementService {
 
         log.debug("Sending shards {} to node {}", sendShards.stream().map(SendShardDTO::shardId).toList(), targetServer);
 
-        return nodeNodeClient.sendShard(sendShards);
+        return nodeNodeClient.sendShard(sendShards, fullShardCount);
     }
 }

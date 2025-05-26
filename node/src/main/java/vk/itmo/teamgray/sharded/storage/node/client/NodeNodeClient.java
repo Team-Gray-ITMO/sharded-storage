@@ -22,9 +22,10 @@ public class NodeNodeClient extends AbstractGrpcClient<NodeNodeServiceGrpc.NodeN
         return NodeNodeServiceGrpc::newBlockingStub;
     }
 
-    public StatusResponseDTO sendShard(List<SendShardDTO> shards) {
+    public StatusResponseDTO sendShard(List<SendShardDTO> shards, int fullShardCount) {
         SendShardsRequest request = SendShardsRequest.newBuilder()
             .addAllShards(shards.stream().map(SendShardDTO::toGrpc).toList())
+            .setFullShardCount(fullShardCount)
             .build();
 
         StatusResponse grpcResponse = blockingStub.sendShards(request);

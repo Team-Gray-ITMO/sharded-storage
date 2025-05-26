@@ -13,7 +13,7 @@ public class ShardsContainer {
 
     private final Map<Integer, ShardData> shardMap;
 
-    private final int fullShardCount;
+    private int fullShardCount;
 
     public ShardsContainer(int fullShardCount) {
         this.shardMap = new ConcurrentHashMap<>();
@@ -31,6 +31,11 @@ public class ShardsContainer {
 
     public int getFullShardCount() {
         return fullShardCount;
+    }
+
+    //TODO Make final later
+    public void setFullShardCount(int fullShardCount) {
+        this.fullShardCount = fullShardCount;
     }
 
     public void set(String key, String value) {
