@@ -28,6 +28,10 @@ message SetKeyRequest {
   string value = 2;
 }
 
+message SetKeyResponse {
+  string status = 1;
+}
+
 message SetFromFileRequest {
   //TODO Negotiate format
   string filePath = 1;
