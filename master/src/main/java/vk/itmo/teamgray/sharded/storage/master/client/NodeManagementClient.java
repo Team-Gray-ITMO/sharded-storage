@@ -9,20 +9,13 @@ import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
-import vk.itmo.teamgray.sharded.storage.master.service.topology.ShardNodeMapping;
-import vk.itmo.teamgray.sharded.storage.node.management.MoveShardRequest;
+import vk.itmo.teamgray.sharded.storage.node.management.MoveShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.management.RearrangeShardsRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.PrepareResponse;
 import vk.itmo.teamgray.sharded.storage.node.management.ProcessRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ProcessResponse;
-import vk.itmo.teamgray.sharded.storage.node.management.ApplyRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ApplyResponse;
-import vk.itmo.teamgray.sharded.storage.node.management.RollbackRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.RollbackResponse;
 
 public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> {
     public NodeManagementClient(String host, int port) {
@@ -34,53 +27,14 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
         return NodeManagementServiceGrpc::newBlockingStub;
     }
 
-    public StatusResponseDTO rearrangeShards(
-        Map<Integer, Long> relevantShardsToHash,
-        List<FragmentDTO> relevantFragments,
-        List<ShardNodeMapping> relevantNodes,
-        int fullShardCount
-    ) {
-        //TODO Instead of creating this many objects, let's populate gRPC stubs right away, but let's make population method modular, so we can easily switch from gRPC.
-        RearrangeShardsRequest request = RearrangeShardsRequest.newBuilder()
-            .putAllShardToHash(relevantShardsToHash)
-            .addAllFragments(relevantFragments.stream().map(FragmentDTO::toGrpc).toList())
-            .putAllServerByShardNumber(
-                relevantNodes.stream()
-                    .collect(
-                        Collectors.toMap(
-                            ShardNodeMapping::shardId,
-                            ShardNodeMapping::serverId
-                        )
-                    )
-            )
-            .setFullShardCount(fullShardCount)
+    public StatusResponseDTO moveShards(List<MoveShardDTO> shards) {
+        MoveShardsRequest request = MoveShardsRequest.newBuilder()
+            .addAllShards(shards.stream().map(MoveShardDTO::toGrpc).collect(Collectors.toList()))
             .build();
 
-        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .rearrangeShards(request);
-
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
-    }
-
-    public StatusResponseDTO moveShard(int shardId, int serverId) {
-        MoveShardRequest request = MoveShardRequest.newBuilder()
-            .setShardId(shardId)
-            .setTargetServer(serverId)
-            .build();
-
-        StatusResponse response = blockingStub.moveShard(request);
+        StatusResponse response = blockingStub.moveShards(request);
 
         return new StatusResponseDTO(response.getSuccess(), response.getMessage());
-    }
-
-    public boolean rollbackTopologyChange() {
-        Empty request = Empty.newBuilder().build();
-        try {
-            StatusResponse response = blockingStub.rollbackTopologyChange(request);
-            return response.getSuccess();
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     public StatusResponseDTO prepareRearrange(Map<Integer, Long> shardToHash, int fullShardCount) {
@@ -89,38 +43,34 @@ public class NodeManagementClient extends AbstractGrpcClient<NodeManagementServi
             .setFullShardCount(fullShardCount)
             .build();
 
-        PrepareResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
             .prepareRearrange(request);
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
-    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> serverByShardNumber) {
+    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> relevantNodes) {
         ProcessRequest request = ProcessRequest.newBuilder()
             .addAllFragments(fragments.stream().map(FragmentDTO::toGrpc).toList())
-            .putAllServerByShardNumber(serverByShardNumber)
+            .putAllServerByShardNumber(relevantNodes)
             .build();
 
-        ProcessResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
             .processRearrange(request);
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
     public StatusResponseDTO applyRearrange() {
-        ApplyRequest request = ApplyRequest.newBuilder().build();
-
-        ApplyResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .applyRearrange(request);
+        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .applyRearrange(Empty.newBuilder().build());
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }
 
     public StatusResponseDTO rollbackRearrange() {
-        RollbackRequest request = RollbackRequest.newBuilder().build();
-
-        RollbackResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .rollbackRearrange(request);
+        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .rollbackRearrange(Empty.newBuilder().build());
 
         return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
     }

@@ -81,8 +81,7 @@ public class ClientService {
             throw new IllegalStateException("Could not find server for key: " + key + " in shard " + shardId);
         }
 
-        //TODO Debug level
-        log.info("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
+        log.debug("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
 
         return GrpcClientCachingFactory.getInstance()
             .getClient(

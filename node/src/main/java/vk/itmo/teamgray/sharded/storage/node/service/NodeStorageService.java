@@ -1,123 +1,93 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.concurrency.AtomicEnum;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
-import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
+//TODO Move maps and full counts behind a decorators, incapsulate some of the methods from here into it.
 public class NodeStorageService {
     private static final Logger log = LoggerFactory.getLogger(NodeStorageService.class);
 
-    public enum NodeState {
-        ACTIVE,
-        FROZEN
-    }
+    private final AtomicEnum<NodeState> state = new AtomicEnum<>(NodeState.INIT);
 
-    private final AtomicReference<NodeState> nodeState = new AtomicReference<>(NodeState.ACTIVE);
-    private final Map<Integer, ShardData> shards = new ConcurrentHashMap<>();
-    private final Map<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
-    private int fullShardCount;
+    private ShardsContainer shards = new ShardsContainer(0);
 
-    public NodeState getNodeState() {
-        return nodeState.get();
-    }
+    private ShardsContainer stagedShards;
 
-    public boolean compareAndSetNodeState(NodeState expect, NodeState update) {
-        return nodeState.compareAndSet(expect, update);
-    }
-
-    public Map<Integer, ShardData> getShards() {
+    public ShardsContainer getShards() {
         return shards;
     }
 
-    public Map<Integer, ShardData> getStagedShards() {
+    public ShardsContainer getStagedShards() {
         return stagedShards;
     }
 
-    public int getFullShardCount() {
-        return fullShardCount;
-    }
-
-    public void setFullShardCount(int fullShardCount) {
-        this.fullShardCount = fullShardCount;
-    }
-
-    public void checkKeyForShard(int shardId, String key) {
-        if (!shards.containsKey(shardId)) {
-            throw new NodeException("Shard " + shardId + " not found");
-        }
-    }
-
-    public boolean containsShard(int shardId) {
-        return shards.containsKey(shardId);
-    }
-
     public void set(String key, String value) {
-        if (nodeState.get() == NodeState.FROZEN) {
+        if (state.get() != NodeState.RUNNING) {
             throw new NodeException("Node is frozen, cannot perform operations");
         }
-        var shardId = getAndValidateShardId(key);
 
-        //TODO Change to debug
-        log.info("Setting key {} on shard {} to {}", key, shardId, value);
+        log.debug("Setting key {} to {}", key, value);
 
-        shards
-            .computeIfAbsent(shardId, k -> new ShardData())
-            .addToStorage(key, value);
+        shards.set(key, value);
     }
 
     public String get(String key) {
-        var shardId = getAndValidateShardId(key);
+        log.debug("Getting value for key {}", key);
 
-        //TODO Change to debug
-        log.info("Getting value for key {} on shard {}", key, shardId);
+        return shards.get(key);
+    }
 
-        ShardData shardData = shards.get(shardId);
-        String returnValue = null;
+    public void stageShards(Map<Integer, ShardData> stagedShards, int stagedFullShardCount) {
+        this.stagedShards = new ShardsContainer(stagedShards, stagedFullShardCount);
+    }
 
-        if (shardData != null) {
-            returnValue = shardData.getValue(key);
+    public void clearStaged() {
+        stagedShards = null;
+    }
+
+    public void swapWithStaged() {
+        log.info("Replacing shard scheme {}", stagedShards);
+
+        shards = stagedShards;
+
+        stagedShards = null;
+
+        log.info("Replaced shard scheme.");
+    }
+
+    public NodeState getState() {
+        return state.get();
+    }
+
+    public void changeState(NodeState expectedState, NodeState newState) {
+        if (!state.compareAndSet(expectedState, newState)) {
+            throw new NodeException("Could not change node state " + expectedState + "->" + newState + ". Actual state was " + state.get());
+        }
+    }
+
+    public void changeState(List<NodeState> expectedStates, NodeState newState) {
+        var iterator = expectedStates.iterator();
+
+        boolean success = false;
+
+        while (iterator.hasNext()) {
+            var expectedState = iterator.next();
+
+            if (state.compareAndSet(expectedState, newState)) {
+                success = true;
+
+                break;
+            }
         }
 
-        return returnValue;
-    }
-
-    private Integer getAndValidateShardId(String key) {
-        var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
-
-        if (shardId == null) {
-            throw new NodeException("No shard found for key: " + key);
+        if (!success) {
+            throw new NodeException(
+                "Could not change node state " + expectedStates + "->" + newState + ". Actual state was " + state.get());
         }
-
-        if (!shards.containsKey(shardId)) {
-            throw new NodeException("Shard " + shardId + " is not found on this node. Existing shards: " + shards.keySet());
-        }
-
-        return shardId;
-    }
-
-    public void removeShard(int shardId) {
-        shards.remove(shardId);
-        log.info("Shard {} removed", shardId);
-    }
-
-    public void replace(Map<Integer, ShardData> newShards, int newFullShardCount) {
-        shards.clear();
-        shards.putAll(newShards);
-        fullShardCount = newFullShardCount;
-    }
-
-    public void clearStagedShards() {
-        stagedShards.clear();
-    }
-
-    public void swapShards() {
-        shards.clear();
-        shards.putAll(stagedShards);
-        stagedShards.clear();
     }
 }
