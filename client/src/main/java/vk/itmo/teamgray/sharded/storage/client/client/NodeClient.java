@@ -2,9 +2,7 @@ package vk.itmo.teamgray.sharded.storage.client.client;
 
 import io.grpc.ManagedChannel;
 import java.util.function.Function;
-
 import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
-import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
@@ -26,7 +24,8 @@ public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeCli
             .setValue(value)
             .build();
 
-        var result = blockingStub.setKey(request).getMessage();
+        var result = blockingStub.setKey(request).getStatus();
+
         return SetStatus.valueOf(result);
     }
 

@@ -7,13 +7,13 @@ import java.text.MessageFormat;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyResponse;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
+import vk.itmo.teamgray.sharded.storage.node.client.SetKeyResponse;
 
 // TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
 public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
@@ -26,15 +26,14 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     }
 
     @Override
-    public void setKey(SetKeyRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void setKey(SetKeyRequest request, StreamObserver<SetKeyResponse> responseObserver) {
         String key = request.getKey();
         String value = request.getValue();
 
-        if (nodeStorageService.isRearranging()) {
+        if (nodeStorageService.isBusy()) {
             responseObserver.onNext(
-                StatusResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage(SetStatus.REARRANGE_IN_PROGRESS.name())
+                SetKeyResponse.newBuilder()
+                    .setStatus(SetStatus.IS_BUSY.name())
                     .build()
             );
             responseObserver.onCompleted();
@@ -60,8 +59,8 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
         }
 
         responseObserver.onNext(
-            StatusResponse.newBuilder()
-                .setSuccess(true)
+            SetKeyResponse.newBuilder()
+                .setStatus(SetStatus.SUCCESS.name())
                 .build()
         );
 

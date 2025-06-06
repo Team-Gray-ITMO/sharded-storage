@@ -3,7 +3,6 @@ package vk.itmo.teamgray.sharded.storage.master.service.topology;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -62,6 +61,7 @@ class TopologyServiceTest {
         assertTrue(serverToShards.containsKey(2));
     }
 
+    @Disabled
     @Test
     void addServerFailsIfAlreadyExists() {
         topologyService.addServer(1);

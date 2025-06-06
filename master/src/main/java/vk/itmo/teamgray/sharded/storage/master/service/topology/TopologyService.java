@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -142,12 +143,14 @@ public class TopologyService {
                 new ArrayList<>(shardToHash.keySet())
             );
 
-            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards, shardToHash.size());
+            StatusResponseDTO result = handleShardMovement(
+                oldServerToShards,
+                newServerToShards,
+                shardToHash.size(),
+                appliedId -> setServerState(appliedId, NodeState.RUNNING)
+            );
 
             if (result.isSuccess()) {
-                setServerState(serverId, NodeState.RUNNING);
-                replaceServerToShards(newServerToShards);
-
                 log.info("Added server {}", serverId);
 
                 return new StatusResponseDTO(true, "Server Added");
@@ -179,13 +182,21 @@ public class TopologyService {
             );
 
             // move shards to the new server
-            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards, shardToHash.size());
+            StatusResponseDTO result = handleShardMovement(
+                oldServerToShards,
+                newServerToShards,
+                shardToHash.size(),
+                appliedId -> {
+                    if (appliedId == serverId) {
+                        removeServerState(serverId);
+                    } else {
+                        setServerState(appliedId, NodeState.RUNNING);
+                    }
+                }
+            );
 
             if (result.isSuccess()) {
                 log.info("Removed server {}", serverId);
-
-                removeServerState(serverId);
-                replaceServerToShards(newServerToShards);
 
                 return new StatusResponseDTO(true, "Server Removed");
             } else {
@@ -199,7 +210,8 @@ public class TopologyService {
     private StatusResponseDTO handleShardMovement(
         Map<Integer, List<Integer>> oldMapping,
         Map<Integer, List<Integer>> newMapping,
-        int fullShardCount
+        int fullShardCount,
+        Consumer<Integer> successServerAction
     ) {
         var action = Action.MOVE_SHARDS;
 
@@ -289,7 +301,7 @@ public class TopologyService {
 
                 errorMessages.add(message);
 
-                return rollbackAndReturnError(usedNodes, errorMessages, Action.MOVE_SHARDS);
+                return rollbackAndReturnError(usedNodes, errorMessages, action);
             }
         }
 
@@ -328,7 +340,7 @@ public class TopologyService {
 
                 errorMessages.add(message);
 
-                return rollbackAndReturnError(usedNodes, errorMessages, Action.MOVE_SHARDS);
+                return rollbackAndReturnError(usedNodes, errorMessages, action);
             }
         }
 
@@ -344,9 +356,11 @@ public class TopologyService {
 
             setServerState(serverIdToApply, NodeState.MOVE_SHARDS_APPLYING);
 
-            var response = managementClient.applyOperation(Action.MOVE_SHARDS);
+            var response = managementClient.applyOperation(action);
 
-            if (!response.isSuccess()) {
+            if (response.isSuccess()) {
+                successServerAction.accept(serverIdToApply);
+            } else {
                 String message = server.getIdForLogging() + ": " + response.getMessage();
                 log.error("Apply failed on node, System is in inconsistent state: {}. Error message: {}", server, response.getMessage());
                 errorMessages.add(message);
@@ -441,7 +455,7 @@ public class TopologyService {
                     log.error("Preparation stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
 
-                    return rollbackAndReturnError(nodes, errorMessages, Action.REARRANGE_SHARDS);
+                    return rollbackAndReturnError(nodes, errorMessages, action);
                 }
             }
 
@@ -473,7 +487,7 @@ public class TopologyService {
                     log.error("Process stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
 
-                    return rollbackAndReturnError(nodes, errorMessages, Action.REARRANGE_SHARDS);
+                    return rollbackAndReturnError(nodes, errorMessages, action);
                 }
             }
 
@@ -485,7 +499,7 @@ public class TopologyService {
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_APPLYING);
-                StatusResponseDTO response = client.applyOperation(Action.REARRANGE_SHARDS);
+                StatusResponseDTO response = client.applyOperation(action);
 
                 if (response.isSuccess()) {
                     setServerState(serverId, NodeState.RUNNING);

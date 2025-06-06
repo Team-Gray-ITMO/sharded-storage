@@ -14,19 +14,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-
-import io.grpc.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
 import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
-import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils.getShardIdForKey;
@@ -35,8 +33,9 @@ public class ClientService {
     private record ShardOnServer(int server, int shard) {
         // No-op.
     }
-    
-    private record Entry(String key, String value) {}
+
+    private record Entry(String key, String value) {
+    }
 
     private static final Logger log = LoggerFactory.getLogger(ClientService.class);
 
@@ -49,9 +48,9 @@ public class ClientService {
     private final Map<Integer, DiscoverableServiceDTO> shardToServer = new HashMap<>();
 
     private final Map<Long, Integer> hashToShard = new HashMap<>();
-    
+
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<Entry>> retryQueuesForServers = new ConcurrentHashMap<>();
-    
+
     private final ExecutorService retryingExecutor = Executors.newSingleThreadExecutor();
 
     private Instant cacheLastUpdate;
@@ -67,23 +66,25 @@ public class ClientService {
             while (true) {
                 for (var serverQueueEntry : retryQueuesForServers.entrySet()) {
                     var serverQueue = serverQueueEntry.getValue();
-                    if (serverQueue.isEmpty()) continue;
-                    
+                    if (serverQueue.isEmpty()) {
+                        continue;
+                    }
+
                     var currentValue = serverQueue.peek();
                     var nodeClient = getNodeClient(currentValue.key);
-                    
-                    while (nodeClient.setKey(currentValue.key, currentValue.value) != SetStatus.REARRANGE_IN_PROGRESS) {
+
+                    while (nodeClient.setKey(currentValue.key, currentValue.value) != SetStatus.IS_BUSY) {
                         // remove currently set value
                         serverQueue.poll();
-                        
+
                         if (serverQueue.isEmpty()) {
                             continue;
                         }
-                        
+
                         currentValue = serverQueue.peek();
                     }
                 }
-                
+
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -92,7 +93,7 @@ public class ClientService {
                 }
             }
         });
-        
+
         updateCaches();
     }
 
@@ -149,7 +150,9 @@ public class ClientService {
 
         var shardId = getShardIdForKey(key, Integer.parseInt(String.valueOf(getTotalShardCount())));
         var server = shardToServer.get(shardId);
-        if (server == null) return false;
+        if (server == null) {
+            return false;
+        }
 
         var serverQueue = retryQueuesForServers.computeIfAbsent(server.id(), serverId -> new ConcurrentLinkedQueue<>());
         // if we have some values in the queue, need to set them first
@@ -159,15 +162,15 @@ public class ClientService {
         }
 
         var setResult = nodeClient.setKey(key, value);
-        if (setResult == SetStatus.REARRANGE_IN_PROGRESS) {
+        if (setResult == SetStatus.IS_BUSY) {
             serverQueue.add(new Entry(key, value));
             return true;
         } else if (setResult == SetStatus.SUCCESS) {
-            return true; 
+            return true;
         } else if (setResult == SetStatus.ERROR) {
             return false;
         }
-        
+
         throw new RuntimeException("Unsupported SetStatus");
     }
 
@@ -284,6 +287,11 @@ public class ClientService {
      */
     public Map<Long, Integer> getHashToShardMapping() {
         return hashToShard;
+    }
+
+    // Getting uncached to get always transparent values.
+    public Map<Integer, NodeState> getServerStates() {
+        return masterClient.getServerToState();
     }
 
     /**

@@ -91,7 +91,8 @@ public class NodeStorageService {
         }
     }
 
-    public boolean isRearranging() {
+    // Renamed, due to other actions now possible, other than rearrangement.
+    public boolean isBusy() {
         return getState() != NodeState.RUNNING;
     }
 }

@@ -10,7 +10,7 @@ import "common.proto";
 service NodeClientService {
   rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
 
-  rpc SetKey (SetKeyRequest) returns (StatusResponse);
+  rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
 }
 
 message GetKeyRequest {
