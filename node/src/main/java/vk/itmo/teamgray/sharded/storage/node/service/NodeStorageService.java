@@ -90,4 +90,8 @@ public class NodeStorageService {
                 "Could not change node state " + expectedStates + "->" + newState + ". Actual state was " + state.get());
         }
     }
+
+    public boolean isRearranging() {
+        return getState() != NodeState.RUNNING;
+    }
 }
