@@ -138,8 +138,8 @@ public class TopologyService {
 
             StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
 
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             if (result.isSuccess()) {
-                var newServerToState = new ConcurrentHashMap<>(serverToState);
                 newServerToState.put(serverId, NodeState.RUNNING);
                 replaceServerToShardsAndState(newServerToShards, newServerToState);
 
@@ -147,7 +147,8 @@ public class TopologyService {
 
                 return new StatusResponseDTO(true, "Server Added");
             } else {
-                serverToState.put(serverId, NodeState.DEAD);
+                newServerToState.put(serverId, NodeState.DEAD);
+                replaceServerToState(newServerToState);
                 return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
@@ -177,16 +178,17 @@ public class TopologyService {
             // move shards to the new server
             StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
 
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             if (result.isSuccess()) {
                 log.info("Removed server {}", serverId);
 
-                var newServerToState = new ConcurrentHashMap<>(serverToState);
                 newServerToState.remove(serverId);
                 replaceServerToShardsAndState(newServerToShards, newServerToState);
 
                 return new StatusResponseDTO(true, "Server Removed");
             } else {
-                serverToState.put(serverId, NodeState.DEAD);
+                newServerToState.put(serverId, NodeState.DEAD);
+                replaceServerToState(newServerToState);
                 return new StatusResponseDTO(false, "Could not remove server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
@@ -233,6 +235,7 @@ public class TopologyService {
 
             StatusResponseDTO response = nodeManagementClient.moveShards(moveShards);
 
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             if (!response.isSuccess()) {
                 //TODO Consider rollback
                 String message = "Failed to move shards " + moveShards
@@ -244,7 +247,8 @@ public class TopologyService {
                 log.error(message);
 
                 errorMessages.add(message);
-                serverToState.put(sourceServerId, NodeState.DEAD);
+                newServerToState.put(sourceServerId, NodeState.DEAD);
+                replaceServerToState(newServerToState);
             }
         }
 
@@ -401,6 +405,7 @@ public class TopologyService {
         log.warn(rollbackMessage);
         errorMessages.add(rollbackMessage);
 
+        var newServerToState = new ConcurrentHashMap<>(serverToState);
         for (var node : nodes.values()) {
             NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient::new);
             StatusResponseDTO response = client.rollbackRearrange();
@@ -409,12 +414,13 @@ public class TopologyService {
                 String message = node.getIdForLogging() + ": " + response.getMessage();
                 log.error("Rollback failed for node: {}. Error message: {}", node, response.getMessage());
                 errorMessages.add(message);
-                serverToState.put(node.id(), NodeState.DEAD);
+                newServerToState.put(node.id(), NodeState.DEAD);
             } else {
-                serverToState.put(node.id(), NodeState.RUNNING);
+                newServerToState.put(node.id(), NodeState.RUNNING);
             }
         }
 
+        replaceServerToState(newServerToState);
         // No need to swap maps, old ones are still intact, we just do not apply old ones.
         log.info("Change Shard Count Failed");
         return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
