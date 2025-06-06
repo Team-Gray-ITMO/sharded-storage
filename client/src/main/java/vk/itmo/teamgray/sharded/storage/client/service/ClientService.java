@@ -14,6 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
@@ -50,6 +52,8 @@ public class ClientService {
 
     private final ExecutorService retryingExecutor = Executors.newSingleThreadExecutor();
 
+    private final AtomicBoolean shutdownRequested = new AtomicBoolean(false);
+
     private Instant cacheLastUpdate;
 
     public ClientService(
@@ -60,7 +64,7 @@ public class ClientService {
         this.discoveryClient = discoveryClient;
 
         retryingExecutor.submit(() -> {
-            while (true) {
+            while (!shutdownRequested.get() || getWaitingEntries() > 0) {
                 for (var serverQueueEntry : retryQueuesForServers.entrySet()) {
                     var serverQueue = serverQueueEntry.getValue();
                     if (serverQueue.isEmpty()) {
@@ -75,7 +79,7 @@ public class ClientService {
                         serverQueue.poll();
 
                         if (serverQueue.isEmpty()) {
-                            continue;
+                            break;
                         }
 
                         currentValue = serverQueue.peek();
@@ -298,5 +302,24 @@ public class ClientService {
      */
     public long getTotalShardCount() {
         return shardToServer.size();
+    }
+
+    public void shutdown() {
+        shutdownRequested.set(true);
+        retryingExecutor.shutdown();
+        boolean terminated = false;
+        try {
+            terminated = retryingExecutor.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!terminated) {
+            log.warn("Graceful shutdown timed out, forcing termination");
+            retryingExecutor.shutdownNow();
+        }
+    }
+    
+    private int getWaitingEntries() {
+        return retryQueuesForServers.values().stream().mapToInt(ConcurrentLinkedQueue::size).sum();
     }
 }

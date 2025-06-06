@@ -41,6 +41,7 @@ public class CLI {
         }
 
         scanner.close();
+        clientService.shutdown();
         CachedGrpcStubCreator.getInstance().shutdownAll();
     }
 
