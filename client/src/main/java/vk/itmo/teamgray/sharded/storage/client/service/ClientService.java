@@ -1,11 +1,17 @@
 package vk.itmo.teamgray.sharded.storage.client.service;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.MessageFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+
+import io.grpc.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
@@ -13,6 +19,7 @@ import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 
@@ -109,12 +116,27 @@ public class ClientService {
      * @return result of set operation
      */
     public StatusResponseDTO setFromFile(String filePath) {
-        //var nodeClient = getNodeClient(key);
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
 
-        throw new UnsupportedOperationException("Not implemented yet");
+                String key = parts[0].trim();
+                String value = parts[1].trim();
 
-        //TODO Rework to resolve node clients based on different keys in file
-        //return nodeClient.setFromFile(filePath);
+                try {
+                    var nodeClient = getNodeClient(key);
+                    nodeClient.setKey(key, value);
+                } catch (NodeException e) {
+                    String errMessage = MessageFormat.format("Error while setting key=[{0}] value=[{1}].", key, value);
+                    log.warn(errMessage, e);
+                    return new StatusResponseDTO(false, errMessage);
+                }
+            }
+        } catch (IOException e) {
+            return new StatusResponseDTO(false, e.getMessage());
+        }
+        return new StatusResponseDTO(true, "Keys from file successfully set.");
     }
 
     /**

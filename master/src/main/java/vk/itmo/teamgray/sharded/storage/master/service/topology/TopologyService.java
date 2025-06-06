@@ -41,6 +41,8 @@ public class TopologyService {
 
     private ConcurrentHashMap<Integer, List<Integer>> serverToShards = new ConcurrentHashMap<>();
 
+    private ConcurrentHashMap<Integer, NodeState> serverToState = new ConcurrentHashMap<>();
+
     private ConcurrentHashMap<Integer, Long> shardToHash = new ConcurrentHashMap<>();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -56,6 +58,10 @@ public class TopologyService {
 
     public ConcurrentHashMap<Integer, List<Integer>> getServerToShards() {
         return serverToShards;
+    }
+
+    public ConcurrentHashMap<Integer, NodeState> getServerToState() {
+        return serverToState;
     }
 
     public ConcurrentHashMap<Integer, Long> getShardToHash() {
@@ -76,6 +82,25 @@ public class TopologyService {
                 IntList intList = IntList.newBuilder().addAllValues(shardIds).build();
 
                 responseBuilder.putServerToShard(serverId, intList);
+            }
+
+            return responseBuilder.build();
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
+    public GetServerToStateResponse getServerToStateAsGrpc() {
+        lock.readLock().lock();
+
+        try {
+            GetServerToStateResponse.Builder responseBuilder = GetServerToStateResponse.newBuilder();
+
+            for (Map.Entry<Integer, NodeState> entry : serverToState.entrySet()) {
+                int serverId = entry.getKey();
+                NodeState nodeState = entry.getValue();
+
+                responseBuilder.putServerToState(serverId, nodeState.name());
             }
 
             return responseBuilder.build();
@@ -121,11 +146,17 @@ public class TopologyService {
 
             StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards, shardToHash.size());
 
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             if (result.isSuccess()) {
+                newServerToState.put(serverId, NodeState.RUNNING);
+                replaceServerToShardsAndState(newServerToShards, newServerToState);
+
                 log.info("Added server {}", serverId);
 
                 return new StatusResponseDTO(true, "Server Added");
             } else {
+                newServerToState.put(serverId, NodeState.DEAD);
+                replaceServerToState(newServerToState);
                 return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
@@ -155,11 +186,17 @@ public class TopologyService {
             // move shards to the new server
             StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards, shardToHash.size());
 
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             if (result.isSuccess()) {
                 log.info("Removed server {}", serverId);
 
+                newServerToState.remove(serverId);
+                replaceServerToShardsAndState(newServerToShards, newServerToState);
+
                 return new StatusResponseDTO(true, "Server Removed");
             } else {
+                newServerToState.put(serverId, NodeState.DEAD);
+                replaceServerToState(newServerToState);
                 return new StatusResponseDTO(false, "Could not remove server: " + System.lineSeparator() + result.getMessage());
             }
         } finally {
@@ -244,6 +281,7 @@ public class TopologyService {
                 fullShardCount
             );
 
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             if (!response.isSuccess()) {
                 String message = "Failed to Prepare Move on "
                     + server + ":"
@@ -289,6 +327,8 @@ public class TopologyService {
                 log.error(message);
 
                 errorMessages.add(message);
+                newServerToState.put(sourceServerId, NodeState.DEAD);
+                replaceServerToState(newServerToState);
 
                 return rollbackAndReturnError(usedNodes, errorMessages, Action.MOVE_SHARDS);
             }
@@ -373,6 +413,7 @@ public class TopologyService {
 
             // Phase 1: Prepare
             log.info("Starting prepare phase for {}", action);
+            var newServerToState = new ConcurrentHashMap<>(serverToState);
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
                 var shards = entry.getValue();
@@ -394,13 +435,17 @@ public class TopologyService {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
                     log.error("Preparation stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
+                    newServerToState.put(serverId, NodeState.DEAD);
 
                     return rollbackAndReturnError(nodes, errorMessages, Action.REARRANGE_SHARDS);
                 }
+                newServerToState.put(serverId, NodeState.REARRANGE_PREPARED);
             }
+            replaceServerToState(newServerToState);
 
             // Phase 2: Process
             log.info("Starting process phase for {}", action);
+            newServerToState = new ConcurrentHashMap<>(serverToState);
             for (var serverId : newServerToShards.keySet()) {
                 var relevantFragments = serverToShards.get(serverId).stream()
                     .flatMap(it -> fragments.stream().filter(f -> f.oldShardId() == it))
@@ -426,10 +471,13 @@ public class TopologyService {
 
                     return rollbackAndReturnError(nodes, errorMessages, Action.REARRANGE_SHARDS);
                 }
+                newServerToState.put(serverId, NodeState.REARRANGE_PROCESSED);
             }
+            replaceServerToState(newServerToState);
 
             // Phase 3: Apply
             log.info("Starting apply phase for {}", action);
+            newServerToState = new ConcurrentHashMap<>(serverToState);
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
                 DiscoverableServiceDTO server = nodes.get(serverId);
@@ -442,6 +490,7 @@ public class TopologyService {
                     log.error("Apply failed on node, System is in inconsistent state: {}. Error message: {}", server,
                         response.getMessage());
                     errorMessages.add(message);
+                    newServerToState.put(serverId, NodeState.DEAD);
                     // No compensation or recovery actions on involved nodes
                     // End up change shards process and return error response
                     return new StatusResponseDTO(
@@ -449,9 +498,10 @@ public class TopologyService {
                         StringUtil.join(System.lineSeparator(), errorMessages).toString()
                     );
                 }
+                newServerToState.put(serverId, NodeState.RUNNING);
             }
+            replaceState(newShardToHash, newServerToShards, newServerToState);
 
-            replaceBothMaps(newShardToHash, newServerToShards);
             log.info("Changed shard count successfully");
             return new StatusResponseDTO(true, "Changed shard count successfully");
 
@@ -469,6 +519,7 @@ public class TopologyService {
         log.warn(rollbackMessage);
         errorMessages.add(rollbackMessage);
 
+        var newServerToState = new ConcurrentHashMap<>(serverToState);
         for (var node : nodes.values()) {
             NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient::new);
             StatusResponseDTO response = client.rollbackOperation(action);
@@ -477,9 +528,13 @@ public class TopologyService {
                 String message = node.getIdForLogging() + ": " + response.getMessage();
                 log.error("Rollback {} failed for node: {}. Error message: {}", action, node, response.getMessage());
                 errorMessages.add(message);
+                newServerToState.put(node.id(), NodeState.DEAD);
+            } else {
+                newServerToState.put(node.id(), NodeState.RUNNING);
             }
         }
 
+        replaceServerToState(newServerToState);
         // No need to swap maps, old ones are still intact, we just do not apply old ones.
         log.info("{} Failed", action);
 
@@ -528,12 +583,34 @@ public class TopologyService {
         return fragments;
     }
 
-    private void replaceServerToShards(ConcurrentHashMap<Integer, List<Integer>> newServerToShards) {
+    private void replaceServerToState(ConcurrentHashMap<Integer, NodeState> newServerToState) {
+        lock.writeLock().lock();
+
+        log.info("Replacing server to state scheme {}", newServerToState);
+
+        try {
+
+            var oldServerToState = serverToState;
+
+            serverToState = newServerToState;
+
+            oldServerToState.clear();
+
+            log.info("Replaced server to state scheme");
+
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    private void replaceServerToShardsAndState(ConcurrentHashMap<Integer, List<Integer>> newServerToShards,
+        ConcurrentHashMap<Integer, NodeState> newServerToState) {
         lock.writeLock().lock();
 
         log.info("Replacing server to shard scheme {}", newServerToShards);
 
         try {
+            log.info("Replacing server to shard scheme {}", newServerToShards);
             var oldServerToShards = serverToShards;
 
             serverToShards = newServerToShards;
@@ -541,30 +618,48 @@ public class TopologyService {
             oldServerToShards.clear();
 
             log.info("Replaced server to shard scheme");
+
+            log.info("Replacing server to state scheme {}", newServerToState);
+
+            var oldServerToState = serverToState;
+
+            serverToState = newServerToState;
+
+            oldServerToState.clear();
+
+            log.info("Replaced server to state scheme");
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private void replaceBothMaps(
+    private void replaceState(
         ConcurrentHashMap<Integer, Long> newShardToHash,
-        ConcurrentHashMap<Integer, List<Integer>> newServerToShards
+        ConcurrentHashMap<Integer, List<Integer>> newServerToShards,
+        ConcurrentHashMap<Integer, NodeState> newServerToState
     ) {
         lock.writeLock().lock();
 
-        log.info("Replacing server to shard and shard to hash schemes [sts={}, sth={}]", newServerToShards, newShardToHash);
+        log.info("Replacing server to shard, shard to hash and server to state schemes [serverToShard={}, serverToHash={}, serverToState={}]",
+            newServerToShards,
+            newShardToHash,
+            newServerToState
+        );
 
         try {
             var oldShardToHash = shardToHash;
             var oldServerToShards = serverToShards;
+            var oldServerToState = serverToState;
 
             shardToHash = newShardToHash;
             serverToShards = newServerToShards;
+            serverToState = newServerToState;
 
             oldShardToHash.clear();
             oldServerToShards.clear();
+            oldServerToState.clear();
 
-            log.info("Replaced server to shard and shard to hash schemes");
+            log.info("Replaced server to shard, shard to hash and server to states schemes schemes");
         } finally {
             lock.writeLock().unlock();
         }
