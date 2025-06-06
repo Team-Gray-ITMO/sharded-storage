@@ -15,8 +15,6 @@ service NodeNodeService {
 
 message SendShardsRequest {
   repeated SendShard shards = 1;
-  // TODO Move this to server init on addServer.
-  int32 fullShardCount = 2;
 }
 
 message SendShard {

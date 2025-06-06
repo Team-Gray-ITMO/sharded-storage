@@ -33,9 +33,6 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
     ) {
         String message = SUCCESS_MESSAGE;
 
-        //TODO Do this on addServer stage instead.
-        int fullShardCount = request.getFullShardCount();
-
         log.debug("Received shards {}. Processing", request.getShardsList().stream().map(SendShard::getShardId).toList());
 
         List<String> errorMessages = request.getShardsList().stream()
@@ -44,11 +41,17 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
                 Map<String, String> shard = sendShard.getShardMap();
 
                 try {
-                    if (!nodeStorageService.getShards().containsShard(shardId)) {
-                        nodeStorageService.getShards().createShard(shardId);
+                    var stagedShards = nodeStorageService.getStagedShards();
+
+                    if (!stagedShards.containsShard(shardId)) {
+                        throw new NodeException("Staged shard " + shardId + " does not exist");
                     }
 
-                    shard.forEach(nodeStorageService::set);
+                    shard
+                        .forEach((key, value) -> {
+                            stagedShards.checkKeyForShard(shardId, key);
+                            stagedShards.set(key, value);
+                        });
 
                     return null;
                 } catch (Exception e) {

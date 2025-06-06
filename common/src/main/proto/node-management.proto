@@ -7,43 +7,42 @@ package vk.itmo.teamgray.sharded.storage;
 
 import "common.proto";
 
-message PrepareRequest {
+message PrepareRearrangeRequest {
   map<int32, int64> shardToHash = 1;
   int32 fullShardCount = 2;
 }
 
-message ProcessRequest {
+message ProcessRearrangeRequest {
   repeated MoveFragment fragments = 1;
   map<int32, int32> serverByShardNumber = 2;
 }
 
 service NodeManagementService {
-  rpc PrepareRearrange (PrepareRequest) returns (StatusResponse);
-  rpc ProcessRearrange (ProcessRequest) returns (StatusResponse);
-  rpc ApplyRearrange (Empty) returns (StatusResponse);
-  rpc RollbackRearrange (Empty) returns (StatusResponse);
+  rpc PrepareRearrange (PrepareRearrangeRequest) returns (StatusResponse);
+  rpc ProcessRearrange (ProcessRearrangeRequest) returns (StatusResponse);
 
-  rpc MoveShards (MoveShardsRequest) returns (StatusResponse);
+  rpc PrepareMove (PrepareMoveRequest) returns (StatusResponse);
+  rpc ProcessMove (ProcessMoveRequest) returns (StatusResponse);
+
+  rpc ApplyOperation (ActionRequest) returns (StatusResponse);
+  rpc RollbackOperation (ActionRequest) returns (StatusResponse);
 }
 
-message RearrangeShardsRequest {
-  // Sorted map of upper bound hash (inclusive) by shard number, lower bound is defined by previous shard (exclusive)
-  // For rearrange request, only relevant shards will be included
-  map<int32, int64> shardToHash = 1;
+message PrepareMoveRequest {
+  repeated int32 receiveShardIds = 1;
 
-  repeated MoveFragment fragments = 2;
+  repeated int32 removeShardIds = 2;
 
-  map<int32, int32> serverByShardNumber = 3;
-
-  int32 fullShardCount = 4;
+  int32 fullShardCount = 3;
 }
 
-message MoveShardsRequest {
-  repeated MoveShard shards = 1;
+message ProcessMoveRequest {
+  repeated SendShardTask sendShards = 1;
 }
 
-message MoveShard {
+message SendShardTask {
   int32 shardId = 1;
+
   int32 targetServer = 2;
 }
 
@@ -55,4 +54,8 @@ message MoveFragment {
   int64 rangeFrom = 3;
 
   int64 rangeTo = 4;
+}
+
+message ActionRequest {
+  string action = 1;
 }

@@ -2,31 +2,36 @@ package vk.itmo.teamgray.sharded.storage.node.service;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.node.Action;
+import vk.itmo.teamgray.sharded.storage.common.node.ActionPhase;
+import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeClient;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
-import static vk.itmo.teamgray.sharded.storage.node.service.NodeState.REARRANGE_PREPARED;
-import static vk.itmo.teamgray.sharded.storage.node.service.NodeState.REARRANGE_PREPARING;
-import static vk.itmo.teamgray.sharded.storage.node.service.NodeState.REARRANGE_PROCESSED;
-import static vk.itmo.teamgray.sharded.storage.node.service.NodeState.REARRANGE_PROCESSING;
-import static vk.itmo.teamgray.sharded.storage.node.service.NodeState.REARRANGE_ROLLING_BACK;
+import static vk.itmo.teamgray.sharded.storage.common.node.NodeState.MOVE_SHARDS_PREPARING;
+import static vk.itmo.teamgray.sharded.storage.common.node.NodeState.MOVE_SHARDS_ROLLING_BACK;
+import static vk.itmo.teamgray.sharded.storage.common.node.NodeState.REARRANGE_SHARDS_PREPARING;
+import static vk.itmo.teamgray.sharded.storage.common.node.NodeState.REARRANGE_SHARDS_ROLLING_BACK;
 
 public class NodeManagementService {
     private static final Logger log = LoggerFactory.getLogger(NodeManagementService.class);
@@ -52,7 +57,7 @@ public class NodeManagementService {
         try {
             log.info("Preparing rearrange shards. [request={}, fullShardCount={}]", shardToHash, fullShardCount);
 
-            nodeStorageService.changeState(NodeState.RUNNING, REARRANGE_PREPARING);
+            nodeStorageService.changeState(NodeState.RUNNING, REARRANGE_SHARDS_PREPARING);
 
             ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
 
@@ -71,7 +76,7 @@ public class NodeManagementService {
             }
 
             responseWriter.writeResponse(true, "");
-            nodeStorageService.changeState(REARRANGE_PREPARING, NodeState.REARRANGE_PREPARED);
+            nodeStorageService.changeState(REARRANGE_SHARDS_PREPARING, NodeState.REARRANGE_SHARDS_PREPARED);
 
             log.info("Prepared rearrange shards.");
         } catch (Exception e) {
@@ -89,7 +94,7 @@ public class NodeManagementService {
         try {
             log.info("Processing rearrange shards. [fragments={}, serverByShardNumber={}]", fragments, serverByShardNumber);
 
-            nodeStorageService.changeState(NodeState.REARRANGE_PREPARED, NodeState.REARRANGE_PROCESSING);
+            nodeStorageService.changeState(NodeState.REARRANGE_SHARDS_PREPARED, NodeState.REARRANGE_SHARDS_PROCESSING);
 
             Map<Integer, ShardData> existingShards = nodeStorageService.getShards().getShardMap();
             Map<Integer, ShardData> stagedShards = nodeStorageService.getStagedShards().getShardMap();
@@ -170,7 +175,7 @@ public class NodeManagementService {
             }
 
             responseWriter.writeResponse(true, "");
-            nodeStorageService.changeState(NodeState.REARRANGE_PROCESSING, NodeState.REARRANGE_PROCESSED);
+            nodeStorageService.changeState(NodeState.REARRANGE_SHARDS_PROCESSING, NodeState.REARRANGE_SHARDS_PROCESSED);
 
             log.info("Processed rearrange shards.");
         } catch (Exception e) {
@@ -180,18 +185,43 @@ public class NodeManagementService {
         }
     }
 
-    public void applyRearrange(StatusResponseWriter responseWriter) {
+    public void prepareMove(
+        List<Integer> receiveShardIds,
+        List<Integer> removeShardIds,
+        int fullShardCount,
+        StatusResponseWriter responseWriter
+    ) {
         try {
-            log.info("Applying rearrange shards.");
+            log.info("Preparing move shards. [receiveShardIds={}, removeShardIds={}, fullShardCount={}]", receiveShardIds, removeShardIds,
+                fullShardCount);
 
-            nodeStorageService.changeState(NodeState.REARRANGE_PROCESSED, NodeState.REARRANGE_APPLYING);
+            nodeStorageService.changeState(NodeState.RUNNING, MOVE_SHARDS_PREPARING);
 
-            nodeStorageService.swapWithStaged();
+            ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
+
+            Set<Integer> removeShardIdsSet = new HashSet<>(receiveShardIds);
+
+            // Reuse same shards that are not sent.
+            nodeStorageService.getShards()
+                .getShardMap().entrySet().stream()
+                .filter(it -> !removeShardIdsSet.contains(it.getKey()))
+                .forEach(entry -> stagedShards.put(entry.getKey(), entry.getValue()));
+
+            // Add missing shards to get data
+            receiveShardIds.forEach(newShardId -> stagedShards.put(newShardId, new ShardData()));
+
+            nodeStorageService.stageShards(stagedShards, fullShardCount);
+
+            if (failActionOnRollback()) {
+                responseWriter.writeResponse(false, "Rolled back.");
+
+                return;
+            }
 
             responseWriter.writeResponse(true, "");
-            nodeStorageService.changeState(NodeState.REARRANGE_APPLYING, NodeState.RUNNING);
+            nodeStorageService.changeState(MOVE_SHARDS_PREPARING, NodeState.MOVE_SHARDS_PREPARED);
 
-            log.info("Applied rearrange shards.");
+            log.info("Prepared move shards.");
         } catch (Exception e) {
             log.error("Caught exception: ", e);
 
@@ -199,23 +229,125 @@ public class NodeManagementService {
         }
     }
 
-    public void rollbackRearrange(StatusResponseWriter responseWriter) {
+    public void processMove(
+        List<SendShardTaskDTO> sendShards,
+        StatusResponseWriter responseWriter
+    ) {
         try {
-            log.info("Rolling back rearrange shards.");
+            log.info("Processing move shards. [sendShards={}]", sendShards);
 
-            nodeStorageService.changeState(
-                List.of(REARRANGE_PREPARING, REARRANGE_PREPARED, REARRANGE_PROCESSING, REARRANGE_PROCESSED),
-                REARRANGE_ROLLING_BACK
-            );
+            nodeStorageService.changeState(NodeState.MOVE_SHARDS_PREPARED, NodeState.MOVE_SHARDS_PROCESSING);
+
+            Map<Integer, List<Integer>> shardsByTargetServers = sendShards.stream()
+                .collect(Collectors.groupingBy(
+                        SendShardTaskDTO::targetServer,
+                        Collectors.mapping(SendShardTaskDTO::shardId, Collectors.toList())
+                    )
+                );
+
+            ShardsContainer existingShards = nodeStorageService.getShards();
+
+            Map<Integer, ShardData> shardMap = existingShards.getShardMap();
+
+            shardsByTargetServers.forEach((targetServerId, shardIds) -> {
+                DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
+
+                log.info("Request to move shards {} to {}", shardIds, targetServer);
+
+                List<Integer> absentShards = shardIds.stream()
+                    .filter(it -> !existingShards.containsShard(it))
+                    .toList();
+
+                if (!absentShards.isEmpty()) {
+                    var errorMessage = "Shards " + absentShards + " not found in this node";
+
+                    log.error(errorMessage);
+
+                    responseWriter.writeResponse(false, errorMessage);
+
+                    return;
+                }
+
+                List<SendShardDTO> shardsToSend = shardIds.stream()
+                    .map(shardId -> new SendShardDTO(shardId, shardMap.get(shardId).getStorage()))
+                    .toList();
+
+                StatusResponseDTO sendResponse = sendShards(shardsToSend, targetServer);
+
+                if (!sendResponse.isSuccess()) {
+                    throw new IllegalStateException(
+                        "Failed to move shard: "
+                            + System.lineSeparator()
+                            + targetServer.getIdForLogging() + ": "
+                            + sendResponse.getMessage()
+                    );
+                }
+            });
+
+            if (failActionOnRollback()) {
+                responseWriter.writeResponse(false, "Rolled back.");
+
+                return;
+            }
+
+            responseWriter.writeResponse(true, "");
+            nodeStorageService.changeState(NodeState.MOVE_SHARDS_PROCESSING, NodeState.MOVE_SHARDS_PROCESSED);
+
+            log.info("Processed move shards.");
+        } catch (Exception e) {
+            log.error("Caught exception: ", e);
+
+            responseWriter.writeResponse(false, e.getMessage());
+        }
+    }
+
+    public void applyAction(Action action, StatusResponseWriter responseWriter) {
+        try {
+            log.info("Applying {}", action);
+
+            var processedState = NodeState.resolve(action, ActionPhase.PROCESS, true);
+            var applyingState = NodeState.resolve(action, ActionPhase.APPLY);
+
+            nodeStorageService.changeState(processedState, applyingState);
+
+            nodeStorageService.swapWithStaged();
+
+            responseWriter.writeResponse(true, "");
+            nodeStorageService.changeState(applyingState, NodeState.RUNNING);
+
+            log.info("Applied {}", action);
+        } catch (Exception e) {
+            log.error("Caught exception: ", e);
+
+            responseWriter.writeResponse(false, e.getMessage());
+        }
+    }
+
+    public void rollbackAction(Action action, StatusResponseWriter responseWriter) {
+        try {
+            log.info("Rolling back {}", action);
+
+            var rollbackableStates = Stream.of(ActionPhase.PREPARE, ActionPhase.PROCESS)
+                .flatMap(phase ->
+                    Stream.of(
+                        NodeState.resolve(action, phase, true),
+                        NodeState.resolve(action, phase, false)
+                    )
+                )
+                .toList();
+
+            var rollingBackState = NodeState.resolve(action, ActionPhase.ROLLBACK);
+
+            nodeStorageService.changeState(rollbackableStates, rollingBackState);
 
             awaitRollback();
 
             nodeStorageService.clearStaged();
 
             responseWriter.writeResponse(true, "");
-            nodeStorageService.changeState(NodeState.REARRANGE_ROLLING_BACK, NodeState.RUNNING);
+            nodeStorageService.changeState(rollingBackState, NodeState.RUNNING);
 
-            log.info("Rolled back rearrange shards.");
+            log.info("Rolled back {}", action);
         } catch (Exception e) {
             log.error("Caught exception: ", e);
 
@@ -235,7 +367,9 @@ public class NodeManagementService {
 
     // TODO Find a way to stop execution mid-way on rollback.
     private boolean failActionOnRollback() {
-        if (nodeStorageService.getState() == REARRANGE_ROLLING_BACK) {
+        var state = nodeStorageService.getState();
+
+        if (state == REARRANGE_SHARDS_ROLLING_BACK || state == MOVE_SHARDS_ROLLING_BACK) {
             if (rollbackLatch != null) {
                 rollbackLatch.countDown();
             }
@@ -259,71 +393,7 @@ public class NodeManagementService {
         return nodeNodeClient.sendShardFragment(newShardId, fragmentsToSend);
     }
 
-    public void moveShards(List<MoveShardDTO> moveShards, StatusResponseWriter responseWriter) {
-        Map<Integer, List<Integer>> shardsByTargetServers = moveShards.stream()
-            .collect(Collectors.groupingBy(
-                    MoveShardDTO::targetServer,
-                    Collectors.mapping(MoveShardDTO::shardId, Collectors.toList())
-                )
-            );
-
-        ShardsContainer existingShards = nodeStorageService.getShards();
-
-        Map<Integer, ShardData> shardMap = existingShards.getShardMap();
-
-        //TODO Do this on addServer stage instead.
-        int fullShardCount = shardMap.size();
-
-        if (existingShards.getFullShardCount() != fullShardCount) {
-            existingShards.setFullShardCount(fullShardCount);
-        }
-
-        shardsByTargetServers.forEach((targetServerId, shardIds) -> {
-            DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
-
-            log.info("Request to move shards {} to {}", shardIds, targetServer);
-
-            List<Integer> absentShards = shardIds.stream()
-                .filter(it -> !existingShards.containsShard(it))
-                .toList();
-
-            if (!absentShards.isEmpty()) {
-                var errorMessage = "Shards " + absentShards + " not found in this node";
-
-                log.error(errorMessage);
-
-                responseWriter.writeResponse(false, errorMessage);
-
-                return;
-            }
-
-            List<SendShardDTO> shardsToSend = shardIds.stream()
-                .map(shardId -> new SendShardDTO(shardId, shardMap.get(shardId).getStorage()))
-                .toList();
-
-            StatusResponseDTO sendResponse = sendShards(shardsToSend, targetServer, fullShardCount);
-
-            if (sendResponse.isSuccess()) {
-                shardsToSend
-                    .forEach(shard -> {
-                        // remove shard only after a successful transfer
-                        nodeStorageService.getShards().clearShard(shard.shardId());
-                    });
-
-                responseWriter.writeResponse(true, "Shard successfully moved");
-            } else {
-                responseWriter.writeResponse(
-                    false,
-                    "Failed to send shard to target server: "
-                        + System.lineSeparator()
-                        + targetServer.getIdForLogging() + ": "
-                        + sendResponse.getMessage()
-                );
-            }
-        });
-    }
-
-    private StatusResponseDTO sendShards(List<SendShardDTO> sendShards, DiscoverableServiceDTO targetServer, int fullShardCount) {
+    private StatusResponseDTO sendShards(List<SendShardDTO> sendShards, DiscoverableServiceDTO targetServer) {
         var nodeNodeClient = GrpcClientCachingFactory
             .getInstance()
             .getClient(
@@ -333,6 +403,6 @@ public class NodeManagementService {
 
         log.debug("Sending shards {} to node {}", sendShards.stream().map(SendShardDTO::shardId).toList(), targetServer);
 
-        return nodeNodeClient.sendShard(sendShards, fullShardCount);
+        return nodeNodeClient.sendShard(sendShards);
     }
 }

@@ -5,6 +5,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,8 +20,9 @@ import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
-import vk.itmo.teamgray.sharded.storage.common.dto.MoveShardDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.node.Action;
 import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
@@ -42,6 +44,10 @@ public class TopologyService {
     private ConcurrentHashMap<Integer, Long> shardToHash = new ConcurrentHashMap<>();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private record ShardFromTo(int sourceServer, int targetServer, int shardId) {
+        // No-op.
+    }
 
     public TopologyService(DiscoveryClient discoveryClient, GrpcClientCachingFactory clientCachingFactory) {
         this.discoveryClient = discoveryClient;
@@ -113,11 +119,9 @@ public class TopologyService {
                 Collections.list(shardToHash.keys())
             );
 
-            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
+            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards, shardToHash.size());
 
             if (result.isSuccess()) {
-                replaceServerToShards(newServerToShards);
-
                 log.info("Added server {}", serverId);
 
                 return new StatusResponseDTO(true, "Server Added");
@@ -149,12 +153,10 @@ public class TopologyService {
             );
 
             // move shards to the new server
-            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards);
+            StatusResponseDTO result = handleShardMovement(oldServerToShards, newServerToShards, shardToHash.size());
 
             if (result.isSuccess()) {
                 log.info("Removed server {}", serverId);
-
-                replaceServerToShards(newServerToShards);
 
                 return new StatusResponseDTO(true, "Server Removed");
             } else {
@@ -167,62 +169,161 @@ public class TopologyService {
 
     private StatusResponseDTO handleShardMovement(
         ConcurrentHashMap<Integer, List<Integer>> oldMapping,
-        ConcurrentHashMap<Integer, List<Integer>> newMapping
+        ConcurrentHashMap<Integer, List<Integer>> newMapping,
+        int fullShardCount
     ) {
+        var action = Action.MOVE_SHARDS;
+
         Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(oldMapping.keySet());
 
         List<String> errorMessages = new ArrayList<>();
+
+        List<ShardFromTo> moveShards = new ArrayList<>();
+
+        Map<Integer, DiscoverableServiceDTO> usedNodes = new HashMap<>();
 
         // find shards that need to be moved
         for (Map.Entry<Integer, List<Integer>> oldEntry : oldMapping.entrySet()) {
             int sourceServerId = oldEntry.getKey();
             List<Integer> oldShards = oldEntry.getValue();
 
-            var sourceServer = nodes.get(sourceServerId);
-
-            List<MoveShardDTO> moveShards = new ArrayList<>();
-
             for (Integer shardId : oldShards) {
-                Integer targetServer = findServerForShard(newMapping, shardId);
+                Integer targetServerId = findServerForShard(newMapping, shardId);
 
-                if (targetServer != null && !targetServer.equals(sourceServerId)) {
-                    log.info("Preparing to move shard {} from {} to {}", shardId, sourceServer, targetServer);
+                if (targetServerId != null && !targetServerId.equals(sourceServerId)) {
+                    log.debug("Preparing to move shard {} from {} to {}", shardId, sourceServerId, targetServerId);
 
-                    moveShards.add(new MoveShardDTO(shardId, targetServer));
+                    moveShards.add(new ShardFromTo(sourceServerId, targetServerId, shardId));
                 }
             }
+        }
 
-            if (moveShards.isEmpty()) {
-                continue;
-            }
+        var shardMovesByReceivers = moveShards.stream()
+            .collect(
+                Collectors.groupingBy(
+                    ShardFromTo::targetServer,
+                    Collectors.mapping(Function.identity(), Collectors.toList())
+                )
+            );
 
-            NodeManagementClient nodeManagementClient = clientCachingFactory
-                .getClient(
-                    sourceServer,
-                    NodeManagementClient::new
-                );
+        var shardMovesBySenders = moveShards.stream()
+            .collect(
+                Collectors.groupingBy(
+                    ShardFromTo::sourceServer,
+                    Collectors.mapping(Function.identity(), Collectors.toList())
+                )
+            );
 
-            StatusResponseDTO response = nodeManagementClient.moveShards(moveShards);
+        var allServers = moveShards.stream()
+            .flatMap(it -> Stream.of(it.sourceServer(), it.targetServer()))
+            .distinct()
+            .toList();
+
+        // Phase 1: Prepare
+        log.info("Starting prepare phase for {}", action);
+        for (Integer serverId : allServers) {
+            var receiveShardMoves = shardMovesByReceivers.getOrDefault(serverId, List.of()).stream()
+                .map(ShardFromTo::shardId)
+                .toList();
+
+            var removeShardMoves = shardMovesBySenders.getOrDefault(serverId, List.of()).stream()
+                .map(ShardFromTo::shardId)
+                .toList();
+
+            var server = nodes.get(serverId);
+
+            // Cached, perf ok
+            NodeManagementClient managementClient = clientCachingFactory
+                .getClient(server, NodeManagementClient::new);
+
+            usedNodes.put(serverId, server);
+
+            var response = managementClient.prepareMove(
+                receiveShardMoves,
+                removeShardMoves,
+                fullShardCount
+            );
 
             if (!response.isSuccess()) {
-                //TODO Consider rollback
-                String message = "Failed to move shards " + moveShards
-                    + " from " + sourceServer + ":"
+                String message = "Failed to Prepare Move on "
+                    + server + ":"
                     + System.lineSeparator()
-                    + sourceServer.getIdForLogging() + ": "
+                    + server.getIdForLogging() + ": "
                     + response.getMessage();
 
                 log.error(message);
 
                 errorMessages.add(message);
+
+                return rollbackAndReturnError(usedNodes, errorMessages, Action.MOVE_SHARDS);
             }
         }
 
-        if (errorMessages.isEmpty()) {
-            return new StatusResponseDTO(true, "Shards Moved");
-        } else {
-            return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
+        // Phase 2: Process
+        log.info("Starting process phase for {}", action);
+
+        for (Integer serverId : allServers) {
+            var sendShardMoves = shardMovesBySenders.getOrDefault(serverId, List.of());
+
+            var server = nodes.get(serverId);
+
+            // Cached, perf ok
+            NodeManagementClient managementClient = clientCachingFactory
+                .getClient(server, NodeManagementClient::new);
+
+            usedNodes.put(serverId, server);
+
+            var response = managementClient.processMove(
+                sendShardMoves.stream()
+                    .map(shardFromTo -> new SendShardTaskDTO(shardFromTo.shardId(), shardFromTo.targetServer()))
+                    .toList()
+            );
+
+            if (!response.isSuccess()) {
+                String message = "Failed to Process Move on "
+                    + server + ":"
+                    + System.lineSeparator()
+                    + server.getIdForLogging() + ": "
+                    + response.getMessage();
+
+                log.error(message);
+
+                errorMessages.add(message);
+
+                return rollbackAndReturnError(usedNodes, errorMessages, Action.MOVE_SHARDS);
+            }
         }
+
+        // Phase 3: Apply
+        log.info("Starting apply phase for {}", action);
+
+        for (Integer serverIdToApply : allServers) {
+            var server = nodes.get(serverIdToApply);
+
+            // Cached, perf ok
+            NodeManagementClient managementClient = clientCachingFactory
+                .getClient(server, NodeManagementClient::new);
+
+            var response = managementClient.applyOperation(Action.MOVE_SHARDS);
+
+            if (!response.isSuccess()) {
+                String message = server.getIdForLogging() + ": " + response.getMessage();
+                log.error("Apply failed on node, System is in inconsistent state: {}. Error message: {}", server, response.getMessage());
+                errorMessages.add(message);
+                // No compensation or recovery actions on involved nodes
+                // End up change shards process and return error response
+                return new StatusResponseDTO(
+                    false,
+                    StringUtil.join(System.lineSeparator(), errorMessages).toString()
+                );
+            }
+        }
+
+        replaceServerToShards(newMapping);
+
+        log.info("Moved shards successfully");
+
+        return new StatusResponseDTO(true, "Shards Moved");
     }
 
     private Integer findServerForShard(
@@ -241,6 +342,8 @@ public class TopologyService {
         lock.writeLock().lock();
         try {
             log.info("Changing shard count to {}", shardCount);
+
+            var action = Action.REARRANGE_SHARDS;
 
             ConcurrentHashMap<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
             ConcurrentHashMap<Integer, List<Integer>> newServerToShards = redistributeShardsEvenly(
@@ -269,7 +372,7 @@ public class TopologyService {
             List<String> errorMessages = new ArrayList<>();
 
             // Phase 1: Prepare
-            log.info("Starting prepare phase");
+            log.info("Starting prepare phase for {}", action);
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
                 var shards = entry.getValue();
@@ -292,12 +395,12 @@ public class TopologyService {
                     log.error("Preparation stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
 
-                    return rollbackAndReturnError(nodes, errorMessages);
+                    return rollbackAndReturnError(nodes, errorMessages, Action.REARRANGE_SHARDS);
                 }
             }
 
             // Phase 2: Process
-            log.info("Starting process phase");
+            log.info("Starting process phase for {}", action);
             for (var serverId : newServerToShards.keySet()) {
                 var relevantFragments = serverToShards.get(serverId).stream()
                     .flatMap(it -> fragments.stream().filter(f -> f.oldShardId() == it))
@@ -321,18 +424,18 @@ public class TopologyService {
                     log.error("Process stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
 
-                    return rollbackAndReturnError(nodes, errorMessages);
+                    return rollbackAndReturnError(nodes, errorMessages, Action.REARRANGE_SHARDS);
                 }
             }
 
             // Phase 3: Apply
-            log.info("Starting apply phase");
+            log.info("Starting apply phase for {}", action);
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
                 DiscoverableServiceDTO server = nodes.get(serverId);
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
 
-                StatusResponseDTO response = client.applyRearrange();
+                StatusResponseDTO response = client.applyOperation(Action.REARRANGE_SHARDS);
 
                 if (!response.isSuccess()) {
                     String message = server.getIdForLogging() + ": " + response.getMessage();
@@ -359,26 +462,26 @@ public class TopologyService {
 
     private StatusResponseDTO rollbackAndReturnError(
         Map<Integer, DiscoverableServiceDTO> nodes,
-        List<String> errorMessages
+        List<String> errorMessages,
+        Action action
     ) {
-        String rollbackMessage = "One or more nodes failed during rearrange. Rolling back.";
+        String rollbackMessage = "One or more nodes failed during " + action + ". Rolling back.";
         log.warn(rollbackMessage);
         errorMessages.add(rollbackMessage);
 
         for (var node : nodes.values()) {
             NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient::new);
-            StatusResponseDTO response = client.rollbackRearrange();
+            StatusResponseDTO response = client.rollbackOperation(action);
             if (!response.isSuccess()) {
                 // Just logging error, no compensation moves - continuing rollback of other nodes
                 String message = node.getIdForLogging() + ": " + response.getMessage();
-                log.error("Rollback failed for node: {}. Error message: {}", node, response.getMessage());
+                log.error("Rollback {} failed for node: {}. Error message: {}", action, node, response.getMessage());
                 errorMessages.add(message);
             }
         }
 
         // No need to swap maps, old ones are still intact, we just do not apply old ones.
-
-        log.info("Change Shard Count Failed");
+        log.info("{} Failed", action);
 
         return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
     }
