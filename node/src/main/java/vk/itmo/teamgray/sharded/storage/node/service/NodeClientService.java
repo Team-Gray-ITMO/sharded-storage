@@ -8,6 +8,7 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
+import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyResponse;
@@ -28,6 +29,17 @@ public class NodeClientService extends NodeClientServiceGrpc.NodeClientServiceIm
     public void setKey(SetKeyRequest request, StreamObserver<StatusResponse> responseObserver) {
         String key = request.getKey();
         String value = request.getValue();
+
+        if (nodeStorageService.isRearranging()) {
+            responseObserver.onNext(
+                StatusResponse.newBuilder()
+                    .setSuccess(false)
+                    .setMessage(SetStatus.REARRANGE_IN_PROGRESS.name())
+                    .build()
+            );
+            responseObserver.onCompleted();
+            return;
+        }
 
         try {
             nodeStorageService.set(key, value);

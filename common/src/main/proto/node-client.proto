@@ -25,3 +25,7 @@ message SetKeyRequest {
   string key = 1;
   string value = 2;
 }
+
+message SetKeyResponse {
+  string status = 1;
+}
