@@ -30,11 +30,8 @@ import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import static vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils.getShardIdForKey;
 
 public class ClientService {
-    private record ShardOnServer(int server, int shard) {
-        // No-op.
-    }
-
     private record Entry(String key, String value) {
+        // No-op.
     }
 
     private static final Logger log = LoggerFactory.getLogger(ClientService.class);

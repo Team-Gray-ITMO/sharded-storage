@@ -49,7 +49,6 @@ class TopologyServiceTest {
         topologyService = new TopologyService(discoveryClient, grpcClientCachingFactory);
     }
 
-    @Disabled
     @Test
     void addServerDistributesShardsEvenly() {
         assertTrue(topologyService.addServer(1).isSuccess());
@@ -61,7 +60,6 @@ class TopologyServiceTest {
         assertTrue(serverToShards.containsKey(2));
     }
 
-    @Disabled
     @Test
     void addServerFailsIfAlreadyExists() {
         topologyService.addServer(1);
@@ -69,7 +67,6 @@ class TopologyServiceTest {
         assertFalse(topologyService.addServer(1).isSuccess());
     }
 
-    @Disabled
     @Test
     void deleteServerRemovesServerAndRedistributesShards() {
         topologyService.addServer(1);
