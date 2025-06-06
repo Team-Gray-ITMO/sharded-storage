@@ -20,7 +20,8 @@ public enum NodeState {
     MOVE_SHARDS_PROCESSING(Action.MOVE_SHARDS, ActionPhase.PROCESS, false),
     MOVE_SHARDS_PROCESSED(Action.MOVE_SHARDS, ActionPhase.PROCESS, true),
     MOVE_SHARDS_APPLYING(Action.MOVE_SHARDS, ActionPhase.APPLY),
-    MOVE_SHARDS_ROLLING_BACK(Action.MOVE_SHARDS, ActionPhase.ROLLBACK);
+    MOVE_SHARDS_ROLLING_BACK(Action.MOVE_SHARDS, ActionPhase.ROLLBACK),
+    DEAD;
 
     private final Action action;
 
