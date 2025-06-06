@@ -4,14 +4,7 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.AddServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.client.ChangeShardCountRequest;
-import vk.itmo.teamgray.sharded.storage.master.client.DeleteServerRequest;
-import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardRequest;
-import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashRequest;
-import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.master.client.*;
 import vk.itmo.teamgray.sharded.storage.master.service.topology.TopologyService;
 
 // TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
@@ -31,6 +24,18 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
         var response = topologyService.getServerToShardsAsGrpc();
 
         log.info("Returning {} servers with shards", response.getServerToShardCount());
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getServerToState(GetServerToStateRequest request, StreamObserver<GetServerToStateResponse> responseObserver) {
+        log.info("Received ServerToState request");
+
+        var response = topologyService.getServerToStateAsGrpc();
+
+        log.info("Returning {} servers with states", response.getServerToStateCount());
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
