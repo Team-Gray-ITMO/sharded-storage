@@ -11,6 +11,7 @@ application {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":node"))
     implementation("org.jetbrains:annotations:26.0.2")
 
     testImplementation("org.mockito:mockito-core:5.17.0")

@@ -11,8 +11,6 @@ service NodeClientService {
   rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
 
   rpc SetKey (SetKeyRequest) returns (StatusResponse);
-
-  rpc SetFromFile (SetFromFileRequest) returns (StatusResponse);
 }
 
 message GetKeyRequest {
@@ -30,9 +28,4 @@ message SetKeyRequest {
 
 message SetKeyResponse {
   string status = 1;
-}
-
-message SetFromFileRequest {
-  //TODO Negotiate format
-  string filePath = 1;
 }

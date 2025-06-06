@@ -10,6 +10,8 @@ import "common.proto";
 service MasterClientService {
   rpc GetServerToShard (GetServerToShardRequest) returns (GetServerToShardResponse);
 
+  rpc GetServerToState (GetServerToStateRequest) returns (GetServerToStateResponse);
+
   rpc GetShardToHash (GetShardToHashRequest) returns (GetShardToHashResponse);
 
   rpc AddServer (AddServerRequest) returns (StatusResponse);
@@ -25,6 +27,14 @@ message GetServerToShardRequest {
 message GetServerToShardResponse{
   // Map of server IDs to shard IDs
   map<int32, IntList> serverToShard = 1;
+}
+
+message GetServerToStateRequest {
+}
+
+message GetServerToStateResponse {
+  // Map of server IDs to server state
+  map<int32, string> serverToState = 1;
 }
 
 message GetShardToHashRequest {

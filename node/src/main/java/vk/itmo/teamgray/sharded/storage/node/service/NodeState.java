@@ -9,4 +9,5 @@ public enum NodeState {
     REARRANGE_PROCESSED,
     REARRANGE_APPLYING,
     REARRANGE_ROLLING_BACK,
+    DEAD
 }

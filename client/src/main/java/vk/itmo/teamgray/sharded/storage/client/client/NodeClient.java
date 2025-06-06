@@ -8,7 +8,6 @@ import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.client.SetFromFileRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 
 public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeClientServiceBlockingStub> {
@@ -46,12 +45,4 @@ public class NodeClient extends AbstractGrpcClient<NodeClientServiceGrpc.NodeCli
         return value;
     }
 
-    public StatusResponseDTO setFromFile(String filePath) {
-        SetFromFileRequest request = SetFromFileRequest.newBuilder()
-            .setFilePath(filePath)
-            .build();
-
-        var response = blockingStub.setFromFile(request);
-        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
-    }
 }
