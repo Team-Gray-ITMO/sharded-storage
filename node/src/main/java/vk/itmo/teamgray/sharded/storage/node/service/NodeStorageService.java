@@ -6,9 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.concurrency.AtomicEnum;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
+import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
-//TODO Move maps and full counts behind a decorators, incapsulate some of the methods from here into it.
 public class NodeStorageService {
     private static final Logger log = LoggerFactory.getLogger(NodeStorageService.class);
 
@@ -91,7 +91,8 @@ public class NodeStorageService {
         }
     }
 
-    public boolean isRearranging() {
+    // Renamed, due to other actions now possible, other than rearrangement.
+    public boolean isBusy() {
         return getState() != NodeState.RUNNING;
     }
 }

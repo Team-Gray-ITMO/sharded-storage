@@ -34,6 +34,7 @@ public class CLI {
                 case "changeshards" -> handleChangeShardCount();
                 case "topology" -> handleGetTopology();
                 case "heartbeat" -> handleHeartbeat();
+                case "serverstates" -> handleServerStates();
                 case "exit" -> running = false;
                 default -> println("Unknown command. Type 'help' for available commands.");
             }
@@ -60,7 +61,8 @@ public class CLI {
         println("  deleteserver   - Delete server");
         println("  changeshards   - Change number of shards");
         println("  topology       - Show current topology");
-        println("  heartbeat      - Send heartbeat to both servers");
+        println("  heartbeat      - Send heartbeat to master");
+        println("  serverstates   - Get current states of all servers");
         println("  exit           - Exit the program");
     }
 
@@ -183,6 +185,19 @@ public class CLI {
             println("  Status: " + masterResponse.statusMessage());
         } catch (Exception e) {
             errPrintln("Error sending heartbeat: " + e.getMessage());
+        }
+    }
+
+    private void handleServerStates() {
+        try {
+            var serverStates = clientService.getServerStates();
+            println(System.lineSeparator() + "Server states:");
+            serverStates.forEach((serverId, state) ->
+                println("  Server " + serverId + ": " + state)
+            );
+
+        } catch (Exception e) {
+            errPrintln("Error getting server states: " + e.getMessage());
         }
     }
 

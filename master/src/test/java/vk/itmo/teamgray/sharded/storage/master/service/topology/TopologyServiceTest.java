@@ -3,7 +3,6 @@ package vk.itmo.teamgray.sharded.storage.master.service.topology;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -50,13 +49,12 @@ class TopologyServiceTest {
         topologyService = new TopologyService(discoveryClient, grpcClientCachingFactory);
     }
 
-    @Disabled
     @Test
     void addServerDistributesShardsEvenly() {
         assertTrue(topologyService.addServer(1).isSuccess());
         assertTrue(topologyService.addServer(2).isSuccess());
 
-        ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
+        Map<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(2, serverToShards.size());
         assertTrue(serverToShards.containsKey(1));
         assertTrue(serverToShards.containsKey(2));
@@ -69,7 +67,6 @@ class TopologyServiceTest {
         assertFalse(topologyService.addServer(1).isSuccess());
     }
 
-    @Disabled
     @Test
     void deleteServerRemovesServerAndRedistributesShards() {
         topologyService.addServer(1);
@@ -77,7 +74,7 @@ class TopologyServiceTest {
 
         assertTrue(topologyService.deleteServer(1).isSuccess());
 
-        ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
+        Map<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(1, serverToShards.size());
         assertFalse(serverToShards.containsKey(1));
     }
@@ -141,7 +138,7 @@ class TopologyServiceTest {
     @Test
     void changeShardCountCorrectlyRedistributesShards() {
         topologyService.changeShardCount(10);
-        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+        Map<Integer, Long> shardToHash = topologyService.getShardToHash();
 
         assertEquals(10, shardToHash.size());
     }
@@ -149,7 +146,7 @@ class TopologyServiceTest {
     @Test
     void changeShardCountHandlesZeroShards() {
         topologyService.changeShardCount(0);
-        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+        Map<Integer, Long> shardToHash = topologyService.getShardToHash();
 
         assertTrue(shardToHash.isEmpty());
     }
@@ -162,7 +159,7 @@ class TopologyServiceTest {
         topologyService.addServer(2);
         topologyService.changeShardCount(7);
 
-        ConcurrentHashMap<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
+        Map<Integer, List<Integer>> serverToShards = topologyService.getServerToShards();
         assertEquals(7, serverToShards.values().stream().mapToInt(List::size).sum());
     }
 
@@ -170,7 +167,7 @@ class TopologyServiceTest {
     void testSingleShard() {
         topologyService.changeShardCount(1);
 
-        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+        Map<Integer, Long> shardToHash = topologyService.getShardToHash();
 
         assertEquals(1, shardToHash.size());
         assertEquals(Long.MAX_VALUE, shardToHash.get(0));
@@ -181,7 +178,7 @@ class TopologyServiceTest {
         int shardCount = 10;
         topologyService.changeShardCount(shardCount);
 
-        ConcurrentHashMap<Integer, Long> shardToHash = topologyService.getShardToHash();
+        Map<Integer, Long> shardToHash = topologyService.getShardToHash();
 
         assertEquals(shardCount, shardToHash.size());
 

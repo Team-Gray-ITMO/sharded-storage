@@ -5,12 +5,14 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.master.client.AddServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.ChangeShardCountRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.DeleteServerRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
+import vk.itmo.teamgray.sharded.storage.master.client.GetServerToStateRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashRequest;
 import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
 import vk.itmo.teamgray.sharded.storage.master.client.MasterClientServiceGrpc;
@@ -71,6 +73,20 @@ public class MasterClient extends AbstractGrpcClient<MasterClientServiceGrpc.Mas
                 Collectors.toMap(
                     Map.Entry::getValue,
                     Map.Entry::getKey)
+            );
+    }
+
+    public Map<Integer, NodeState> getServerToState() {
+        GetServerToStateRequest request = GetServerToStateRequest.newBuilder().build();
+
+        var response = blockingStub.getServerToState(request);
+
+        return response.getServerToStateMap().entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    it -> NodeState.valueOf(it.getValue())
+                )
             );
     }
 
