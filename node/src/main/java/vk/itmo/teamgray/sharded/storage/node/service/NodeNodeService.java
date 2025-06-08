@@ -25,7 +25,6 @@ public class NodeNodeService {
         List<SendShardDTO> sendShards,
         StatusResponseWriter responseWriter
     ) {
-        String message = SUCCESS_MESSAGE;
 
         log.debug("Received shards {}. Processing", sendShards);
 
@@ -60,7 +59,7 @@ public class NodeNodeService {
         responseWriter.writeResponse(
             errorMessages.isEmpty(),
             errorMessages.isEmpty()
-                ? message
+                ? SUCCESS_MESSAGE
                 : StringUtil.join(System.lineSeparator(), errorMessages).toString()
         );
     }
