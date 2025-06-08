@@ -53,7 +53,6 @@ public abstract class AbstractGrpcClient<S extends AbstractBlockingStub> {
         return heartbeat().healthy();
     }
 
-    @Override
     public HeartbeatResponseDTO heartbeat() {
         var healthClient = new HealthGrpcClient(host, port);
 
