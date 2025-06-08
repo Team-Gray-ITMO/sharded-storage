@@ -1,5 +1,6 @@
 @echo off
 setlocal
+cd /d "%~dp0.."
 
 if "%~1"=="" (
   echo Usage: %~nx0 ^<count^>

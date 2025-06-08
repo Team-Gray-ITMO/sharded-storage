@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ "$#" -ne 1 ]]; then
   echo "Использование: $0 <ID_сервера>"
