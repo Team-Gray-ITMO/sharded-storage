@@ -5,10 +5,14 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.proto.DiscoveryGrpcClient;
 import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
 import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
-import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
+import vk.itmo.teamgray.sharded.storage.master.proto.MasterClientGrpcService;
+import vk.itmo.teamgray.sharded.storage.master.proto.NodeManagementGrpcClient;
 import vk.itmo.teamgray.sharded.storage.master.service.MasterClientService;
 import vk.itmo.teamgray.sharded.storage.master.service.topology.TopologyService;
 
@@ -26,18 +30,23 @@ public class MasterApplication {
     public MasterApplication(int port) {
         this.port = port;
 
-        var discoveryClient = GrpcClientCachingFactory.getInstance()
+        var clientCachingFactory = ClientCachingFactory.getInstance();
+
+        clientCachingFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);
+        clientCachingFactory.registerClientCreator(NodeManagementClient.class, NodeManagementGrpcClient::new);
+
+        DiscoveryClient discoveryClient = clientCachingFactory
             .getClient(
                 getServerHost("discovery"),
                 getServerPort("discovery"),
-                DiscoveryClient::new
+                DiscoveryClient.class
             );
 
         discoveryClient.register(getDiscoverableService());
 
-        var topologyService = new TopologyService(discoveryClient, GrpcClientCachingFactory.getInstance());
+        var topologyService = new TopologyService(discoveryClient, clientCachingFactory);
 
-        var masterClientService = new MasterClientService(topologyService);
+        var masterClientService = new MasterClientGrpcService(new MasterClientService(topologyService));
 
         var healthService = new HealthGrpcService(new HealthService());
 

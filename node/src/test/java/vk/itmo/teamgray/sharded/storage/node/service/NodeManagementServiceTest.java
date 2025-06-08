@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.Action;
@@ -38,7 +38,7 @@ public class NodeManagementServiceTest {
     @BeforeEach
     public void setUp() {
         nodeStorageService = new NodeStorageService();
-        service = new NodeManagementService(nodeStorageService, discoveryClient);
+        service = new NodeManagementService(nodeStorageService, discoveryClient, null);
     }
 
     @Test

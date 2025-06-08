@@ -6,7 +6,7 @@ import vk.itmo.teamgray.sharded.storage.health.HealthServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.health.HeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.health.HeartbeatResponse;
 
-// Decoupling example, to allow for potential swap from gRPC if required. For heavy responses, use ResponseWriters instead of intermediary objects.
+// Decoupling example to allow for potential swap from gRPC if required. For heavy responses, use ResponseWriters instead of intermediary objects.
 public class HealthGrpcService extends HealthServiceGrpc.HealthServiceImplBase {
     private final HealthService healthService;
 

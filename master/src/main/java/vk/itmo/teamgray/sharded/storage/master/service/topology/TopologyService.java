@@ -10,13 +10,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
@@ -24,12 +24,9 @@ import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.Action;
 import vk.itmo.teamgray.sharded.storage.common.node.ActionPhase;
 import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
-import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.MapResponseWriter;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
-import vk.itmo.teamgray.sharded.storage.master.client.GetServerToShardResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.GetServerToStateResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.GetShardToHashResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.IntList;
 import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 import static java.util.stream.Collectors.toMap;
@@ -39,7 +36,7 @@ public class TopologyService {
 
     private final DiscoveryClient discoveryClient;
 
-    private final GrpcClientCachingFactory clientCachingFactory;
+    private final ClientCachingFactory clientCachingFactory;
 
     private Map<Integer, List<Integer>> serverToShards = new HashMap<>();
 
@@ -53,84 +50,55 @@ public class TopologyService {
         // No-op.
     }
 
-    public TopologyService(DiscoveryClient discoveryClient, GrpcClientCachingFactory clientCachingFactory) {
+    private enum ServerAction {
+        ADD, REMOVE
+    }
+
+    public TopologyService(DiscoveryClient discoveryClient, ClientCachingFactory clientCachingFactory) {
         this.discoveryClient = discoveryClient;
         this.clientCachingFactory = clientCachingFactory;
     }
 
-    public Map<Integer, List<Integer>> getServerToShards() {
-        return serverToShards;
-    }
-
-    public Map<Integer, NodeState> getServerToState() {
-        return serverToState;
-    }
-
-    public Map<Integer, Long> getShardToHash() {
-        return shardToHash;
-    }
-
-    public GetServerToShardResponse getServerToShardsAsGrpc() {
+    public int fillServerToShardsInSync(MapResponseWriter<Integer, List<Integer>> responseWriter) {
         lock.readLock().lock();
 
         try {
-            GetServerToShardResponse.Builder responseBuilder = GetServerToShardResponse.newBuilder();
+            serverToShards.forEach(responseWriter::writeMapEntry);
 
-            for (Map.Entry<Integer, List<Integer>> entry : serverToShards.entrySet()) {
-                int serverId = entry.getKey();
+            return serverToShards.size();
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
 
-                List<Integer> shardIds = entry.getValue();
+    public int fillShardToHashInSync(MapResponseWriter<Integer, Long> responseWriter) {
+        lock.readLock().lock();
 
-                IntList intList = IntList.newBuilder().addAllValues(shardIds).build();
+        try {
+            shardToHash.forEach(responseWriter::writeMapEntry);
 
-                responseBuilder.putServerToShard(serverId, intList);
-            }
-
-            return responseBuilder.build();
+            return shardToHash.size();
         } finally {
             lock.readLock().unlock();
         }
     }
 
     //No Sync to be transparent on states.
-    public GetServerToStateResponse getServerToStateAsGrpc() {
-        GetServerToStateResponse.Builder responseBuilder = GetServerToStateResponse.newBuilder();
+    public int fillServerToState(MapResponseWriter<Integer, NodeState> responseWriter) {
+        serverToState.forEach(responseWriter::writeMapEntry);
 
-        for (Map.Entry<Integer, NodeState> entry : serverToState.entrySet()) {
-            int serverId = entry.getKey();
-            NodeState nodeState = entry.getValue();
-
-            responseBuilder.putServerToState(serverId, nodeState.name());
-        }
-
-        return responseBuilder.build();
+        return serverToState.size();
     }
 
-    public GetShardToHashResponse getShardToHashAsGrpc() {
-        lock.readLock().lock();
-
-        try {
-            GetShardToHashResponse.Builder responseBuilder = GetShardToHashResponse.newBuilder();
-
-            for (Map.Entry<Integer, Long> entry : shardToHash.entrySet()) {
-                responseBuilder.putShardToHash(entry.getKey(), entry.getValue());
-            }
-
-            return responseBuilder.build();
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    public StatusResponseDTO addServer(int serverId) {
+    public boolean addServer(int serverId, StatusResponseWriter responseWriter) {
         lock.writeLock().lock();
         try {
-            log.info("Adding server {}", serverId);
-
             setServerState(serverId, NodeState.INIT);
 
             if (serverToShards.containsKey(serverId)) {
-                return new StatusResponseDTO(false, "Could not add server " + serverId + " because it is already registered.");
+                responseWriter.writeResponse(false, "Could not add server " + serverId + " because it is already registered.");
+
+                return false;
             }
 
             var updatedServers = new ArrayList<>(serverToShards.keySet());
@@ -143,32 +111,26 @@ public class TopologyService {
                 new ArrayList<>(shardToHash.keySet())
             );
 
-            StatusResponseDTO result = handleShardMovement(
+            return handleShardMovement(
+                ServerAction.ADD,
+                serverId,
                 oldServerToShards,
                 newServerToShards,
                 shardToHash.size(),
-                appliedId -> setServerState(appliedId, NodeState.RUNNING)
+                responseWriter
             );
-
-            if (result.isSuccess()) {
-                log.info("Added server {}", serverId);
-
-                return new StatusResponseDTO(true, "Server Added");
-            } else {
-                return new StatusResponseDTO(false, "Could not add new server: " + System.lineSeparator() + result.getMessage());
-            }
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    public StatusResponseDTO deleteServer(int serverId) {
+    public boolean deleteServer(int serverId, StatusResponseWriter responseWriter) {
         lock.writeLock().lock();
         try {
-            log.info("Removing server {}", serverId);
-
             if (!serverToShards.containsKey(serverId)) {
-                return new StatusResponseDTO(false, "Could not remove server " + serverId + " because it is not registered.");
+                responseWriter.writeResponse(false, "Could not remove server " + serverId + " because it is not registered.");
+
+                return false;
             }
 
             var updatedServers = serverToShards.keySet().stream()
@@ -182,36 +144,26 @@ public class TopologyService {
             );
 
             // move shards to the new server
-            StatusResponseDTO result = handleShardMovement(
+            return handleShardMovement(
+                ServerAction.REMOVE,
+                serverId,
                 oldServerToShards,
                 newServerToShards,
                 shardToHash.size(),
-                appliedId -> {
-                    if (appliedId == serverId) {
-                        removeServerState(serverId);
-                    } else {
-                        setServerState(appliedId, NodeState.RUNNING);
-                    }
-                }
+                responseWriter
             );
-
-            if (result.isSuccess()) {
-                log.info("Removed server {}", serverId);
-
-                return new StatusResponseDTO(true, "Server Removed");
-            } else {
-                return new StatusResponseDTO(false, "Could not remove server: " + System.lineSeparator() + result.getMessage());
-            }
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private StatusResponseDTO handleShardMovement(
+    private boolean handleShardMovement(
+        ServerAction serverAction,
+        int actionServerId,
         Map<Integer, List<Integer>> oldMapping,
         Map<Integer, List<Integer>> newMapping,
         int fullShardCount,
-        Consumer<Integer> successServerAction
+        StatusResponseWriter responseWriter
     ) {
         var action = Action.MOVE_SHARDS;
 
@@ -276,7 +228,7 @@ public class TopologyService {
 
             // Cached, perf ok
             NodeManagementClient managementClient = clientCachingFactory
-                .getClient(server, NodeManagementClient::new);
+                .getClient(server, NodeManagementClient.class);
 
             usedNodes.put(serverId, server);
 
@@ -301,7 +253,9 @@ public class TopologyService {
 
                 errorMessages.add(message);
 
-                return rollbackAndReturnError(usedNodes, errorMessages, action);
+                rollbackAndReturnError(usedNodes, errorMessages, action, responseWriter);
+
+                return false;
             }
         }
 
@@ -315,7 +269,7 @@ public class TopologyService {
 
             // Cached, perf ok
             NodeManagementClient managementClient = clientCachingFactory
-                .getClient(server, NodeManagementClient::new);
+                .getClient(server, NodeManagementClient.class);
 
             usedNodes.put(serverId, server);
 
@@ -340,7 +294,9 @@ public class TopologyService {
 
                 errorMessages.add(message);
 
-                return rollbackAndReturnError(usedNodes, errorMessages, action);
+                rollbackAndReturnError(usedNodes, errorMessages, action, responseWriter);
+
+                return false;
             }
         }
 
@@ -351,36 +307,40 @@ public class TopologyService {
             var server = nodes.get(serverIdToApply);
 
             // Cached, perf ok
-            NodeManagementClient managementClient = clientCachingFactory
-                .getClient(server, NodeManagementClient::new);
+            NodeManagementClient managementClient = clientCachingFactory.getClient(server, NodeManagementClient.class);
 
             setServerState(serverIdToApply, NodeState.MOVE_SHARDS_APPLYING);
 
             var response = managementClient.applyOperation(action);
 
             if (response.isSuccess()) {
-                successServerAction.accept(serverIdToApply);
+                // For removed server state needs to be removed, instead of set RUNNING again.
+                if (serverAction == ServerAction.REMOVE && serverIdToApply == actionServerId) {
+                    removeServerState(actionServerId);
+                } else {
+                    setServerState(serverIdToApply, NodeState.RUNNING);
+                }
             } else {
-                String message = server.getIdForLogging() + ": " + response.getMessage();
-                log.error("Apply failed on node, System is in inconsistent state: {}. Error message: {}", server, response.getMessage());
-                errorMessages.add(message);
-
-                // No compensation or recovery actions on involved nodes
-                // End up change shards process and return error response
-                // Marking node as DEAD
-                setServerState(serverIdToApply, NodeState.DEAD);
-                return new StatusResponseDTO(
-                    false,
-                    StringUtil.join(System.lineSeparator(), errorMessages).toString()
+                applyActionFailed(
+                    responseWriter,
+                    response.getMessage(),
+                    server,
+                    errorMessages,
+                    "Could not " + serverAction + " server " + actionServerId + ": "
                 );
+
+                return false;
             }
         }
 
         replaceServerToShards(newMapping);
 
-        log.info("Moved shards successfully");
+        String message = "Moved shards successfully";
 
-        return new StatusResponseDTO(true, "Shards Moved");
+        responseWriter.writeResponse(true, message);
+        log.info(message);
+
+        return true;
     }
 
     private Integer findServerForShard(
@@ -395,11 +355,9 @@ public class TopologyService {
         return null;
     }
 
-    public StatusResponseDTO changeShardCount(int shardCount) {
+    public boolean changeShardCount(int shardCount, StatusResponseWriter responseWriter) {
         lock.writeLock().lock();
         try {
-            log.info("Changing shard count to {}", shardCount);
-
             var action = Action.REARRANGE_SHARDS;
 
             Map<Integer, Long> newShardToHash = redistributeHashesEvenly(shardCount);
@@ -443,7 +401,7 @@ public class TopologyService {
                     );
 
                 DiscoverableServiceDTO server = nodes.get(serverId);
-                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
+                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
 
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_PREPARING);
                 StatusResponseDTO response = client.prepareRearrange(relevantSchemeSlice, newShardToHash.size());
@@ -455,7 +413,9 @@ public class TopologyService {
                     log.error("Preparation stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
 
-                    return rollbackAndReturnError(nodes, errorMessages, action);
+                    rollbackAndReturnError(nodes, errorMessages, action, responseWriter);
+
+                    return false;
                 }
             }
 
@@ -467,7 +427,7 @@ public class TopologyService {
                     .toList();
 
                 DiscoverableServiceDTO server = nodes.get(serverId);
-                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
+                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
 
                 var relevantNodes = relevantFragments.stream()
                     .map(FragmentDTO::newShardId)
@@ -487,7 +447,9 @@ public class TopologyService {
                     log.error("Process stage failed on node: {}. Error message: {}", server, response.getMessage());
                     errorMessages.add(message);
 
-                    return rollbackAndReturnError(nodes, errorMessages, action);
+                    rollbackAndReturnError(nodes, errorMessages, action, responseWriter);
+
+                    return false;
                 }
             }
 
@@ -496,7 +458,7 @@ public class TopologyService {
             for (var entry : newServerToShards.entrySet()) {
                 var serverId = entry.getKey();
                 DiscoverableServiceDTO server = nodes.get(serverId);
-                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient::new);
+                NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
 
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_APPLYING);
                 StatusResponseDTO response = client.applyOperation(action);
@@ -504,42 +466,60 @@ public class TopologyService {
                 if (response.isSuccess()) {
                     setServerState(serverId, NodeState.RUNNING);
                 } else {
-                    String message = response.getMessage();
-                    String serverMessage = server.getIdForLogging() + ": " + message;
-                    log.error("Apply failed on node, System is in inconsistent state: {}. Error message: {}", server, serverMessage);
-                    errorMessages.add(message);
-
-                    // No compensation or recovery actions on involved nodes
-                    // End up change shards process and return error response
-                    // Marking Node as DEAD
-                    setServerState(serverId, NodeState.DEAD);
-                    return new StatusResponseDTO(
-                        false,
-                        StringUtil.join(System.lineSeparator(), errorMessages).toString()
+                    applyActionFailed(
+                        responseWriter,
+                        response.getMessage(),
+                        server,
+                        errorMessages,
+                        "Could not process rearrange on server " + serverId + ": "
                     );
+
+                    return false;
                 }
             }
 
             replaceBothMaps(newShardToHash, newServerToShards);
-            log.info("Changed shard count successfully");
-            return new StatusResponseDTO(true, "Changed shard count successfully");
+            responseWriter.writeResponse(true, "Changed shard count successfully");
 
+            return true;
         } finally {
             lock.writeLock().unlock();
         }
     }
 
-    private StatusResponseDTO rollbackAndReturnError(
+    private void applyActionFailed(
+        StatusResponseWriter responseWriter,
+        String message,
+        DiscoverableServiceDTO server,
+        List<String> errorMessages,
+        String actionPrefix
+    ) {
+        String serverMessage = server.getIdForLogging() + ": " + message;
+        log.error("Apply failed on node, Marking it as {}: {}. Error message: {}", NodeState.DEAD, server, serverMessage);
+        errorMessages.add(message);
+
+        // No compensation or recovery actions on involved nodes
+        // End up change shards process and return error response
+        // Marking Node as DEAD
+        setServerState(server.id(), NodeState.DEAD);
+        responseWriter.writeResponse(
+            false,
+            actionPrefix + StringUtil.join(System.lineSeparator(), errorMessages).toString()
+        );
+    }
+
+    private void rollbackAndReturnError(
         Map<Integer, DiscoverableServiceDTO> nodes,
         List<String> errorMessages,
-        Action action
+        Action action,
+        StatusResponseWriter responseWriter
     ) {
         String rollbackMessage = "One or more nodes failed during " + action + ". Rolling back.";
         log.warn(rollbackMessage);
         errorMessages.add(rollbackMessage);
 
         for (var node : nodes.values()) {
-            NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient::new);
+            NodeManagementClient client = clientCachingFactory.getClient(node, NodeManagementClient.class);
 
             setServerState(node.id(), NodeState.resolve(action, ActionPhase.ROLLBACK));
 
@@ -560,7 +540,7 @@ public class TopologyService {
         // No need to swap maps, old ones are still intact, we just do not apply old ones.
         log.info("{} Failed", action);
 
-        return new StatusResponseDTO(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
+        responseWriter.writeResponse(false, StringUtil.join(System.lineSeparator(), errorMessages).toString());
     }
 
     private List<FragmentDTO> findFragmentsToMove(

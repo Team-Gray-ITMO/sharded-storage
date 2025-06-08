@@ -5,12 +5,17 @@ import io.grpc.ServerBuilder;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.discovery.proto.DiscoveryGrpcClient;
 import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
 import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
-import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeClient;
+import vk.itmo.teamgray.sharded.storage.node.proto.NodeClientGrpcService;
 import vk.itmo.teamgray.sharded.storage.node.proto.NodeManagementGrpcService;
+import vk.itmo.teamgray.sharded.storage.node.proto.NodeNodeGrpcClient;
+import vk.itmo.teamgray.sharded.storage.node.proto.NodeNodeGrpcService;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeClientService;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeNodeService;
@@ -30,11 +35,16 @@ public class NodeApplication {
 
         int serverPort = getServerPort("node");
 
-        var discoveryClient = GrpcClientCachingFactory.getInstance()
+        ClientCachingFactory clientCachingFactory = ClientCachingFactory.getInstance();
+
+        clientCachingFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);
+        clientCachingFactory.registerClientCreator(NodeNodeClient.class, NodeNodeGrpcClient::new);
+
+        var discoveryClient = clientCachingFactory
             .getClient(
                 getServerHost("discovery"),
                 getServerPort("discovery"),
-                DiscoveryClient::new
+                DiscoveryClient.class
             );
 
         DiscoverableServiceDTO service = getDiscoverableService();
@@ -42,9 +52,9 @@ public class NodeApplication {
         discoveryClient.register(service);
 
         activeServer = ServerBuilder.forPort(serverPort)
-            .addService(new NodeClientService(nodeStorageService))
-            .addService(new NodeManagementGrpcService(new NodeManagementService(nodeStorageService, discoveryClient)))
-            .addService(new NodeNodeService(nodeStorageService))
+            .addService(new NodeClientGrpcService(new NodeClientService(nodeStorageService)))
+            .addService(new NodeManagementGrpcService(new NodeManagementService(nodeStorageService, discoveryClient, clientCachingFactory)))
+            .addService(new NodeNodeGrpcService(new NodeNodeService(nodeStorageService)))
             .addService(new HealthGrpcService(new HealthService()))
             .build();
     }

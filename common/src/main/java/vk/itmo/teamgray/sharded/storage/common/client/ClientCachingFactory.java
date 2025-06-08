@@ -1,51 +1,70 @@
-package vk.itmo.teamgray.sharded.storage.common.proto;
+package vk.itmo.teamgray.sharded.storage.common.client;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.proto.ClientCacheKey;
 import vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
-public class GrpcClientCachingFactory {
-    private static final GrpcClientCachingFactory INSTANCE = new GrpcClientCachingFactory();
+public class ClientCachingFactory {
+    private static final ClientCachingFactory INSTANCE = new ClientCachingFactory();
 
-    private final Map<GrpcClientCacheKey, AbstractGrpcClient<?>> clientCache = new ConcurrentHashMap<>();
+    private final Map<Class<? extends Client>, ClientCreator<? extends Client>> clientCreatorsMap = new HashMap<>();
 
-    private GrpcClientCachingFactory() {
+    private final Map<ClientCacheKey, Client> clientCache = new ConcurrentHashMap<>();
+
+    private ClientCachingFactory() {
         // No-op.
     }
 
-    public static GrpcClientCachingFactory getInstance() {
+    public static ClientCachingFactory getInstance() {
         return INSTANCE;
     }
 
-    public <C extends AbstractGrpcClient<?>> C getClient(
+    public <C extends Client> boolean registerClientCreator(
+        Class<C> clientClass,
+        ClientCreator<? extends C> clientCreator
+    ) {
+        return clientCreatorsMap.putIfAbsent(clientClass, clientCreator) == null;
+    }
+
+    public <C extends Client> C getClient(
         DiscoverableServiceDTO server,
-        BiFunction<String, Integer, C> clientCreator
+        Class<C> clientClass
     ) {
         String hostName = resolveHostname(server);
 
         int port = resolvePort(server);
 
-        return getClient(hostName, port, clientCreator);
+        return getClient(hostName, port, clientClass);
     }
 
     @SuppressWarnings("unchecked")
-    public <C extends AbstractGrpcClient<?>> C getClient(
+    public <C extends Client> C getClient(
         String hostName,
         int port,
-        BiFunction<String, Integer, C> clientCreator
+        Class<C> clientClass
     ) {
         return (C)clientCache.computeIfAbsent(
-            new GrpcClientCacheKey(hostName, port, clientCreator.getClass()),
-            k -> clientCreator.apply(hostName, port)
+            new ClientCacheKey(hostName, port, clientClass),
+            k -> getClientCreator(clientClass).create(hostName, port)
         );
     }
 
     public void clear() {
         clientCache.clear();
+    }
+
+    @SuppressWarnings("unchecked")
+    private <C extends Client> ClientCreator<C> getClientCreator(Class<C> clientClass) {
+        if (!clientCreatorsMap.containsKey(clientClass)) {
+            throw new IllegalStateException("Client creator not registered for class: " + clientClass.getName());
+        }
+
+        return (ClientCreator<C>)clientCreatorsMap.get(clientClass);
     }
 
     private int resolvePort(DiscoverableServiceDTO targetServer) {
@@ -107,5 +126,10 @@ public class GrpcClientCachingFactory {
                 return targetServer.host();
             }
         }
+    }
+
+    @FunctionalInterface
+    public interface ClientCreator<C extends Client> {
+        C create(String hostName, int port);
     }
 }

@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   discovery:
     build:
@@ -8,6 +7,8 @@ services:
       - "9003:9003"
     networks:
       - sharded-storage
+
+  #TODO Use Docker Compose Bake, to reuse built targets instead of building each time.
 
   #node:
   #  build:
