@@ -7,5 +7,5 @@ if [[ "$#" -ne 1 ]]; then
 fi
 
 for ((i = 1; i <= $1; i++)); do
-  ./run-node.sh "$i"
+  ./scripts/run-node.sh "$i"
 done

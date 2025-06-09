@@ -14,7 +14,7 @@ echo "Сборка образа..."
 docker compose bake node
 
 echo "Создание сети..."
-./create-network.sh
+./scripts/create-network.sh
 
 echo "Запуск контейнера..."
 docker run -d \

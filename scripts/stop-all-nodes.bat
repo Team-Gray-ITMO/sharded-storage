@@ -4,7 +4,7 @@ cd /d "%~dp0.."
 
 echo Stopping all Nodes
 
-for /f "tokens=*" %%i in ('docker ps -q --filter "name=node-containter-"') do (
+for /f "tokens=*" %%i in ('docker ps -a -q --filter "name=node-containter-"') do (
     docker stop %%i
     docker rm %%i
 )
