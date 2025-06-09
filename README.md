@@ -52,6 +52,17 @@ On Windows
 .\scripts\run-node.bat 2
 ```
 
+### Run CLI Client
+On *nix
+```bash
+./scripts/run-cli.sh
+```
+
+On Windows
+```powershell
+.\scripts\run-cli.bat
+```
+
 ### Stop Specific Nodes
 On *nix
 ```bash
