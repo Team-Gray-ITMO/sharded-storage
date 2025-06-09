@@ -11,7 +11,7 @@ CONTAINER_NAME="node-containter-$1"
 NETWORK_NAME="sharded-storage"
 
 echo "Сборка образа..."
-docker build -f node/Dockerfile -t ${IMAGE_NAME} .
+docker compose bake node
 
 echo "Создание сети..."
 ./create-network.sh
@@ -23,7 +23,7 @@ docker run -d \
            -e SERVICE_CONTAINER_NAME=node-containter-$1 \
            -e SERVICE_ID=$1 \
            -e DISCOVERY_GRPC_HOST=discovery \
-           -p 90$11:9001 \
+           -p 90"$1"1:9001 \
            ${IMAGE_NAME}
 
 echo "Контейнер запущен! ID: $1"

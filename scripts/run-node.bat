@@ -7,12 +7,12 @@ if "%1"=="" (
     exit /b 1
 )
 
-set IMAGE_NAME=sharded_storage_node
+set IMAGE_NAME=sharded_storage_node:latest
 set CONTAINER_NAME=node-containter-%1
 set NETWORK_NAME=sharded-storage
 
 echo Building image...
-docker build -f node/Dockerfile -t %IMAGE_NAME% .
+docker buildx bake node
 
 echo Creating network...
 call create-network.bat
