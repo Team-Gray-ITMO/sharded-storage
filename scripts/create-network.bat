@@ -1,5 +1,7 @@
 @echo off
 setlocal
+cd /d "%~dp0.."
+
 set "NETWORK_NAME=sharded-storage"
 
 echo Checking if network "%NETWORK_NAME%" exists...

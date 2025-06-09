@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ "$#" -ne 1 ]]; then
   echo "Usage: $0 <count>"
@@ -6,5 +7,5 @@ if [[ "$#" -ne 1 ]]; then
 fi
 
 for ((i = 1; i <= $1; i++)); do
-  ./run-node.sh "$i"
+  ./scripts/run-node.sh "$i"
 done

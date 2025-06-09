@@ -1,5 +1,6 @@
 @echo off
 setlocal
+cd /d "%~dp0.."
 
 if "%~1"=="" (
   echo Usage: %~nx0 ^<count^>
@@ -7,7 +8,7 @@ if "%~1"=="" (
 )
 
 for /L %%i in (1,1,%1) do (
-  call run-node.bat %%i
+  call .\scripts\run-node.bat %%i
 )
 
 endlocal

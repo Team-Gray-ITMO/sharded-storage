@@ -1,5 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
+cd /d "%~dp0.."
 
 :: Check if Java is installed
 where java >nul 2>&1
