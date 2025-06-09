@@ -6,8 +6,8 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.function.Function;
-import vk.itmo.teamgray.sharded.storage.common.health.HealthClient;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcClient;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.RetryUtils.retryWithAttempts;
 
@@ -54,7 +54,7 @@ public abstract class AbstractGrpcClient<S extends AbstractBlockingStub> {
     }
 
     public HeartbeatResponseDTO heartbeat() {
-        var healthClient = new HealthClient(host, port);
+        var healthClient = new HealthGrpcClient(host, port);
 
         return healthClient.heartbeat();
     }

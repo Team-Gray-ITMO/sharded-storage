@@ -1,14 +1,14 @@
 package vk.itmo.teamgray.sharded.storage.master.service;
 
-import io.grpc.stub.StreamObserver;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
-import vk.itmo.teamgray.sharded.storage.master.client.*;
+import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.MapResponseWriter;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 import vk.itmo.teamgray.sharded.storage.master.service.topology.TopologyService;
 
-// TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
-public class MasterClientService extends MasterClientServiceGrpc.MasterClientServiceImplBase {
+public class MasterClientService {
     private static final Logger log = LoggerFactory.getLogger(MasterClientService.class);
 
     private final TopologyService topologyService;
@@ -17,81 +17,55 @@ public class MasterClientService extends MasterClientServiceGrpc.MasterClientSer
         this.topologyService = topologyService;
     }
 
-    @Override
-    public void getServerToShard(GetServerToShardRequest request, StreamObserver<GetServerToShardResponse> responseObserver) {
+    public void fillServerToShards(MapResponseWriter<Integer, List<Integer>> responseWriter) {
         log.info("Received ServerToShard request");
 
-        var response = topologyService.getServerToShardsAsGrpc();
+        var size = topologyService.fillServerToShardsInSync(responseWriter);
 
-        log.info("Returning {} servers with shards", response.getServerToShardCount());
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        log.info("Returning {} servers with shards", size);
     }
 
-    @Override
-    public void getServerToState(GetServerToStateRequest request, StreamObserver<GetServerToStateResponse> responseObserver) {
+    public void fillServerToState(MapResponseWriter<Integer, NodeState> responseWriter) {
         log.info("Received ServerToState request");
 
-        var response = topologyService.getServerToStateAsGrpc();
+        var size = topologyService.fillServerToState(responseWriter);
 
-        log.info("Returning {} servers with states", response.getServerToStateCount());
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        log.info("Returning {} servers with states", size);
     }
 
-    @Override
-    public void getShardToHash(GetShardToHashRequest request, StreamObserver<GetShardToHashResponse> responseObserver) {
+    public void fillShardToHash(MapResponseWriter<Integer, Long> responseWriter) {
         log.info("Received ShardToHash request");
 
-        var response = topologyService.getShardToHashAsGrpc();
+        var size = topologyService.fillShardToHashInSync(responseWriter);
 
-        log.info("Returning {} shards with hashes", response.getShardToHashCount());
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        log.info("Returning {} shards with hashes", size);
     }
 
-    @Override
-    public void addServer(AddServerRequest request, StreamObserver<StatusResponse> responseObserver) {
-        var result = topologyService.addServer(request.getId());
+    public void addServer(int serverId, StatusResponseWriter responseWriter) {
+        log.info("Adding server {}", serverId);
 
-        responseObserver.onNext(
-            StatusResponse.newBuilder()
-                .setSuccess(result.isSuccess())
-                .setMessage(result.getMessage())
-                .build()
-        );
+        var success = topologyService.addServer(serverId, responseWriter);
 
-        responseObserver.onCompleted();
+        if (success) {
+            log.info("Added server {}", serverId);
+        }
     }
 
-    @Override
-    public void deleteServer(DeleteServerRequest request, StreamObserver<StatusResponse> responseObserver) {
-        var result = topologyService.deleteServer(request.getId());
+    public void deleteServer(int serverId, StatusResponseWriter responseWriter) {
+        log.info("Removing server {}", serverId);
 
-        responseObserver.onNext(
-            StatusResponse.newBuilder()
-                .setSuccess(result.isSuccess())
-                .setMessage(result.getMessage())
-                .build()
-        );
+        var success = topologyService.deleteServer(serverId, responseWriter);
 
-        responseObserver.onCompleted();
+        if (success) {
+            log.info("Removed server {}", serverId);
+        }
     }
 
-    @Override
-    public void changeShardCount(ChangeShardCountRequest request, StreamObserver<StatusResponse> responseObserver) {
-        var result = topologyService.changeShardCount(request.getNewShardCount());
+    public void changeShardCount(int shardCount, StatusResponseWriter responseWriter) {
+        log.info("Changing shard count to {}", shardCount);
 
-        responseObserver.onNext(
-            StatusResponse.newBuilder()
-                .setSuccess(result.isSuccess())
-                .setMessage(result.getMessage())
-                .build()
-        );
+        topologyService.changeShardCount(shardCount, responseWriter);
 
-        responseObserver.onCompleted();
+        log.info("Changed shard count successfully");
     }
 }

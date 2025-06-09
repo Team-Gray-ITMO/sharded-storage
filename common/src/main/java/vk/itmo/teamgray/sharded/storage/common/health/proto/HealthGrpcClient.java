@@ -1,16 +1,17 @@
-package vk.itmo.teamgray.sharded.storage.common.health;
+package vk.itmo.teamgray.sharded.storage.common.health.proto;
 
 import io.grpc.ManagedChannel;
 import java.time.Instant;
 import java.util.function.Function;
+import vk.itmo.teamgray.sharded.storage.common.health.client.HealthClient;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.health.HealthServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.health.HeartbeatRequest;
 import vk.itmo.teamgray.sharded.storage.health.HeartbeatResponse;
 
-public class HealthClient extends AbstractGrpcClient<HealthServiceGrpc.HealthServiceBlockingStub> {
-    public HealthClient(String host, int port) {
+public class HealthGrpcClient extends AbstractGrpcClient<HealthServiceGrpc.HealthServiceBlockingStub> implements HealthClient {
+    public HealthGrpcClient(String host, int port) {
         super(host, port);
     }
 

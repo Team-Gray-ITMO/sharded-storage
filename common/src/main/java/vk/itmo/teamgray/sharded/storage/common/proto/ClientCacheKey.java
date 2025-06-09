@@ -1,6 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.common.proto;
 
-public record GrpcClientCacheKey(
+public record ClientCacheKey(
     String host,
     int port,
     Class<?> clientClass

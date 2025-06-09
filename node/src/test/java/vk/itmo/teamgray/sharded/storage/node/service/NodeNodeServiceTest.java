@@ -1,6 +1,5 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
-import io.grpc.stub.StreamObserver;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -9,16 +8,12 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter.Helper.toDto;
 
 public class NodeNodeServiceTest {
     private NodeNodeService nodeNodeService;
@@ -52,21 +47,11 @@ public class NodeNodeServiceTest {
 
         fragments.put(key, "bar");
 
-        SendShardFragmentRequest request = SendShardFragmentRequest.newBuilder()
-            .setShardId(Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount)))
-            .putAllShardFragments(fragments)
-            .build();
-        StreamObserver<StatusResponse> responseObserver = mock(StreamObserver.class);
-        ArgumentCaptor<StatusResponse> responseCaptor = ArgumentCaptor.forClass(
-            StatusResponse.class
-        );
+        int shardId = Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount));
 
-        nodeNodeService.sendShardFragment(request, responseObserver);
-        verify(responseObserver).onNext(responseCaptor.capture());
-        verify(responseObserver).onCompleted();
-        var response = responseCaptor.getValue();
+        var response = toDto(rw -> nodeNodeService.sendShardFragment(shardId, fragments, rw));
 
-        assertTrue(response.getSuccess());
+        assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
         assertEquals(shardCount, nodeStorageService.getShards().getShardMap().size());
     }
@@ -79,21 +64,11 @@ public class NodeNodeServiceTest {
         String key = "key12";
         fragments.put(key, "bar");
 
-        SendShardFragmentRequest request = SendShardFragmentRequest.newBuilder()
-            .setShardId(Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount)))
-            .putAllShardFragments(fragments)
-            .build();
-        StreamObserver<StatusResponse> responseObserver = mock(StreamObserver.class);
-        ArgumentCaptor<StatusResponse> responseCaptor = ArgumentCaptor.forClass(
-            StatusResponse.class
-        );
+        int shardId = Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount));
 
-        nodeNodeService.sendShardFragment(request, responseObserver);
-        verify(responseObserver).onNext(responseCaptor.capture());
-        verify(responseObserver).onCompleted();
-        var response = responseCaptor.getValue();
+        var response = toDto(rw -> nodeNodeService.sendShardFragment(shardId, fragments, rw));
 
-        assertTrue(response.getSuccess());
+        assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
         assertEquals(shardCount, nodeStorageService.getShards().getShardMap().size());
     }

@@ -14,20 +14,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
 import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.common.health.dto.HeartbeatResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
-import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 
 import static vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils.getShardIdForKey;
 
@@ -44,6 +44,8 @@ public class ClientService {
 
     private final DiscoveryClient discoveryClient;
 
+    private final ClientCachingFactory clientCachingFactory;
+
     private final Map<Integer, DiscoverableServiceDTO> shardToServer = new HashMap<>();
 
     private final Map<Long, Integer> hashToShard = new HashMap<>();
@@ -58,10 +60,12 @@ public class ClientService {
 
     public ClientService(
         MasterClient masterClient,
-        DiscoveryClient discoveryClient
+        DiscoveryClient discoveryClient,
+        ClientCachingFactory clientCachingFactory
     ) {
         this.masterClient = masterClient;
         this.discoveryClient = discoveryClient;
+        this.clientCachingFactory = clientCachingFactory;
 
         retryingExecutor.submit(() -> {
             while (!shutdownRequested.get() || getWaitingEntries() > 0) {
@@ -134,10 +138,10 @@ public class ClientService {
 
         log.debug("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
 
-        return GrpcClientCachingFactory.getInstance()
+        return clientCachingFactory
             .getClient(
                 server,
-                NodeClient::new
+                NodeClient.class
             );
     }
 
@@ -318,7 +322,7 @@ public class ClientService {
             retryingExecutor.shutdownNow();
         }
     }
-    
+
     private int getWaitingEntries() {
         return retryQueuesForServers.values().stream().mapToInt(ConcurrentLinkedQueue::size).sum();
     }

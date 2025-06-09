@@ -13,7 +13,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
@@ -22,7 +23,6 @@ import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.Action;
 import vk.itmo.teamgray.sharded.storage.common.node.ActionPhase;
 import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
-import vk.itmo.teamgray.sharded.storage.common.proto.GrpcClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeClient;
@@ -40,11 +40,18 @@ public class NodeManagementService {
 
     private final DiscoveryClient discoveryClient;
 
+    private final ClientCachingFactory clientCachingFactory;
+
     private CountDownLatch rollbackLatch;
 
-    public NodeManagementService(NodeStorageService nodeStorageService, DiscoveryClient discoveryClient) {
+    public NodeManagementService(
+        NodeStorageService nodeStorageService,
+        DiscoveryClient discoveryClient,
+        ClientCachingFactory clientCachingFactory
+    ) {
         this.nodeStorageService = nodeStorageService;
         this.discoveryClient = discoveryClient;
+        this.clientCachingFactory = clientCachingFactory;
 
         nodeStorageService.changeState(NodeState.INIT, NodeState.RUNNING);
     }
@@ -381,11 +388,10 @@ public class NodeManagementService {
     }
 
     private StatusResponseDTO moveShardFragment(DiscoverableServiceDTO server, int newShardId, Map<String, String> fragmentsToSend) {
-        var nodeNodeClient = GrpcClientCachingFactory
-            .getInstance()
+        var nodeNodeClient = clientCachingFactory
             .getClient(
                 server,
-                NodeNodeClient::new
+                NodeNodeClient.class
             );
 
         log.debug("Sending fragment from shard {} to node {}", newShardId, server);
@@ -394,11 +400,10 @@ public class NodeManagementService {
     }
 
     private StatusResponseDTO sendShards(List<SendShardDTO> sendShards, DiscoverableServiceDTO targetServer) {
-        var nodeNodeClient = GrpcClientCachingFactory
-            .getInstance()
+        var nodeNodeClient = clientCachingFactory
             .getClient(
                 targetServer,
-                NodeNodeClient::new
+                NodeNodeClient.class
             );
 
         log.debug("Sending shards {} to node {}", sendShards.stream().map(SendShardDTO::shardId).toList(), targetServer);

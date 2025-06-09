@@ -13,4 +13,11 @@ public record SendShardDTO(
             .putAllShard(shard)
             .build();
     }
+
+    public static SendShardDTO fromGrpc(SendShard grpc) {
+        return new SendShardDTO(
+            grpc.getShardId(),
+            grpc.getShardMap()
+        );
+    }
 }

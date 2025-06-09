@@ -1,21 +1,16 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
 import io.grpc.netty.shaded.io.netty.util.internal.StringUtil;
-import io.grpc.stub.StreamObserver;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
-import vk.itmo.teamgray.sharded.storage.node.node.NodeNodeServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShard;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardFragmentRequest;
-import vk.itmo.teamgray.sharded.storage.node.node.SendShardsRequest;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 
-// TODO Decouple to gRPC Service and Service with business logic. Example: 'HealthGrpcService' and 'HealthService'
-public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase {
+public class NodeNodeService {
     private static final Logger log = LoggerFactory.getLogger(NodeNodeService.class);
 
     private static final String SUCCESS_MESSAGE = "SUCCESS";
@@ -26,19 +21,17 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
         this.nodeStorageService = nodeStorageService;
     }
 
-    @Override
     public void sendShards(
-        SendShardsRequest request,
-        StreamObserver<StatusResponse> responseObserver
+        List<SendShardDTO> sendShards,
+        StatusResponseWriter responseWriter
     ) {
-        String message = SUCCESS_MESSAGE;
 
-        log.debug("Received shards {}. Processing", request.getShardsList().stream().map(SendShard::getShardId).toList());
+        log.debug("Received shards {}. Processing", sendShards);
 
-        List<String> errorMessages = request.getShardsList().stream()
+        List<String> errorMessages = sendShards.stream()
             .map(sendShard -> {
-                int shardId = sendShard.getShardId();
-                Map<String, String> shard = sendShard.getShardMap();
+                int shardId = sendShard.shardId();
+                Map<String, String> shard = sendShard.shard();
 
                 try {
                     var stagedShards = nodeStorageService.getStagedShards();
@@ -63,38 +56,32 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
             .filter(Objects::nonNull)
             .toList();
 
-        StatusResponse response = StatusResponse.newBuilder()
-            .setSuccess(errorMessages.isEmpty())
-            .setMessage(
-                errorMessages.isEmpty()
-                    ? message
-                    : StringUtil.join(System.lineSeparator(), errorMessages).toString()
-            )
-            .build();
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        responseWriter.writeResponse(
+            errorMessages.isEmpty(),
+            errorMessages.isEmpty()
+                ? SUCCESS_MESSAGE
+                : StringUtil.join(System.lineSeparator(), errorMessages).toString()
+        );
     }
 
-    @Override
     public void sendShardFragment(
-        SendShardFragmentRequest request,
-        StreamObserver<StatusResponse> responseObserver
+        int shardId,
+        Map<String, String> shardFragments,
+        StatusResponseWriter responseWriter
     ) {
         boolean success = true;
         String message = SUCCESS_MESSAGE;
-        int shardId = request.getShardId();
 
         log.debug("Received fragment for shard {}. Processing", shardId);
 
         try {
             var stagedShards = nodeStorageService.getStagedShards();
 
-            if (!stagedShards.containsShard(request.getShardId())) {
-                throw new NodeException("Staged shard " + request.getShardId() + " does not exist");
+            if (!stagedShards.containsShard(shardId)) {
+                throw new NodeException("Staged shard " + shardId + " does not exist");
             }
 
-            request.getShardFragmentsMap()
+            shardFragments
                 .forEach((key, value) -> {
                     stagedShards.checkKeyForShard(shardId, key);
                     stagedShards.set(key, value);
@@ -104,15 +91,10 @@ public class NodeNodeService extends NodeNodeServiceGrpc.NodeNodeServiceImplBase
             message = "ERROR: " + e.getMessage();
 
             log.error(message, e);
+
+            responseWriter.writeResponse(false, message);
         }
 
-        responseObserver.onNext(
-            StatusResponse.newBuilder()
-                .setSuccess(success)
-                .setMessage(message)
-                .build()
-        );
-
-        responseObserver.onCompleted();
+        responseWriter.writeResponse(success, message);
     }
 }

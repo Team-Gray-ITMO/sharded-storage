@@ -1,4 +1,4 @@
-package vk.itmo.teamgray.sharded.storage.common.discovery;
+package vk.itmo.teamgray.sharded.storage.common.discovery.proto;
 
 import io.grpc.ManagedChannel;
 import java.time.Duration;
@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.AbstractGrpcClient;
 import vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc;
@@ -20,8 +21,8 @@ import vk.itmo.teamgray.sharded.storage.discovery.ServiceInfo;
 import static java.util.stream.Collectors.toMap;
 import static vk.itmo.teamgray.sharded.storage.common.utils.RetryUtils.retryWithAttempts;
 
-public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.DiscoveryServiceBlockingStub> {
-    public DiscoveryClient(String host, int port) {
+public class DiscoveryGrpcClient extends AbstractGrpcClient<DiscoveryServiceGrpc.DiscoveryServiceBlockingStub> implements DiscoveryClient {
+    public DiscoveryGrpcClient(String host, int port) {
         super(host, port);
     }
 
@@ -30,6 +31,7 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
         return DiscoveryServiceGrpc::newBlockingStub;
     }
 
+    @Override
     public void register(DiscoverableServiceDTO service) {
         ServiceInfo info = ServiceInfo.newBuilder()
             .setId(service.id())
@@ -47,36 +49,42 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
         }
     }
 
+    @Override
     public DiscoverableServiceDTO getNode(int id) {
         return DiscoverableServiceDTO.fromServiceInfo(
             blockingStub.getNode(IdRequest.newBuilder().setId(id).build())
         );
     }
 
+    @Override
     public List<DiscoverableServiceDTO> getNodes() {
         return blockingStub.getNodes(Empty.newBuilder().build()).getNodesList().stream()
             .map(DiscoverableServiceDTO::fromServiceInfo)
             .toList();
     }
 
+    @Override
     public DiscoverableServiceDTO getClient(int id) {
         return DiscoverableServiceDTO.fromServiceInfo(
             blockingStub.getClient(IdRequest.newBuilder().setId(id).build())
         );
     }
 
+    @Override
     public List<DiscoverableServiceDTO> getClients() {
         return blockingStub.getClients(Empty.newBuilder().build()).getClientsList().stream()
             .map(DiscoverableServiceDTO::fromServiceInfo)
             .toList();
     }
 
+    @Override
     public DiscoverableServiceDTO getMaster() {
         return DiscoverableServiceDTO.fromServiceInfo(
             blockingStub.getMaster(Empty.newBuilder().build())
         );
     }
 
+    @Override
     public DiscoverableServiceDTO getMasterWithRetries() {
         return retryWithAttempts(
             3,
@@ -94,6 +102,7 @@ public class DiscoveryClient extends AbstractGrpcClient<DiscoveryServiceGrpc.Dis
         );
     }
 
+    @Override
     public Map<Integer, DiscoverableServiceDTO> getNodeMapWithRetries(Collection<Integer> requiredServerIds) {
         return retryWithAttempts(
             3,

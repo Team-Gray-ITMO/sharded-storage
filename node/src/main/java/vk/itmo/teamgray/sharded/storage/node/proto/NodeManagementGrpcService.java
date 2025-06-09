@@ -13,6 +13,8 @@ import vk.itmo.teamgray.sharded.storage.node.management.ProcessMoveRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.ProcessRearrangeRequest;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
 
+import static vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter.Helper.fromGrpcBuilder;
+
 public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeManagementServiceImplBase {
     private final NodeManagementService nodeManagementService;
 
@@ -27,10 +29,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
         nodeManagementService.prepareRearrange(
             request.getShardToHashMap(),
             request.getFullShardCount(),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
+            fromGrpcBuilder(builder)
         );
 
         responseObserver.onNext(builder.build());
@@ -44,10 +43,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
         nodeManagementService.processRearrange(
             request.getFragmentsList().stream().map(FragmentDTO::fromGrpc).toList(),
             request.getServerByShardNumberMap(),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
+            fromGrpcBuilder(builder)
         );
 
         responseObserver.onNext(builder.build());
@@ -60,10 +56,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
 
         nodeManagementService.applyAction(
             Action.valueOf(request.getAction()),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
+            fromGrpcBuilder(builder)
         );
 
         responseObserver.onNext(builder.build());
@@ -76,10 +69,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
 
         nodeManagementService.rollbackAction(
             Action.valueOf(request.getAction()),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
+            fromGrpcBuilder(builder)
         );
 
         responseObserver.onNext(builder.build());
@@ -94,10 +84,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
             request.getReceiveShardIdsList(),
             request.getRemoveShardIdsList(),
             request.getFullShardCount(),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
+            fromGrpcBuilder(builder)
         );
 
         responseObserver.onNext(builder.build());
@@ -110,10 +97,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
 
         nodeManagementService.processMove(
             request.getSendShardsList().stream().map(SendShardTaskDTO::fromGrpc).toList(),
-            (success, message) -> {
-                builder.setSuccess(success);
-                builder.setMessage(message);
-            }
+            fromGrpcBuilder(builder)
         );
 
         responseObserver.onNext(builder.build());
