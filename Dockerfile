@@ -22,15 +22,15 @@ RUN gradle :node:build --no-daemon -x test
 
 FROM eclipse-temurin:21-jre-jammy AS discovery-runtime
 WORKDIR /app
-COPY --from=discovery-build /app/discovery/build/libs/*.jar ./app.jar
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+COPY --from=discovery-build /app/discovery/build/libs/discovery-all.jar ./discovery.jar
+ENTRYPOINT ["java", "-jar", "/app/discovery.jar"]
 
 FROM eclipse-temurin:21-jre-jammy AS master-runtime
 WORKDIR /app
-COPY --from=master-build /app/master/build/libs/*.jar ./app.jar
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+COPY --from=master-build /app/master/build/libs/master-all.jar ./master.jar
+ENTRYPOINT ["java", "-jar", "/app/master.jar"]
 
 FROM eclipse-temurin:21-jre-jammy AS node-runtime
 WORKDIR /app
-COPY --from=node-build /app/node/build/libs/*.jar ./app.jar
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+COPY --from=node-build /app/node/build/libs/node-all.jar ./node.jar
+ENTRYPOINT ["java", "-jar", "/app/node.jar"]
