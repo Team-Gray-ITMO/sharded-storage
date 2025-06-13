@@ -1,6 +1,7 @@
 package vk.itmo.teamgray.sharded.storage.node.proto;
 
 import io.grpc.stub.StreamObserver;
+import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
@@ -9,8 +10,6 @@ import vk.itmo.teamgray.sharded.storage.node.management.ActionRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareMoveRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareRearrangeRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ProcessMoveRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ProcessRearrangeRequest;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeManagementService;
 
 import static vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter.Helper.fromGrpcBuilder;
@@ -27,6 +26,8 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
         var builder = StatusResponse.newBuilder();
 
         nodeManagementService.prepareRearrange(
+            request.getFragmentsList().stream().map(FragmentDTO::fromGrpc).toList(),
+            request.getServerByShardNumberMap(),
             request.getShardToHashMap(),
             request.getFullShardCount(),
             fromGrpcBuilder(builder)
@@ -37,14 +38,10 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
     }
 
     @Override
-    public void processRearrange(ProcessRearrangeRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void processRearrange(Empty request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
-        nodeManagementService.processRearrange(
-            request.getFragmentsList().stream().map(FragmentDTO::fromGrpc).toList(),
-            request.getServerByShardNumberMap(),
-            fromGrpcBuilder(builder)
-        );
+        nodeManagementService.processRearrange(fromGrpcBuilder(builder));
 
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
@@ -82,7 +79,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
 
         nodeManagementService.prepareMove(
             request.getReceiveShardIdsList(),
-            request.getRemoveShardIdsList(),
+            request.getSendShardsList().stream().map(SendShardTaskDTO::fromGrpc).toList(),
             request.getFullShardCount(),
             fromGrpcBuilder(builder)
         );
@@ -92,13 +89,10 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
     }
 
     @Override
-    public void processMove(ProcessMoveRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void processMove(Empty request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
-        nodeManagementService.processMove(
-            request.getSendShardsList().stream().map(SendShardTaskDTO::fromGrpc).toList(),
-            fromGrpcBuilder(builder)
-        );
+        nodeManagementService.processMove(fromGrpcBuilder(builder));
 
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();

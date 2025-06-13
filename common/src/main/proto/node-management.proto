@@ -9,20 +9,17 @@ import "common.proto";
 
 message PrepareRearrangeRequest {
   map<int32, int64> shardToHash = 1;
-  int32 fullShardCount = 2;
-}
-
-message ProcessRearrangeRequest {
-  repeated MoveFragment fragments = 1;
-  map<int32, int32> serverByShardNumber = 2;
+  repeated MoveFragment fragments = 2;
+  map<int32, int32> serverByShardNumber = 3;
+  int32 fullShardCount = 4;
 }
 
 service NodeManagementService {
   rpc PrepareRearrange (PrepareRearrangeRequest) returns (StatusResponse);
-  rpc ProcessRearrange (ProcessRearrangeRequest) returns (StatusResponse);
+  rpc ProcessRearrange (Empty) returns (StatusResponse);
 
   rpc PrepareMove (PrepareMoveRequest) returns (StatusResponse);
-  rpc ProcessMove (ProcessMoveRequest) returns (StatusResponse);
+  rpc ProcessMove (Empty) returns (StatusResponse);
 
   rpc ApplyOperation (ActionRequest) returns (StatusResponse);
   rpc RollbackOperation (ActionRequest) returns (StatusResponse);
@@ -31,13 +28,9 @@ service NodeManagementService {
 message PrepareMoveRequest {
   repeated int32 receiveShardIds = 1;
 
-  repeated int32 removeShardIds = 2;
+  repeated SendShardTask sendShards = 2;
 
   int32 fullShardCount = 3;
-}
-
-message ProcessMoveRequest {
-  repeated SendShardTask sendShards = 1;
 }
 
 message SendShardTask {

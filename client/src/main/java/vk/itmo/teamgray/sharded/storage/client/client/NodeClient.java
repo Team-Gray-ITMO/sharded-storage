@@ -1,10 +1,12 @@
 package vk.itmo.teamgray.sharded.storage.client.client;
 
+import java.time.Instant;
 import vk.itmo.teamgray.sharded.storage.common.client.Client;
-import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
+import vk.itmo.teamgray.sharded.storage.common.dto.GetResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 
 public interface NodeClient extends Client {
-    SetStatus setKey(String key, String value);
+    SetResponseDTO setKey(String key, String value, Instant timestamp);
 
-    String getKey(String key);
+    GetResponseDTO getKey(String key);
 }

@@ -18,14 +18,18 @@ message GetKeyRequest {
 }
 
 message GetKeyResponse {
-  string value = 1;
+  string status = 1;
+  string value = 2;
 }
 
 message SetKeyRequest {
   string key = 1;
   string value = 2;
+  int64 timestamp = 3;
 }
 
 message SetKeyResponse {
   string status = 1;
+  string message = 2;
+  int32 newNodeId = 3;
 }

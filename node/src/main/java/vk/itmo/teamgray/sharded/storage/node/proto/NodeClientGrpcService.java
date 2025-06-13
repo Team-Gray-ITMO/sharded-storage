@@ -1,10 +1,8 @@
 package vk.itmo.teamgray.sharded.storage.node.proto;
 
-import io.grpc.Metadata;
-import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import java.time.Instant;
 import java.util.Objects;
-import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyResponse;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
@@ -21,65 +19,36 @@ public class NodeClientGrpcService extends NodeClientServiceGrpc.NodeClientServi
 
     @Override
     public void setKey(SetKeyRequest request, StreamObserver<SetKeyResponse> responseObserver) {
-        String key = request.getKey();
-        String value = request.getValue();
-
-        if (nodeClientService.isBusy()) {
-            responseObserver.onNext(
-                SetKeyResponse.newBuilder()
-                    .setStatus(SetStatus.IS_BUSY.name())
-                    .build()
-            );
-            responseObserver.onCompleted();
-            return;
-        }
-
-        var errorMessage = nodeClientService.setKey(key, value);
-
-        if (errorMessage.isPresent()) {
-            Metadata metadata = new Metadata();
-
-            responseObserver.onError(
-                Status.INVALID_ARGUMENT
-                    .withDescription(errorMessage.get())
-                    .asRuntimeException(metadata)
-            );
-
-            return;
-        }
-
-        responseObserver.onNext(
-            SetKeyResponse.newBuilder()
-                .setStatus(SetStatus.SUCCESS.name())
-                .build()
+        var dto = nodeClientService.setKey(
+            request.getKey(),
+            request.getValue(),
+            Instant.ofEpochMilli(request.getTimestamp())
         );
 
+        var response = SetKeyResponse.newBuilder()
+            .setStatus(dto.status().name())
+            .setMessage(dto.message())
+            .setNewNodeId(dto.newNodeId())
+            .build();
+
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
     public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
-        String key = request.getKey();
+        var response = GetKeyResponse.newBuilder();
 
-        var response = nodeClientService.getKey(key);
-
-        if (!response.success()) {
-            Metadata metadata = new Metadata();
-
-            responseObserver.onError(
-                Status.INVALID_ARGUMENT
-                    .withDescription(response.response())
-                    .asRuntimeException(metadata)
-            );
-        }
-
-        responseObserver.onNext(
-            GetKeyResponse.newBuilder()
+        nodeClientService.getKey(
+            request.getKey(),
+            (status, value) -> {
+                response.setStatus(status.name());
                 // gRPC does not handle nulls well
-                .setValue(Objects.requireNonNullElse(response.response(), ""))
-                .build()
+                response.setValue(Objects.requireNonNullElse(value, ""));
+            }
         );
 
+        responseObserver.onNext(response.build());
         responseObserver.onCompleted();
     }
 }

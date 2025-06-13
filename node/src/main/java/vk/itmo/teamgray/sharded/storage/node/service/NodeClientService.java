@@ -1,11 +1,14 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
 import java.text.MessageFormat;
-import java.util.Optional;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.enums.GetStatus;
+import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
-import vk.itmo.teamgray.sharded.storage.node.dto.GetResponse;
+import vk.itmo.teamgray.sharded.storage.node.exception.ShardNotExistsException;
 
 public class NodeClientService {
     private static final Logger log = LoggerFactory.getLogger(NodeClientService.class);
@@ -16,33 +19,40 @@ public class NodeClientService {
         this.nodeStorageService = nodeStorageService;
     }
 
-    public Optional<String> setKey(String key, String value) {
+    public SetResponseDTO setKey(String key, String value, Instant timestamp) {
         try {
-            nodeStorageService.set(key, value);
-
-            return Optional.empty();
+            return nodeStorageService.set(key, value, timestamp);
         } catch (NodeException e) {
             String errMessage = MessageFormat.format("Error while setting key=[{0}] value=[{1}]", key, value);
 
             log.warn(errMessage, e);
 
-            return Optional.of(errMessage);
+            return new SetResponseDTO(SetStatus.ERROR, errMessage, 0);
         }
     }
 
-    public GetResponse getKey(String key) {
+    public void getKey(String key, GetResponseWriter responseWriter) {
         try {
-            return new GetResponse(nodeStorageService.get(key), true);
+            String value = nodeStorageService.get(key);
+
+            responseWriter.writeResponse(GetStatus.SUCCESS, value);
+        } catch (ShardNotExistsException e) {
+            String errMessage = MessageFormat.format("Error while getting by key=[{0}]", key);
+
+            log.warn(errMessage, e);
+
+            responseWriter.writeResponse(GetStatus.WRONG_NODE, errMessage);
         } catch (NodeException e) {
             String errMessage = MessageFormat.format("Error while getting by key=[{0}]", key);
 
             log.warn(errMessage, e);
 
-            return new GetResponse(errMessage, false);
+            responseWriter.writeResponse(GetStatus.ERROR, errMessage);
         }
     }
 
-    public boolean isBusy() {
-        return nodeStorageService.isBusy();
+    @FunctionalInterface
+    public interface GetResponseWriter {
+        void writeResponse(GetStatus status, String value);
     }
 }

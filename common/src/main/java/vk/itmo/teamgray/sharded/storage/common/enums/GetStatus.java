@@ -1,8 +1,7 @@
 package vk.itmo.teamgray.sharded.storage.common.enums;
 
-public enum SetStatus {
+public enum GetStatus {
     SUCCESS,
     ERROR,
-    TRANSFER,
-    QUEUED
+    WRONG_NODE
 }
