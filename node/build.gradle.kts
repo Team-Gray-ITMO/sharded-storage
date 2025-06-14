@@ -1,8 +1,7 @@
 plugins {
     id("java")
     id("jacoco")
-    id("io.qameta.allure") version "2.12.0"
-    id("com.github.johnrengelman.shadow") apply true
+    alias(libs.plugins.shadow)
 }
 
 private val mainClassName = "vk.itmo.teamgray.sharded.storage.node.NodeApplication"
@@ -12,9 +11,16 @@ application {
 }
 
 dependencies {
-    implementation(project(":common"))
-    implementation("org.jetbrains:annotations:26.0.2")
-    testImplementation("org.mockito:mockito-core:5.15.2")
+    implementation(projects.common)
+
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockito)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.jar {

@@ -1,15 +1,5 @@
-pluginManagement {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
-}
-
 rootProject.name = "sharded-storage"
+
 include("node")
 include("master")
 include("client")
@@ -18,3 +8,18 @@ include("discovery")
 include("test-api")
 include("integration-tests")
 include("load-tests")
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")

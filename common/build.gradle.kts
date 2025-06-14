@@ -1,9 +1,9 @@
 import com.google.protobuf.gradle.id
 
 plugins {
-    `java-library`
     id("java")
-    id("com.google.protobuf") version "0.9.4"
+    id("java-library")
+    alias(libs.plugins.google.protobuf)
 }
 
 group = "vk.itmo.teamgray.sharded.storage"
@@ -13,19 +13,22 @@ repositories {
     mavenCentral()
 }
 
-//TODO Extract common versions variables for gRPC
 dependencies {
-    api("io.grpc:grpc-netty-shaded:1.71.0")
-    api("io.grpc:grpc-protobuf:1.71.0")
-    api("io.grpc:grpc-stub:1.71.0")
-    api("org.jetbrains:annotations:26.0.2")
+    api(libs.grpc.netty.shaded)
+    api(libs.grpc.protobuf)
+    api(libs.grpc.stub)
 
-    api("com.google.protobuf:protobuf-java:4.30.1")
+    api(libs.slf4j.api)
+    api(libs.slf4j.simple)
 
-    compileOnly("javax.annotation:javax.annotation-api:1.3.2")
+    api(libs.protobuf.java)
 
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.12.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.1")
+    compileOnly(libs.javax.annotation.api)
+
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockito)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
 }
 
 sourceSets {
@@ -57,14 +60,16 @@ tasks {
     }
 }
 
+libs.protobuf.protoc.get().toString()
+
 protobuf {
     protoc {
-        artifact = "com.google.protobuf:protoc:4.30.1"
+        artifact = getDependencyAsString(libs.protobuf.protoc)
     }
 
     plugins {
         id("grpc") {
-            artifact = "io.grpc:protoc-gen-grpc-java:1.71.0"
+            artifact = getDependencyAsString(libs.grpc.protoc.gen.java)
         }
     }
 
@@ -83,4 +88,10 @@ protobuf {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+private fun getDependencyAsString(provider: Provider<MinimalExternalModuleDependency>): String {
+    val dependency = provider.get()
+
+    return dependency.group + ":" + dependency.name + ":" + dependency.version
 }

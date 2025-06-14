@@ -2,7 +2,7 @@ plugins {
     id("java")
     `java-library`
     application
-    id("com.github.johnrengelman.shadow") apply true
+    alias(libs.plugins.shadow)
 }
 
 private val mainClassName = "vk.itmo.teamgray.sharded.storage.client.ClientApplication"
@@ -12,9 +12,16 @@ application {
 }
 
 dependencies {
-    api(project(":common"))
+    api(projects.common)
 
-    testImplementation("org.mockito:mockito-core:5.17.0")
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockito)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.jar {

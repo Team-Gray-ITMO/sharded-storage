@@ -4,10 +4,16 @@ plugins {
 }
 
 dependencies {
-    testImplementation(project(":test-api"))
+    testImplementation(projects.testApi)
 
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.12.1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.1")
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockito)
+    testImplementation(libs.junit.jupiter.api)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 repositories {
