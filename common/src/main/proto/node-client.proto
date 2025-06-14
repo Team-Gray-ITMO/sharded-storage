@@ -11,6 +11,8 @@ service NodeClientService {
   rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
 
   rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
+
+  rpc GetNodeStatus (Empty) returns (NodeStatusResponse);
 }
 
 message GetKeyRequest {
@@ -32,4 +34,20 @@ message SetKeyResponse {
   string status = 1;
   string message = 2;
   int32 newNodeId = 3;
+}
+
+message NodeStatusResponse {
+  string state = 1;
+
+  map<int32, ShardStats> shardStats = 2;
+
+  map<int32, ShardStats> stagedShardStats = 3;
+
+  int32 applyQueueSize = 4;
+
+  int32 rollbackQueueSize = 5;
+}
+
+message ShardStats {
+  int32 size = 1;
 }

@@ -31,5 +31,8 @@ public class SimpleIntegrationTest extends BaseIntegrationTest {
         Map<Integer, NodeState> serverStates = clientService.getServerStates();
 
         assertNotNull(serverStates);
+
+        var nodeStatus = clientService.getServerStatus(1);
+        assertNotNull(nodeStatus);
     }
 }

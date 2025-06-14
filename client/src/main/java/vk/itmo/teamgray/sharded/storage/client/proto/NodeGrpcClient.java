@@ -4,7 +4,9 @@ import io.grpc.ManagedChannel;
 import java.time.Instant;
 import java.util.function.Function;
 import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
+import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.dto.GetResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.NodeStatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.enums.GetStatus;
 import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
@@ -50,6 +52,13 @@ public class NodeGrpcClient extends AbstractGrpcClient<NodeClientServiceGrpc.Nod
             response.getValue().isBlank()
                 ? null
                 : response.getValue()
+        );
+    }
+
+    @Override
+    public NodeStatusResponseDTO getNodeStatus() {
+        return NodeStatusResponseDTO.fromGrpc(
+            blockingStub.getNodeStatus(Empty.newBuilder().build())
         );
     }
 }

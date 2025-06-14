@@ -14,6 +14,7 @@ application {
 dependencies {
     api(project(":client"))
 
+    //TODO Unify JUNIT ver and libs to fix test problems
     implementation("org.junit.jupiter:junit-jupiter-api:5.12.1")
     runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.1")
 }

@@ -4,6 +4,7 @@ import java.text.MessageFormat;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.dto.NodeStatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.enums.GetStatus;
 import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
@@ -49,6 +50,10 @@ public class NodeClientService {
 
             responseWriter.writeResponse(GetStatus.ERROR, errMessage);
         }
+    }
+
+    public NodeStatusResponseDTO getNodeStatus() {
+        return nodeStorageService.getNodeStatus();
     }
 
     @FunctionalInterface

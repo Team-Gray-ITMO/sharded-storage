@@ -1,17 +1,17 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.concurrency.AtomicEnum;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.NodeStatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.enums.SetStatus;
@@ -23,6 +23,8 @@ import vk.itmo.teamgray.sharded.storage.common.utils.HashingUtils;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
+import static java.util.stream.Collectors.toMap;
+
 public class NodeStorageService {
     private static final Logger log = LoggerFactory.getLogger(NodeStorageService.class);
 
@@ -30,13 +32,11 @@ public class NodeStorageService {
 
     private ShardsContainer shards = new ShardsContainer(0);
 
+    private ShardsContainer stagedShards;
+
     private Queues queues;
 
     private PreparedData preparedData;
-
-    private ShardsContainer stagedShards;
-
-    private CountDownLatch preparationLatch;
 
     public ShardsContainer getShards() {
         return shards;
@@ -168,7 +168,7 @@ public class NodeStorageService {
 
         preparedData.setPreparedServerByShardNumber(
             sendShards.stream()
-                .collect(Collectors.toMap(
+                .collect(toMap(
                     SendShardTaskDTO::shardId,
                     SendShardTaskDTO::targetServer
                 ))
@@ -178,16 +178,6 @@ public class NodeStorageService {
     public void changeState(NodeState expectedState, NodeState newState) {
         if (!state.compareAndSet(expectedState, newState)) {
             throw new NodeException("Could not change node state " + expectedState + "->" + newState + ". Actual state was " + state.get());
-        }
-
-        if (newState.getActionPhase() == ActionPhase.PREPARE) {
-            if (newState.getPhaseFinalized()) {
-                preparationLatch.countDown();
-                preparationLatch = null;
-            } else {
-                queues = new Queues();
-                preparationLatch = new CountDownLatch(1);
-            }
         }
     }
 
@@ -210,6 +200,47 @@ public class NodeStorageService {
             throw new NodeException(
                 "Could not change node state " + expectedStates + "->" + newState + ". Actual state was " + state.get());
         }
+    }
+
+    public NodeStatusResponseDTO getNodeStatus() {
+        var dto = new NodeStatusResponseDTO();
+
+        dto.setState(state.get());
+
+        dto.setShardStats(
+            shards.getShardMap().entrySet().stream()
+                .collect(
+                    toMap(
+                        Map.Entry::getKey,
+                        kv -> kv.getValue().getShardStats()
+                    )
+                )
+        );
+
+        dto.setShardStats(
+            stagedShards == null
+                ? Collections.emptyMap()
+                : stagedShards.getShardMap().entrySet().stream()
+                    .collect(
+                        toMap(
+                            Map.Entry::getKey,
+                            kv -> kv.getValue().getShardStats()
+                        )
+                    )
+        );
+
+        dto.setApplyQueueSize(
+            queues == null
+                ? 0
+                : queues.getQueue(ActionPhase.APPLY).size()
+        );
+        dto.setRollbackQueueSize(
+            queues == null
+                ? 0
+                : queues.getQueue(ActionPhase.ROLLBACK).size()
+        );
+
+        return dto;
     }
 
     private Integer findPreparedServerIdByKey(String key) {

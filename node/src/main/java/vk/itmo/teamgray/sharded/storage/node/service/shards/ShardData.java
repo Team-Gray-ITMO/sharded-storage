@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import vk.itmo.teamgray.sharded.storage.common.dto.ShardStatsDTO;
 
 public class ShardData {
     private ConcurrentHashMap<String, String> storage;
@@ -36,6 +37,14 @@ public class ShardData {
 
     public void clearStorage() {
         storage.clear();
+    }
+
+    public ShardStatsDTO getShardStats() {
+        var stats = new ShardStatsDTO();
+
+        stats.setSize(storage.size());
+
+        return stats;
     }
 
     @Nullable

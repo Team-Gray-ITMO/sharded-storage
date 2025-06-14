@@ -3,9 +3,11 @@ package vk.itmo.teamgray.sharded.storage.node.proto;
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import java.util.Objects;
+import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyResponse;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeClientServiceGrpc;
+import vk.itmo.teamgray.sharded.storage.node.client.NodeStatusResponse;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.SetKeyResponse;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeClientService;
@@ -49,6 +51,12 @@ public class NodeClientGrpcService extends NodeClientServiceGrpc.NodeClientServi
         );
 
         responseObserver.onNext(response.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getNodeStatus(Empty request, StreamObserver<NodeStatusResponse> responseObserver) {
+        responseObserver.onNext(nodeClientService.getNodeStatus().toGrpc());
         responseObserver.onCompleted();
     }
 }
