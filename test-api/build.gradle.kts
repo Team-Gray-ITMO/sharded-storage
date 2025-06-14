@@ -5,16 +5,17 @@ plugins {
     id("com.github.johnrengelman.shadow") apply true
 }
 
-private val mainClassName = "vk.itmo.teamgray.sharded.storage.client.ClientApplication"
+private val mainClassName = "vk.itmo.teamgray.sharded.storage.test.api.TestApiApplication"
 
 application {
     mainClass.set(mainClassName)
 }
 
 dependencies {
-    api(project(":common"))
+    api(project(":client"))
 
-    testImplementation("org.mockito:mockito-core:5.17.0")
+    implementation("org.junit.jupiter:junit-jupiter-api:5.12.1")
+    runtimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.1")
 }
 
 tasks.jar {

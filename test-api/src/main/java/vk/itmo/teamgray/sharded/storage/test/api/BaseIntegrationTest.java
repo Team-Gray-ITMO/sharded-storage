@@ -1,5 +1,7 @@
-package vk.itmo.teamgray.sharded.storage.client;
+package vk.itmo.teamgray.sharded.storage.test.api;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
 import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
 import vk.itmo.teamgray.sharded.storage.client.proto.MasterGrpcClient;
@@ -13,10 +15,18 @@ import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDis
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
-public class ClientApplication {
+public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
+    protected ClientService clientService;
 
-    public static void main(String[] args) throws InterruptedException {
-        ClientCachingFactory clientCachingFactory = ClientCachingFactory
+    @BeforeEach
+    @Override
+    public void setUp() {
+        super.setUp();
+
+        orchestrationApi.runDiscovery();
+        orchestrationApi.runMaster();
+
+        var clientCachingFactory = ClientCachingFactory
             .getInstance();
 
         clientCachingFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);
@@ -38,9 +48,12 @@ public class ClientApplication {
                 MasterClient.class
             );
 
-        ClientService clientService = new ClientService(masterClient, discoveryClient, clientCachingFactory);
+        clientService = new ClientService(masterClient, discoveryClient, clientCachingFactory);
+    }
 
-        CLI cli = new CLI(clientService);
-        cli.start();
+    @AfterEach
+    @Override
+    public void tearDown() {
+        super.tearDown();
     }
 }

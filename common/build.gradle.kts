@@ -18,6 +18,7 @@ dependencies {
     api("io.grpc:grpc-netty-shaded:1.71.0")
     api("io.grpc:grpc-protobuf:1.71.0")
     api("io.grpc:grpc-stub:1.71.0")
+    api("org.jetbrains:annotations:26.0.2")
 
     api("com.google.protobuf:protobuf-java:4.30.1")
 
@@ -25,7 +26,6 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.12.1")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.12.1")
-    implementation("org.jetbrains:annotations:26.0.2")
 }
 
 sourceSets {
