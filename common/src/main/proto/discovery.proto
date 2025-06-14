@@ -10,10 +10,10 @@ import "common.proto";
 service DiscoveryService {
   rpc RegisterService(ServiceInfo) returns (StatusResponse);
   rpc GetNode(IdRequest) returns (ServiceInfo);
-  rpc GetNodes(Empty) returns (NodeList);
+  rpc GetNodes(Empty) returns (ServiceList);
   rpc GetMaster(Empty) returns (ServiceInfo);
   rpc GetClient(IdRequest) returns (ServiceInfo);
-  rpc GetClients(Empty) returns (ClientList);
+  rpc GetClients(Empty) returns (ServiceList);
 }
 
 message IdRequest {
@@ -27,10 +27,6 @@ message ServiceInfo {
   string containerName = 4; // optional: populated if dockerized
 }
 
-message NodeList {
-  repeated ServiceInfo nodes = 1;
-}
-
-message ClientList {
-  repeated ServiceInfo clients = 1;
+message ServiceList {
+  repeated ServiceInfo services = 1;
 }

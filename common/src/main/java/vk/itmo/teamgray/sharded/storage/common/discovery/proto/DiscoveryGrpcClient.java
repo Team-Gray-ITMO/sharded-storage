@@ -51,35 +51,35 @@ public class DiscoveryGrpcClient extends AbstractGrpcClient<DiscoveryServiceGrpc
 
     @Override
     public DiscoverableServiceDTO getNode(int id) {
-        return DiscoverableServiceDTO.fromServiceInfo(
+        return DiscoverableServiceDTO.fromGrpc(
             blockingStub.getNode(IdRequest.newBuilder().setId(id).build())
         );
     }
 
     @Override
     public List<DiscoverableServiceDTO> getNodes() {
-        return blockingStub.getNodes(Empty.newBuilder().build()).getNodesList().stream()
-            .map(DiscoverableServiceDTO::fromServiceInfo)
+        return blockingStub.getNodes(Empty.newBuilder().build()).getServicesList().stream()
+            .map(DiscoverableServiceDTO::fromGrpc)
             .toList();
     }
 
     @Override
     public DiscoverableServiceDTO getClient(int id) {
-        return DiscoverableServiceDTO.fromServiceInfo(
+        return DiscoverableServiceDTO.fromGrpc(
             blockingStub.getClient(IdRequest.newBuilder().setId(id).build())
         );
     }
 
     @Override
     public List<DiscoverableServiceDTO> getClients() {
-        return blockingStub.getClients(Empty.newBuilder().build()).getClientsList().stream()
-            .map(DiscoverableServiceDTO::fromServiceInfo)
+        return blockingStub.getClients(Empty.newBuilder().build()).getServicesList().stream()
+            .map(DiscoverableServiceDTO::fromGrpc)
             .toList();
     }
 
     @Override
     public DiscoverableServiceDTO getMaster() {
-        return DiscoverableServiceDTO.fromServiceInfo(
+        return DiscoverableServiceDTO.fromGrpc(
             blockingStub.getMaster(Empty.newBuilder().build())
         );
     }
@@ -93,7 +93,7 @@ public class DiscoveryGrpcClient extends AbstractGrpcClient<DiscoveryServiceGrpc
                 try {
                     ServiceInfo masterInfo = blockingStub.getMaster(Empty.newBuilder().build());
 
-                    return Optional.of(DiscoverableServiceDTO.fromServiceInfo(masterInfo));
+                    return Optional.of(DiscoverableServiceDTO.fromGrpc(masterInfo));
                 } catch (Exception e) {
                     return Optional.empty();
                 }
