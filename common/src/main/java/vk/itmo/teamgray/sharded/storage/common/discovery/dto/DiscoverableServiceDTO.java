@@ -9,13 +9,22 @@ public record DiscoverableServiceDTO(
     String host,
     String containerName
 ) {
-    public static DiscoverableServiceDTO fromServiceInfo(ServiceInfo serviceInfo) {
+    public static DiscoverableServiceDTO fromGrpc(ServiceInfo serviceInfo) {
         return new DiscoverableServiceDTO(
             serviceInfo.getId(),
             DiscoverableServiceType.valueOf(serviceInfo.getType()),
             serviceInfo.getHost(),
             serviceInfo.getContainerName()
         );
+    }
+
+    public ServiceInfo toGrpc() {
+        return ServiceInfo.newBuilder()
+            .setId(id)
+            .setType(type.name())
+            .setHost(host)
+            .setContainerName(containerName)
+            .build();
     }
 
     public boolean isDockerized() {
