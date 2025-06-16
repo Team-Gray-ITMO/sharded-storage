@@ -14,14 +14,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Grant permissions to gradlew
         run: chmod +x gradlew
-      - name: Build and test server project
-        run: ./gradlew :node:test
-      - name: Generate Jacoco report for server project tests
+      - name: Build and test projects
+        run: ./gradlew :node:test :client:test :master:test :discovery:test
+      - name: Generate Jacoco reports
         if: always()
-        run: ./gradlew :node:jacocoTestReport
-      - name: Generate Allure report for server project tests
+        run: ./gradlew :node:jacocoTestReport :client:jacocoTestReport :master:jacocoTestReport :discovery:jacocoTestReport
+      - name: Generate Allure reports
         if: always()
-        run: ./gradlew :node:allureReport
+        run: ./gradlew :node:allureReport :client:allureReport :master:allureReport :discovery:allureReport
       - name: Store reports as job artifacts
         uses: actions/upload-artifact@v4
         if: always()
@@ -29,6 +29,9 @@ jobs:
           name: reports
           path: |
             **/node/build/reports/
+            **/client/build/reports/
+            **/master/build/reports/
+            **/discovery/build/reports/
       - name: Deploy test reports to Github Pages
         uses: peaceiris/actions-gh-pages@v4
         if: always()
@@ -36,5 +39,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: |
-            **/node/build/reports/allure-report/allureReport
+            **/build/reports/allure-report/allureReport
       - run: echo "This job's status is ${{ job.status }}"

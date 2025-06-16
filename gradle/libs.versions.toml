@@ -31,3 +31,4 @@ assertj-core = "org.assertj:assertj-core:3.27.3"
 [plugins]
 shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }
 google-protobuf = { id = "com.google.protobuf", version = "0.9.5" }
+qameta-allure = { id = "io.qameta.allure", version = "2.12.0" }
