@@ -13,10 +13,12 @@ application {
 dependencies {
     api(projects.client)
 
-    implementation(libs.assertj.core)
-    implementation(libs.mockito)
-    implementation(libs.junit.jupiter.api)
-    runtimeOnly(libs.junit.jupiter.engine)
+    api(libs.assertj.core)
+    api(libs.mockito)
+    api(libs.assertj.core)
+    api(libs.junit.jupiter.api)
+    api(libs.junit.platform.launcher)
+    api(libs.junit.jupiter.engine)
 }
 
 tasks.test {

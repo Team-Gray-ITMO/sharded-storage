@@ -24,11 +24,6 @@ dependencies {
     api(libs.protobuf.java)
 
     compileOnly(libs.javax.annotation.api)
-
-    testImplementation(libs.assertj.core)
-    testImplementation(libs.mockito)
-    testImplementation(libs.junit.jupiter.api)
-    testRuntimeOnly(libs.junit.jupiter.engine)
 }
 
 sourceSets {
@@ -59,8 +54,6 @@ tasks {
         duplicatesStrategy = DuplicatesStrategy.WARN
     }
 }
-
-libs.protobuf.protoc.get().toString()
 
 protobuf {
     protoc {
