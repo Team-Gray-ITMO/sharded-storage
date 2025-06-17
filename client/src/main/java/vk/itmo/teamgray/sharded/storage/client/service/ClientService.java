@@ -18,7 +18,6 @@ import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.GetResponseDTO;
-import vk.itmo.teamgray.sharded.storage.common.dto.NodeStatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
@@ -283,17 +282,5 @@ public class ClientService {
      */
     public long getTotalShardCount() {
         return topologyCache.getShardCount();
-    }
-
-    public NodeStatusResponseDTO getServerStatus(int serverId) {
-        var server = topologyCache.getServerById(serverId);
-
-        var client = clientCachingFactory
-            .getClient(
-                server,
-                NodeClient.class
-            );
-
-        return client.getNodeStatus();
     }
 }

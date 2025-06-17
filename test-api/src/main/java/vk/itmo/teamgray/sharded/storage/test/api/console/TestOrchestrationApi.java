@@ -11,6 +11,12 @@ import org.slf4j.LoggerFactory;
 
 import static vk.itmo.teamgray.sharded.storage.test.api.console.ConsoleUtils.runAtPathOrFail;
 
+/**
+ * The {@code TestOrchestrationApi} class can orchestrate the testing environment
+ * by managing Docker containers and executing scripts tied to the testing lifecycle. This includes
+ * starting and stopping various services, such as discovery, master, and nodes, as well as executing
+ * cleanup and build operations.
+ */
 public class TestOrchestrationApi {
     private static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase().contains("win");
 
@@ -20,18 +26,9 @@ public class TestOrchestrationApi {
 
     private static final Logger log = LoggerFactory.getLogger(TestOrchestrationApi.class);
 
-    public void buildProject() {
-        log.info("Building project");
-
-        ConsoleUtils.runAtPathOrFail(
-            List.of("docker", "buildx", "bake"),
-            PROJECT_ROOT,
-            "Could not build project"
-        );
-
-        log.info("Built project");
-    }
-
+    /**
+     * Starts the discovery service using Docker Compose.
+     */
     public void runDiscovery() {
         log.info("Starting discovery");
 
@@ -40,6 +37,9 @@ public class TestOrchestrationApi {
         log.info("Started discovery");
     }
 
+    /**
+     * Starts the master service using Docker Compose.
+     */
     public void runMaster() {
         log.info("Starting master");
 
@@ -48,18 +48,26 @@ public class TestOrchestrationApi {
         log.info("Started master");
     }
 
+    /**
+     * Starts a node with the specified identifier.
+     *
+     * @param id the unique identifier of the node to be started
+     */
     public void runNode(int id) {
         log.info("Starting node: {}", id);
 
         runScriptAtPath(
             "run-node",
-            List.of(String.valueOf(id)),
+            List.of(String.valueOf(id), "failpoint"),
             "Could not run node"
         );
 
         log.info("Started node: {}", id);
     }
 
+    /**
+     * Stops the discovery service by executing a Docker Compose "down" command
+     */
     public void stopDiscovery() {
         log.info("Stopping discovery");
 
@@ -68,6 +76,9 @@ public class TestOrchestrationApi {
         log.info("Stopped discovery");
     }
 
+    /**
+     * Stops the master service by executing a Docker Compose "down" command.
+     */
     public void stopMaster() {
         log.info("Stopping master");
 
@@ -76,6 +87,11 @@ public class TestOrchestrationApi {
         log.info("Stopped master");
     }
 
+    /**
+     * Stops a node with the specified identifier.
+     *
+     * @param id the unique identifier of the node to be stopped
+     */
     public void stopNode(int id) {
         log.info("Stopping node: {}", id);
 
@@ -88,6 +104,9 @@ public class TestOrchestrationApi {
         log.info("Stopped node: {}", id);
     }
 
+    /**
+     * Purges the current orchestration environment by stopping all nodes.
+     */
     public void purge() {
         log.info("Purging");
 
@@ -104,7 +123,7 @@ public class TestOrchestrationApi {
     }
 
     private static void runDockerComposeUp(String service) {
-        List<String> command = Stream.of("docker-compose", "up", service, "-d")
+        List<String> command = Stream.of("docker-compose", "-f", "docker-compose.failpoint.yml", "up", service, "-d")
             .filter(Objects::nonNull)
             .toList();
 
@@ -129,7 +148,7 @@ public class TestOrchestrationApi {
 
     private static void runDockerComposeDown(String service, List<String> additionalArguments) {
         List<String> command = Stream.concat(
-                Stream.of("docker-compose", "down", service),
+                Stream.of("docker-compose", "-f", "docker-compose.failpoint.yml", "down", service),
                 additionalArguments.stream()
             )
             .filter(Objects::nonNull)

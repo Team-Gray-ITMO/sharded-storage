@@ -1,5 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.common.dto;
 
+import java.util.Collections;
 import java.util.Map;
 import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeStatusResponse;
@@ -81,6 +82,10 @@ public class NodeStatusResponseDTO {
     }
 
     private Map<Integer, ShardStats> shardStatsToGrpc(Map<Integer, ShardStatsDTO> shardStats) {
+        if (shardStats == null) {
+            return Collections.emptyMap();
+        }
+
         return shardStats.entrySet().stream()
             .collect(
                 toMap(

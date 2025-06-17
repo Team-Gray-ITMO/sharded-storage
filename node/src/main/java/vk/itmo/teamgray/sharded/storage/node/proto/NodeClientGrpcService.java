@@ -3,6 +3,8 @@ package vk.itmo.teamgray.sharded.storage.node.proto;
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyRequest;
 import vk.itmo.teamgray.sharded.storage.node.client.GetKeyResponse;
@@ -13,6 +15,8 @@ import vk.itmo.teamgray.sharded.storage.node.client.SetKeyResponse;
 import vk.itmo.teamgray.sharded.storage.node.service.NodeClientService;
 
 public class NodeClientGrpcService extends NodeClientServiceGrpc.NodeClientServiceImplBase {
+    private static final Logger log = LoggerFactory.getLogger(NodeClientGrpcService.class);
+
     private final NodeClientService nodeClientService;
 
     public NodeClientGrpcService(NodeClientService nodeClientService) {
@@ -56,7 +60,14 @@ public class NodeClientGrpcService extends NodeClientServiceGrpc.NodeClientServi
 
     @Override
     public void getNodeStatus(Empty request, StreamObserver<NodeStatusResponse> responseObserver) {
-        responseObserver.onNext(nodeClientService.getNodeStatus().toGrpc());
+        try {
+            responseObserver.onNext(nodeClientService.getNodeStatus().toGrpc());
+        } catch (Exception e) {
+            log.error("Caught error: ", e);
+
+            responseObserver.onError(e);
+        }
+
         responseObserver.onCompleted();
     }
 }

@@ -26,6 +26,8 @@ javax-annotation-api = "javax.annotation:javax.annotation-api:1.3.2"
 
 assertj-core = "org.assertj:assertj-core:3.27.3"
 
+byte-buddy = "net.bytebuddy:byte-buddy:1.17.5"
+
 [bundles]
 
 [plugins]

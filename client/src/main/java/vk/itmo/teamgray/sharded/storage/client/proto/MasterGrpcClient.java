@@ -36,7 +36,7 @@ public class MasterGrpcClient extends AbstractGrpcClient<MasterClientServiceGrpc
             .build();
 
         var response = blockingStub.addServer(request);
-        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
+        return new StatusResponseDTO(response);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class MasterGrpcClient extends AbstractGrpcClient<MasterClientServiceGrpc
             .build();
 
         var response = blockingStub.deleteServer(request);
-        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
+        return new StatusResponseDTO(response);
     }
 
     //Doing map flipping on the client side to unload master.
@@ -103,6 +103,6 @@ public class MasterGrpcClient extends AbstractGrpcClient<MasterClientServiceGrpc
             .build();
 
         var response = blockingStub.changeShardCount(request);
-        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
+        return new StatusResponseDTO(response);
     }
 }

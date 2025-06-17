@@ -1,6 +1,6 @@
 plugins {
     id("java")
-    `java-library`
+    id("java-library")
     application
 }
 
@@ -12,6 +12,9 @@ application {
 
 dependencies {
     api(projects.client)
+    api(projects.master)
+    api(projects.node)
+    api(projects.discovery)
 
     api(libs.assertj.core)
     api(libs.mockito)

@@ -5,13 +5,14 @@ import io.grpc.stub.StreamObserver;
 import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.discovery.IdRequest;
 import vk.itmo.teamgray.sharded.storage.discovery.ServiceInfo;
 import vk.itmo.teamgray.sharded.storage.discovery.ServiceList;
 import vk.itmo.teamgray.sharded.storage.discovery.exception.DiscoveryException;
 import vk.itmo.teamgray.sharded.storage.discovery.service.DiscoveryService;
 
-public class DiscoveryGrpcService extends vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc.DiscoveryServiceImplBase {
+public class DiscoveryGrpcService extends DiscoveryServiceGrpc.DiscoveryServiceImplBase {
     private final DiscoveryService discoveryService;
 
     public DiscoveryGrpcService(DiscoveryService discoveryService) {

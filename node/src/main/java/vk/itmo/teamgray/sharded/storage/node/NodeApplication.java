@@ -1,16 +1,13 @@
 package vk.itmo.teamgray.sharded.storage.node;
 
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.discovery.proto.DiscoveryGrpcClient;
 import vk.itmo.teamgray.sharded.storage.common.health.proto.HealthGrpcService;
 import vk.itmo.teamgray.sharded.storage.common.health.service.HealthService;
+import vk.itmo.teamgray.sharded.storage.common.proto.GrpcServerRunner;
 import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeClient;
 import vk.itmo.teamgray.sharded.storage.node.proto.NodeClientGrpcService;
 import vk.itmo.teamgray.sharded.storage.node.proto.NodeManagementGrpcService;
@@ -26,21 +23,17 @@ import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getSer
 import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class NodeApplication {
-    private static final Logger log = LoggerFactory.getLogger(NodeApplication.class);
+    public static void main(String[] args) throws IOException, InterruptedException {
+        int port = getServerPort("node");
 
-    private final Server activeServer;
-
-    public NodeApplication() {
         NodeStorageService nodeStorageService = new NodeStorageService();
 
-        int serverPort = getServerPort("node");
+        ClientCachingFactory clientFactory = ClientCachingFactory.getInstance();
 
-        ClientCachingFactory clientCachingFactory = ClientCachingFactory.getInstance();
+        clientFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);
+        clientFactory.registerClientCreator(NodeNodeClient.class, NodeNodeGrpcClient::new);
 
-        clientCachingFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);
-        clientCachingFactory.registerClientCreator(NodeNodeClient.class, NodeNodeGrpcClient::new);
-
-        var discoveryClient = clientCachingFactory
+        var discoveryClient = clientFactory
             .getClient(
                 getServerHost("discovery"),
                 getServerPort("discovery"),
@@ -51,42 +44,17 @@ public class NodeApplication {
 
         discoveryClient.register(service);
 
-        activeServer = ServerBuilder.forPort(serverPort)
-            .addService(new NodeClientGrpcService(new NodeClientService(nodeStorageService)))
-            .addService(new NodeManagementGrpcService(new NodeManagementService(nodeStorageService, discoveryClient, clientCachingFactory)))
-            .addService(new NodeNodeGrpcService(new NodeNodeService(nodeStorageService)))
-            .addService(new HealthGrpcService(new HealthService()))
-            .build();
-    }
+        GrpcServerRunner serverRunner = GrpcServerRunner.getInstance();
 
-    public Server getActiveServer() {
-        return activeServer;
-    }
+        serverRunner.setPort(port);
 
-    public void start() throws IOException {
-        activeServer.start();
+        serverRunner.registerService(new NodeClientGrpcService(new NodeClientService(nodeStorageService)));
+        serverRunner.registerService(
+            new NodeManagementGrpcService(new NodeManagementService(nodeStorageService, discoveryClient, clientFactory)));
+        serverRunner.registerService(new NodeNodeGrpcService(new NodeNodeService(nodeStorageService)));
+        serverRunner.registerService(new HealthGrpcService(new HealthService()));
 
-        log.info("Server started, listening on {}", activeServer.getPort());
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            log.error("Shutting down gRPC server");
-
-            NodeApplication.this.stop();
-
-            log.error("Server shut down");
-        }));
-    }
-
-    public void stop() {
-        if (activeServer != null && !activeServer.isShutdown()) {
-            activeServer.shutdown();
-        }
-    }
-
-    public static void main(String[] args) throws IOException, InterruptedException {
-        NodeApplication nodeApplication = new NodeApplication();
-        nodeApplication.start();
-
-        nodeApplication.getActiveServer().awaitTermination();
+        serverRunner.start();
+        serverRunner.getServer().awaitTermination();
     }
 }

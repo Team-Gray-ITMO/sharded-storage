@@ -8,6 +8,7 @@ include("discovery")
 include("test-api")
 include("integration-tests")
 include("load-tests")
+include("failpoint-agent")
 
 dependencyResolutionManagement {
     repositories {

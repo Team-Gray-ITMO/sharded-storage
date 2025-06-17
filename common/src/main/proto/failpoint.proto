@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.failpoint";
+
+package vk.itmo.teamgray.sharded.storage;
+
+import "common.proto";
+
+service FailpointService {
+  rpc addFailpoint(AddFailpointRequest) returns (StatusResponse);
+  rpc removeFailpoint(MethodRequest) returns (StatusResponse);
+  rpc hasFailpoint(MethodRequest) returns (HasFailpointResponse);
+
+  rpc freezeMethod(MethodRequest) returns (StatusResponse);
+  rpc unfreezeMethod(MethodRequest) returns (StatusResponse);
+  rpc freezeFor(FreezeForRequest) returns (StatusResponse);
+  rpc awaitUnfreeze(MethodRequest) returns (StatusResponse);
+  rpc isFrozen(MethodRequest) returns (IsFrozenResponse);
+
+  rpc clear(Empty) returns (StatusResponse);
+}
+
+message AddFailpointRequest {
+  string methodClass = 1;
+  string methodName = 2;
+  string exceptionClass = 3;
+}
+
+message MethodRequest {
+  string methodClass = 1;
+  string methodName = 2;
+}
+
+message FreezeForRequest {
+  string methodClass = 1;
+  string methodName = 2;
+  int64 duration = 3;
+}
+
+message HasFailpointResponse {
+  bool hasFailpoint = 1;
+}
+
+message IsFrozenResponse {
+  bool isFrozen = 1;
+}

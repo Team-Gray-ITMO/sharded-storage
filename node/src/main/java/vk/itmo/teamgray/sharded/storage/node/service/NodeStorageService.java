@@ -111,6 +111,10 @@ public class NodeStorageService {
     }
 
     public void processQueue(ActionPhase phase) {
+        if (queues == null) {
+            return;
+        }
+
         var applyQueue = queues.getQueue(phase);
 
         log.info("Processing {} queue. Size: {}", phase, applyQueue.size());
