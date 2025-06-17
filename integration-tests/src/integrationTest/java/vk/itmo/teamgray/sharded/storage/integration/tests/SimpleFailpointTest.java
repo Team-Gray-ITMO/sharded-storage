@@ -31,6 +31,7 @@ public class SimpleFailpointTest extends BaseIntegrationTest {
 
     @Test
     public void simpleFailpointTest() {
+        //Run and add node.
         int serverId = 1;
         orchestrationApi.runNode(serverId);
 
@@ -41,20 +42,27 @@ public class SimpleFailpointTest extends BaseIntegrationTest {
         try (var executor = Executors.newFixedThreadPool(1)) {
             FailpointClient failpointClient = testClient.getFailpointClient();
 
+            // Freeze stageShards when reached for three seconds to have time to verify the state.
             failpointClient.freezeFor(NodeStorageService.class, "stageShards", Duration.of(3, ChronoUnit.SECONDS));
-            failpointClient.addFailpoint(NodeStorageService.class, "replaceBothMaps", NodeException.class);
+
+            // Add failpoint that will throw later
+            failpointClient.addFailpoint(NodeStorageService.class, "swapWithStaged", NodeException.class);
 
             var future = executor.submit(() -> {
+                // Run resharding and wait for it to fail
                 var result = clientService.changeShardCount(2);
 
                 assertFalse(result.isSuccess());
-                assertTrue(result.getMessage().contains("Failed to stage shards"));
+                assertTrue(result.getMessage().contains("Injected failure"));
             });
 
+            //This will return once any thread hits the freezed method
             failpointClient.awaitFreezeHit(NodeStorageService.class, "stageShards");
 
+            //Verify status at the freezepoint
             assertSame(NodeState.REARRANGE_SHARDS_PREPARING, testClient.getNodeClient().getNodeStatus().getState());
 
+            // Wait for command to finish and verify fail.
             future.get();
         } catch (Exception e) {
             throw new AssertionError(e);

@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class FailpointAdvice {
-    private static final Logger log = LoggerFactory.getLogger(FailpointRegistry.class);
+    public static final Logger log = LoggerFactory.getLogger(FailpointRegistry.class);
 
     private FailpointAdvice() {
         // No-op.
@@ -27,7 +27,7 @@ public class FailpointAdvice {
         FailpointRegistry.awaitUnfreezeForThreads(methodClass, method);
     }
 
-    private static Exception getExceptionToThrow(String methodClass, String method, Class<? extends Exception> exClass) {
+    public static Exception getExceptionToThrow(String methodClass, String method, Class<? extends Exception> exClass) {
         // First we try to throw a String constructor, then empty constructor, and as a last resort we throw a Runtime Exception.
         try {
             try {
