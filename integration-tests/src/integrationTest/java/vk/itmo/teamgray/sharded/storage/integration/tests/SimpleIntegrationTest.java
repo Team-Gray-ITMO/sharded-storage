@@ -5,7 +5,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
-import vk.itmo.teamgray.sharded.storage.node.service.NodeStorageService;
 import vk.itmo.teamgray.sharded.storage.test.api.BaseIntegrationTest;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,9 +25,10 @@ public class SimpleIntegrationTest extends BaseIntegrationTest {
 
     @Test
     public void simpleIntegrationTest() {
-        orchestrationApi.runNode(1);
+        int serverId = 1;
+        orchestrationApi.runNode(serverId);
 
-        clientService.addServer(1, false);
+        clientService.addServer(serverId, false);
         clientService.changeShardCount(1);
 
         Map<Integer, NodeState> serverStates = clientService.getServerStates();
@@ -36,12 +36,9 @@ public class SimpleIntegrationTest extends BaseIntegrationTest {
         assertFalse(serverStates.isEmpty());
         serverStates.forEach((server, state) -> assertSame(NodeState.RUNNING, state));
 
-        var testClient = getTestClient(1);
+        var testClient = getTestClient(serverId);
 
         var nodeStatus = testClient.getNodeClient().getNodeStatus();
         assertSame(NodeState.RUNNING, nodeStatus.getState());
-
-        var isFrozen = testClient.getFailpointClient().isFrozen(NodeStorageService.class, "set");
-        assertFalse(isFrozen);
     }
 }

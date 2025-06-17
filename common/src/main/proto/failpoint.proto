@@ -15,6 +15,7 @@ service FailpointService {
   rpc freezeMethod(MethodRequest) returns (StatusResponse);
   rpc unfreezeMethod(MethodRequest) returns (StatusResponse);
   rpc freezeFor(FreezeForRequest) returns (StatusResponse);
+  rpc awaitFreeze(MethodRequest) returns (StatusResponse);
   rpc awaitUnfreeze(MethodRequest) returns (StatusResponse);
   rpc isFrozen(MethodRequest) returns (IsFrozenResponse);
 

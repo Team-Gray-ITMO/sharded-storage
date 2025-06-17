@@ -143,6 +143,29 @@ public class FailpointRegistry {
         }
     }
 
+    public static void awaitFreeze(String methodClass, String methodName, StatusResponseWriter responseWriter) {
+        try {
+            log.info("Awaiting freeze for method {}#{}", methodClass, methodName);
+
+            Method method = new Method(methodClass, methodName);
+
+            while (!freezes.containsKey(method)) {
+                try {
+                    //TODO Rewrite to latches, for now okay
+                    Thread.sleep(10);
+                } catch (InterruptedException ignored) {
+                    // No-op.
+                }
+            }
+
+            responseWriter.writeResponse(true, "Await freeze completed successfully");
+
+            log.info("Awaited freeze for method {}#{}", methodClass, methodName);
+        } catch (Exception e) {
+            responseWriter.writeResponse(false, "Could not await freeze: " + e.getMessage());
+        }
+    }
+
     public static void awaitUnfreeze(String methodClass, String methodName, StatusResponseWriter responseWriter) {
         try {
             log.info("Awaiting unfreeze for method {}#{}", methodClass, methodName);

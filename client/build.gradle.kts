@@ -1,6 +1,7 @@
 plugins {
     id("java")
     id("java-library")
+    id("jacoco")
     application
     alias(libs.plugins.qameta.allure)
     alias(libs.plugins.shadow)

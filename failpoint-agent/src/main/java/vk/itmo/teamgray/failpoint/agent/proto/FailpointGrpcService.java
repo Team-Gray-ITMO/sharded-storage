@@ -106,6 +106,19 @@ public class FailpointGrpcService extends FailpointServiceGrpc.FailpointServiceI
     }
 
     @Override
+    public void awaitFreeze(MethodRequest request, StreamObserver<StatusResponse> responseObserver) {
+        var response = StatusResponse.newBuilder();
+        FailpointRegistry.awaitFreeze(
+            request.getMethodClass(),
+            request.getMethodName(),
+            fromGrpcBuilder(response)
+        );
+
+        responseObserver.onNext(response.build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void awaitUnfreeze(MethodRequest request, StreamObserver<StatusResponse> responseObserver) {
         var response = StatusResponse.newBuilder();
         FailpointRegistry.awaitUnfreeze(
