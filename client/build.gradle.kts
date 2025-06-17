@@ -13,6 +13,8 @@ application {
 dependencies {
     implementation(project(":common"))
     implementation("org.jetbrains:annotations:24.0.0")
+
+    testImplementation("org.mockito:mockito-core:5.17.0")
 }
 
 tasks.jar {

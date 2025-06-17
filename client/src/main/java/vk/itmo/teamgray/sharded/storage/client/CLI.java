@@ -35,13 +35,13 @@ public class CLI {
                 case "topology" -> handleGetTopology();
                 case "heartbeat" -> handleHeartbeat();
                 case "serverstates" -> handleServerStates();
+                case "refreshcaches" -> handleRefreshCaches();
                 case "exit" -> running = false;
                 default -> println("Unknown command. Type 'help' for available commands.");
             }
         }
 
         scanner.close();
-        clientService.shutdown();
         CachedGrpcStubCreator.getInstance().shutdownAll();
     }
 
@@ -64,6 +64,7 @@ public class CLI {
         println("  topology       - Show current topology");
         println("  heartbeat      - Send heartbeat to master");
         println("  serverstates   - Get current states of all servers");
+        println("  refreshcaches  - Manually refresh caches");
         println("  exit           - Exit the program");
     }
 
@@ -199,6 +200,16 @@ public class CLI {
 
         } catch (Exception e) {
             errPrintln("Error getting server states: " + e.getMessage());
+        }
+    }
+
+    private void handleRefreshCaches() {
+        try {
+            println(System.lineSeparator() + "Refreshing caches.");
+            clientService.updateCaches();
+            println(System.lineSeparator() + "Refreshed caches.");
+        } catch (Exception e) {
+            errPrintln("Error refreshing caches: " + e.getMessage());
         }
     }
 

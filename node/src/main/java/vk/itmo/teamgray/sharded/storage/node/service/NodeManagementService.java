@@ -57,14 +57,24 @@ public class NodeManagementService {
     }
 
     public void prepareRearrange(
+        List<FragmentDTO> fragments,
+        Map<Integer, Integer> serverByShardNumber,
         Map<Integer, Long> shardToHash,
         int fullShardCount,
         StatusResponseWriter responseWriter
     ) {
         try {
-            log.info("Preparing rearrange shards. [request={}, fullShardCount={}]", shardToHash, fullShardCount);
+            log.info(
+                "Preparing rearrange shards. [fragments={}, serverByShardNumber={}, request={}, fullShardCount={}]",
+                fragments,
+                serverByShardNumber,
+                shardToHash,
+                fullShardCount
+            );
 
             nodeStorageService.changeState(NodeState.RUNNING, REARRANGE_SHARDS_PREPARING);
+
+            nodeStorageService.prepareDataForResharding(fragments, serverByShardNumber);
 
             ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
 
@@ -93,18 +103,16 @@ public class NodeManagementService {
         }
     }
 
-    public void processRearrange(
-        List<FragmentDTO> fragments,
-        Map<Integer, Integer> serverByShardNumber,
-        StatusResponseWriter responseWriter
-    ) {
+    public void processRearrange(StatusResponseWriter responseWriter) {
         try {
-            log.info("Processing rearrange shards. [fragments={}, serverByShardNumber={}]", fragments, serverByShardNumber);
+            log.info("Processing rearrange shards.");
 
             nodeStorageService.changeState(NodeState.REARRANGE_SHARDS_PREPARED, NodeState.REARRANGE_SHARDS_PROCESSING);
 
             Map<Integer, ShardData> existingShards = nodeStorageService.getShards().getShardMap();
             Map<Integer, ShardData> stagedShards = nodeStorageService.getStagedShards().getShardMap();
+
+            List<FragmentDTO> fragments = nodeStorageService.getPreparedFragments();
 
             // Local fragments
             fragments.stream()
@@ -128,7 +136,7 @@ public class NodeManagementService {
 
             Map<Integer, Integer> nodesByShard = externalFragments.isEmpty()
                 ? Collections.emptyMap()
-                : serverByShardNumber;
+                : nodeStorageService.getPreparedServerByShardNumber(Action.REARRANGE_SHARDS);
 
             Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(nodesByShard.values());
 
@@ -194,15 +202,21 @@ public class NodeManagementService {
 
     public void prepareMove(
         List<Integer> receiveShardIds,
-        List<Integer> removeShardIds,
+        List<SendShardTaskDTO> sendShards,
         int fullShardCount,
         StatusResponseWriter responseWriter
     ) {
         try {
-            log.info("Preparing move shards. [receiveShardIds={}, removeShardIds={}, fullShardCount={}]", receiveShardIds, removeShardIds,
-                fullShardCount);
+            log.info(
+                "Preparing move shards. [receiveShardIds={}, sendShards={}, fullShardCount={}]",
+                receiveShardIds,
+                sendShards,
+                fullShardCount
+            );
 
             nodeStorageService.changeState(NodeState.RUNNING, MOVE_SHARDS_PREPARING);
+
+            nodeStorageService.prepareDataForMoving(sendShards);
 
             ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
 
@@ -236,19 +250,18 @@ public class NodeManagementService {
         }
     }
 
-    public void processMove(
-        List<SendShardTaskDTO> sendShards,
-        StatusResponseWriter responseWriter
-    ) {
+    public void processMove(StatusResponseWriter responseWriter) {
         try {
-            log.info("Processing move shards. [sendShards={}]", sendShards);
+            log.info("Processing move shards.");
 
             nodeStorageService.changeState(NodeState.MOVE_SHARDS_PREPARED, NodeState.MOVE_SHARDS_PROCESSING);
 
-            Map<Integer, List<Integer>> shardsByTargetServers = sendShards.stream()
+            Map<Integer, List<Integer>> shardsByTargetServers = nodeStorageService.getPreparedServerByShardNumber(Action.MOVE_SHARDS)
+                .entrySet()
+                .stream()
                 .collect(Collectors.groupingBy(
-                        SendShardTaskDTO::targetServer,
-                        Collectors.mapping(SendShardTaskDTO::shardId, Collectors.toList())
+                        Map.Entry::getValue,
+                        Collectors.mapping(Map.Entry::getKey, Collectors.toList())
                     )
                 );
 
@@ -319,6 +332,9 @@ public class NodeManagementService {
 
             nodeStorageService.swapWithStaged();
 
+            nodeStorageService.processQueue(ActionPhase.APPLY);
+            nodeStorageService.clear();
+
             responseWriter.writeResponse(true, "");
             nodeStorageService.changeState(applyingState, NodeState.RUNNING);
 
@@ -349,7 +365,8 @@ public class NodeManagementService {
 
             awaitRollback();
 
-            nodeStorageService.clearStaged();
+            nodeStorageService.processQueue(ActionPhase.ROLLBACK);
+            nodeStorageService.clear();
 
             responseWriter.writeResponse(true, "");
             nodeStorageService.changeState(rollingBackState, NodeState.RUNNING);

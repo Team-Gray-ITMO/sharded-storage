@@ -49,8 +49,8 @@ class TopologyServiceTest {
         ))
             .thenReturn(nodeManagementClient);
 
-        when(nodeManagementClient.prepareRearrange(any(), anyInt())).thenReturn(new StatusResponseDTO(true, ""));
-        when(nodeManagementClient.processRearrange(any(), any())).thenReturn(new StatusResponseDTO(true, ""));
+        when(nodeManagementClient.prepareRearrange(any(), any(), any(), anyInt())).thenReturn(new StatusResponseDTO(true, ""));
+        when(nodeManagementClient.processRearrange()).thenReturn(new StatusResponseDTO(true, ""));
         when(nodeManagementClient.applyOperation(any())).thenReturn(new StatusResponseDTO(true, ""));
 
         topologyService = new TopologyService(discoveryClient, clientCachingFactory);

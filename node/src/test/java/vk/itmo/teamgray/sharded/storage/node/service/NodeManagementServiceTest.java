@@ -46,6 +46,8 @@ public class NodeManagementServiceTest {
         StatusResponseDTO response = new StatusResponseDTO();
 
         service.prepareRearrange(
+            Collections.emptyList(),
+            Collections.emptyMap(),
             Collections.emptyMap(),
             0,
             (success, message) -> {
@@ -68,6 +70,8 @@ public class NodeManagementServiceTest {
         StatusResponseDTO response = new StatusResponseDTO();
 
         service.prepareRearrange(
+            Collections.emptyList(),
+            Collections.emptyMap(),
             shardToHash,
             shardToHash.size(),
             (success, message) -> {
@@ -83,19 +87,22 @@ public class NodeManagementServiceTest {
     @Test
     public void testProcessRearrangeWithLocalFragments() {
         Map<Integer, Long> shardToHash = Map.of(1, 1000L);
-        service.prepareRearrange(shardToHash, 1, (success, message) -> {
-        });
+        FragmentDTO fragment = new FragmentDTO(2, 1, 0, Long.MAX_VALUE);
+        service.prepareRearrange(
+            List.of(fragment),
+            Collections.emptyMap(),
+            shardToHash,
+            1,
+            (success, message) -> {
+            });
 
         nodeStorageService.getShards().getShardMap().put(2, new ShardData());
         nodeStorageService.getShards().getShardMap().get(2).addToStorage("key1", "value1");
         nodeStorageService.getShards().getShardMap().get(2).addToStorage("key2", "value2");
 
-        FragmentDTO fragment = new FragmentDTO(2, 1, 0, Long.MAX_VALUE);
         StatusResponseDTO response = new StatusResponseDTO();
 
         service.processRearrange(
-            List.of(fragment),
-            Collections.emptyMap(),
             (success, message) -> {
                 response.setSuccess(success);
                 response.setMessage(message);
@@ -108,17 +115,21 @@ public class NodeManagementServiceTest {
     @Test
     public void testApplyAction() {
         Map<Integer, Long> shardToHash = Map.of(1, 1000L);
-        service.prepareRearrange(shardToHash, 1, (success, message) -> {
-        });
+        FragmentDTO fragment = new FragmentDTO(2, 1, 0, Long.MAX_VALUE);
+
+        service.prepareRearrange(
+            List.of(fragment),
+            Collections.emptyMap(),
+            shardToHash,
+            1,
+            (success, message) -> {
+                // No-op
+            });
 
         nodeStorageService.getShards().getShardMap().put(2, new ShardData());
         nodeStorageService.getShards().getShardMap().get(2).addToStorage("key1", "value1");
         nodeStorageService.getShards().getShardMap().get(2).addToStorage("key2", "value2");
-
-        FragmentDTO fragment = new FragmentDTO(2, 1, 0, Long.MAX_VALUE);
         service.processRearrange(
-            List.of(fragment),
-            Collections.emptyMap(),
             (success, message) -> {
             });
 
@@ -142,6 +153,8 @@ public class NodeManagementServiceTest {
         StatusResponseDTO response = new StatusResponseDTO();
 
         service.prepareRearrange(
+            List.of(),
+            Collections.emptyMap(),
             null,
             0,
             (success, message) -> {
@@ -159,8 +172,6 @@ public class NodeManagementServiceTest {
         StatusResponseDTO response = new StatusResponseDTO();
 
         service.processRearrange(
-            List.of(fragment),
-            Collections.emptyMap(),
             (success, message) -> {
                 response.setSuccess(success);
                 response.setMessage(message);
@@ -172,13 +183,17 @@ public class NodeManagementServiceTest {
 
     @Test
     public void testProcessRearrangeWithEmptyFragmentList() {
-        service.prepareRearrange(Map.of(1, 1000L), 1, (success, message) -> {
-        });
+        service.prepareRearrange(
+            List.of(),
+            Collections.emptyMap(),
+            Map.of(1, 1000L),
+            1,
+            (success, message) -> {
+                // No-op
+            });
 
         StatusResponseDTO response = new StatusResponseDTO();
         service.processRearrange(
-            Collections.emptyList(),
-            Collections.emptyMap(),
             (success, message) -> {
                 response.setSuccess(success);
                 response.setMessage(message);
@@ -197,6 +212,8 @@ public class NodeManagementServiceTest {
             executor.submit(() -> {
                 try {
                     service.prepareRearrange(
+                        List.of(),
+                        Collections.emptyMap(),
                         Map.of(1, 1000L),
                         1,
                         (success, message) -> {
@@ -241,6 +258,8 @@ public class NodeManagementServiceTest {
                         StatusResponseDTO response = new StatusResponseDTO();
                         if (Thread.currentThread().threadId() % 2 == 0) {
                             service.prepareRearrange(
+                                List.of(),
+                                Collections.emptyMap(),
                                 Map.of(1, 1000L),
                                 1,
                                 (success, message) -> {
@@ -281,6 +300,8 @@ public class NodeManagementServiceTest {
                     try {
                         StatusResponseDTO response = new StatusResponseDTO();
                         service.prepareRearrange(
+                            List.of(),
+                            Collections.emptyMap(),
                             Map.of(shardId, (long)shardId * 1000),
                             1,
                             (s, m) -> {

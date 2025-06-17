@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
@@ -17,8 +18,6 @@ import vk.itmo.teamgray.sharded.storage.node.management.ActionRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.NodeManagementServiceGrpc;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareMoveRequest;
 import vk.itmo.teamgray.sharded.storage.node.management.PrepareRearrangeRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ProcessMoveRequest;
-import vk.itmo.teamgray.sharded.storage.node.management.ProcessRearrangeRequest;
 
 public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementServiceGrpc.NodeManagementServiceBlockingStub> implements
     NodeManagementClient {
@@ -32,10 +31,10 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO prepareMove(List<Integer> receiveShardIds, List<Integer> removeShardsIds, int fullShardCount) {
+    public StatusResponseDTO prepareMove(List<Integer> receiveShardIds, List<SendShardTaskDTO> sendShards, int fullShardCount) {
         PrepareMoveRequest request = PrepareMoveRequest.newBuilder()
             .addAllReceiveShardIds(receiveShardIds)
-            .addAllRemoveShardIds(removeShardsIds)
+            .addAllSendShards(sendShards.stream().map(SendShardTaskDTO::toGrpc).collect(Collectors.toList()))
             .setFullShardCount(fullShardCount)
             .build();
 
@@ -45,10 +44,8 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO processMove(List<SendShardTaskDTO> sendShards) {
-        ProcessMoveRequest request = ProcessMoveRequest.newBuilder()
-            .addAllSendShards(sendShards.stream().map(SendShardTaskDTO::toGrpc).collect(Collectors.toList()))
-            .build();
+    public StatusResponseDTO processMove() {
+        Empty request = Empty.newBuilder().build();
 
         StatusResponse response = blockingStub.processMove(request);
 
@@ -56,9 +53,16 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO prepareRearrange(Map<Integer, Long> shardToHash, int fullShardCount) {
+    public StatusResponseDTO prepareRearrange(
+        Map<Integer, Long> shardToHash,
+        List<FragmentDTO> fragments,
+        Map<Integer, Integer> relevantNodes,
+        int fullShardCount
+    ) {
         PrepareRearrangeRequest request = PrepareRearrangeRequest.newBuilder()
             .putAllShardToHash(shardToHash)
+            .addAllFragments(fragments.stream().map(FragmentDTO::toGrpc).toList())
+            .putAllServerByShardNumber(relevantNodes)
             .setFullShardCount(fullShardCount)
             .build();
 
@@ -69,11 +73,8 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO processRearrange(List<FragmentDTO> fragments, Map<Integer, Integer> relevantNodes) {
-        ProcessRearrangeRequest request = ProcessRearrangeRequest.newBuilder()
-            .addAllFragments(fragments.stream().map(FragmentDTO::toGrpc).toList())
-            .putAllServerByShardNumber(relevantNodes)
-            .build();
+    public StatusResponseDTO processRearrange() {
+        Empty request = Empty.newBuilder().build();
 
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
             .processRearrange(request);

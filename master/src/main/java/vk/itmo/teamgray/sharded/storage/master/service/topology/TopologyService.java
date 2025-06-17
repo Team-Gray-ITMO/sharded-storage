@@ -3,6 +3,7 @@ package vk.itmo.teamgray.sharded.storage.master.service.topology;
 import io.grpc.netty.shaded.io.netty.util.internal.StringUtil;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,9 @@ import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWrit
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 public class TopologyService {
@@ -220,8 +224,8 @@ public class TopologyService {
                 .map(ShardFromTo::shardId)
                 .toList();
 
-            var removeShardMoves = shardMovesBySenders.getOrDefault(serverId, List.of()).stream()
-                .map(ShardFromTo::shardId)
+            var sendShardMoves = shardMovesBySenders.getOrDefault(serverId, List.of()).stream()
+                .map(it -> new SendShardTaskDTO(it.shardId(), it.targetServer()))
                 .toList();
 
             var server = nodes.get(serverId);
@@ -236,7 +240,7 @@ public class TopologyService {
 
             var response = managementClient.prepareMove(
                 receiveShardMoves,
-                removeShardMoves,
+                sendShardMoves,
                 fullShardCount
             );
 
@@ -263,7 +267,6 @@ public class TopologyService {
         log.info("Starting process phase for {}", action);
 
         for (Integer serverId : allServers) {
-            var sendShardMoves = shardMovesBySenders.getOrDefault(serverId, List.of());
 
             var server = nodes.get(serverId);
 
@@ -275,11 +278,7 @@ public class TopologyService {
 
             setServerState(serverId, NodeState.MOVE_SHARDS_PROCESSING);
 
-            var response = managementClient.processMove(
-                sendShardMoves.stream()
-                    .map(shardFromTo -> new SendShardTaskDTO(shardFromTo.shardId(), shardFromTo.targetServer()))
-                    .toList()
-            );
+            var response = managementClient.processMove();
 
             if (response.isSuccess()) {
                 setServerState(serverId, NodeState.MOVE_SHARDS_PROCESSED);
@@ -375,24 +374,40 @@ public class TopologyService {
 
             List<FragmentDTO> fragments = findFragmentsToMove(shardCount, newShardToHash, allBounds);
 
-            var newShardsToServer = newServerToShards.entrySet().stream()
+            Map<Integer, List<FragmentDTO>> fragmentsByOldShardIds = fragments.stream()
+                .collect(groupingBy(
+                    FragmentDTO::oldShardId,
+                    mapping(Function.identity(), toList())
+                ));
+
+            Map<Integer, List<FragmentDTO>> fragmentsByOldServerIds = serverToShards.entrySet().stream()
+                .collect(toMap(
+                    Map.Entry::getKey,
+                    e -> e.getValue().stream()
+                        .map(fragmentsByOldShardIds::get)
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .toList()
+                ));
+
+            Map<Integer, Integer> newShardsToServer = newServerToShards.entrySet().stream()
                 .flatMap(kv -> kv.getValue().stream().map(shard -> Map.entry(kv.getKey(), shard)))
                 .collect(toMap(
                     Map.Entry::getValue,
                     Map.Entry::getKey
                 ));
 
-            var nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
+            Map<Integer, DiscoverableServiceDTO> nodes = discoveryClient.getNodeMapWithRetries(newServerToShards.keySet());
 
             List<String> errorMessages = new ArrayList<>();
 
             // Phase 1: Prepare
             log.info("Starting prepare phase for {}", action);
             for (var entry : newServerToShards.entrySet()) {
-                var serverId = entry.getKey();
-                var shards = entry.getValue();
+                Integer serverId = entry.getKey();
+                List<Integer> shards = entry.getValue();
 
-                var relevantSchemeSlice = shards.stream()
+                Map<Integer, Long> relevantSchemeSlice = shards.stream()
                     .collect(
                         Collectors.toMap(
                             Function.identity(),
@@ -400,11 +415,22 @@ public class TopologyService {
                         )
                     );
 
+                List<FragmentDTO> relevantFragments = fragmentsByOldServerIds.get(serverId);
+
+                Map<Integer, Integer> relevantNodes = relevantFragments.stream()
+                    .map(FragmentDTO::newShardId)
+                    .distinct()
+                    .collect(toMap(
+                        Function.identity(),
+                        newShardsToServer::get
+                    ));
+
                 DiscoverableServiceDTO server = nodes.get(serverId);
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
 
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_PREPARING);
-                StatusResponseDTO response = client.prepareRearrange(relevantSchemeSlice, newShardToHash.size());
+                StatusResponseDTO response =
+                    client.prepareRearrange(relevantSchemeSlice, relevantFragments, relevantNodes, newShardToHash.size());
 
                 if (response.isSuccess()) {
                     setServerState(serverId, NodeState.REARRANGE_SHARDS_PREPARED);
@@ -422,23 +448,11 @@ public class TopologyService {
             // Phase 2: Process
             log.info("Starting process phase for {}", action);
             for (var serverId : newServerToShards.keySet()) {
-                var relevantFragments = serverToShards.get(serverId).stream()
-                    .flatMap(it -> fragments.stream().filter(f -> f.oldShardId() == it))
-                    .toList();
-
                 DiscoverableServiceDTO server = nodes.get(serverId);
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
-
-                var relevantNodes = relevantFragments.stream()
-                    .map(FragmentDTO::newShardId)
-                    .distinct()
-                    .collect(toMap(
-                        Function.identity(),
-                        newShardsToServer::get
-                    ));
-
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_PROCESSING);
-                StatusResponseDTO response = client.processRearrange(relevantFragments, relevantNodes);
+
+                StatusResponseDTO response = client.processRearrange();
 
                 if (response.isSuccess()) {
                     setServerState(serverId, NodeState.REARRANGE_SHARDS_PROCESSED);

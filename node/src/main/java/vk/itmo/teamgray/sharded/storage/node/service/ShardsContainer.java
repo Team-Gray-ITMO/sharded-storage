@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
+import vk.itmo.teamgray.sharded.storage.node.exception.ShardNotExistsException;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
 public class ShardsContainer {
@@ -84,6 +85,10 @@ public class ShardsContainer {
         }
     }
 
+    public boolean hasShardForKey(String key) {
+        return shardMap.containsKey(ShardUtils.getShardIdForKey(key, fullShardCount));
+    }
+
     private Integer getAndValidateShardId(String key, boolean checkShardExists) {
         var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
 
@@ -92,7 +97,7 @@ public class ShardsContainer {
         }
 
         if (checkShardExists && !shardMap.containsKey(shardId)) {
-            throw new NodeException("Shard " + shardId + " is not found on this node. Existing shards: " + shardMap.keySet());
+            throw new ShardNotExistsException("Shard " + shardId + " is not found on this node. Existing shards: " + shardMap.keySet());
         }
 
         return shardId;

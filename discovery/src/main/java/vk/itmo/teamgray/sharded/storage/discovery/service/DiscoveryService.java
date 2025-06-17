@@ -1,129 +1,94 @@
 package vk.itmo.teamgray.sharded.storage.discovery.service;
 
-import io.grpc.Status;
-import io.grpc.stub.StreamObserver;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.Empty;
-import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
-import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType;
-import vk.itmo.teamgray.sharded.storage.discovery.ClientList;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 import vk.itmo.teamgray.sharded.storage.discovery.DiscoveryServiceGrpc;
-import vk.itmo.teamgray.sharded.storage.discovery.IdRequest;
-import vk.itmo.teamgray.sharded.storage.discovery.NodeList;
-import vk.itmo.teamgray.sharded.storage.discovery.ServiceInfo;
+import vk.itmo.teamgray.sharded.storage.discovery.exception.DiscoveryException;
 
-public class DiscoveryService extends DiscoveryServiceGrpc.DiscoveryServiceImplBase {
+public class DiscoveryService {
     private static final Logger log = LoggerFactory.getLogger(DiscoveryService.class);
 
-    private final Map<Integer, ServiceInfo> nodes = new ConcurrentHashMap<>();
+    private final Map<Integer, DiscoverableServiceDTO> nodes = new ConcurrentHashMap<>();
 
-    private final Map<Integer, ServiceInfo> clients = new ConcurrentHashMap<>();
+    private final Map<Integer, DiscoverableServiceDTO> clients = new ConcurrentHashMap<>();
 
-    private volatile ServiceInfo master;
+    private volatile DiscoverableServiceDTO master;
 
-    @Override
-    public void registerService(ServiceInfo request, StreamObserver<StatusResponse> responseObserver) {
-        var type = DiscoverableServiceType.valueOf(request.getType());
+    public void registerService(DiscoverableServiceDTO request, StatusResponseWriter responseWriter) {
+        var type = request.type();
 
         switch (type) {
             case MASTER -> master = request;
-            case NODE -> nodes.put(request.getId(), request);
-            case CLIENT -> clients.put(request.getId(), request);
+            case NODE -> nodes.put(request.id(), request);
+            case CLIENT -> clients.put(request.id(), request);
             default -> {
-                responseObserver.onNext(StatusResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage("Unknown role: " + request.getType())
-                    .build());
+                responseWriter.writeResponse(false, "Unknown role: " + request.type());
 
-                responseObserver.onCompleted();
                 return;
             }
         }
 
         log.info("Registered {} service: {}{}", type, System.lineSeparator(), request);
 
-        StatusResponse response = StatusResponse.newBuilder()
-            .setSuccess(true)
-            .setMessage("Registered " + request.getId())
-            .build();
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        responseWriter.writeResponse(true, "Registered " + request.id());
     }
 
-    @Override
-    public void getNode(IdRequest request, StreamObserver<ServiceInfo> responseObserver) {
-        var node = nodes.get(request.getId());
+    public DiscoverableServiceDTO getNode(int id) {
+        var node = nodes.get(id);
 
         if (node == null) {
-            responseObserver.onError(
-                Status.NOT_FOUND.withDescription("No node registered with id " + request.getId()).asRuntimeException()
-            );
-
-            return;
+            throw new DiscoveryException("No node registered with id " + id);
         }
 
         log.info("Returning node: {}", node);
 
-        responseObserver.onNext(node);
-        responseObserver.onCompleted();
+        return node;
     }
 
-    @Override
-    public void getNodes(Empty request, StreamObserver<NodeList> responseObserver) {
-        NodeList nodeList = NodeList.newBuilder()
-            .addAllNodes(nodes.values())
-            .build();
+    public void getNodes(DiscoverableServiceResponseWriter responseWriter) {
+        var nodeValues = nodes.values();
 
-        log.info("Returning nodes: {}", nodeList);
+        nodeValues.forEach(responseWriter::write);
 
-        responseObserver.onNext(nodeList);
-        responseObserver.onCompleted();
+        log.info("Returning nodes: {}", nodeValues);
     }
 
-    @Override
-    public void getMaster(Empty request, StreamObserver<ServiceInfo> responseObserver) {
+    public DiscoverableServiceDTO getMaster() {
         if (master == null) {
-            responseObserver.onError(Status.NOT_FOUND.withDescription("No master registered").asRuntimeException());
-            return;
+            throw new DiscoveryException("No master registered");
         }
 
         log.info("Returning master: {}", master);
 
-        responseObserver.onNext(master);
-        responseObserver.onCompleted();
+        return master;
     }
 
-    @Override
-    public void getClient(IdRequest request, StreamObserver<ServiceInfo> responseObserver) {
-        var client = clients.get(request.getId());
+    public DiscoverableServiceDTO getClient(int id) {
+        var client = clients.get(id);
 
         if (client == null) {
-            responseObserver.onError(
-                Status.NOT_FOUND.withDescription("No client registered with id " + request.getId()).asRuntimeException()
-            );
-
-            return;
+            throw new DiscoveryException("No client registered with id " + id);
         }
 
         log.info("Returning client: {}", client);
 
-        responseObserver.onNext(client);
-        responseObserver.onCompleted();
+        return client;
     }
 
-    @Override
-    public void getClients(Empty request, StreamObserver<ClientList> responseObserver) {
-        ClientList clientList = ClientList.newBuilder()
-            .addAllClients(clients.values())
-            .build();
+    public void getClients(DiscoverableServiceResponseWriter responseWriter) {
+        var clientValues = clients.values();
 
-        log.info("Returning clients: {}", clients);
+        log.info("Returning clients: {}", clientValues);
 
-        responseObserver.onNext(clientList);
-        responseObserver.onCompleted();
+        clientValues.forEach(responseWriter::write);
+    }
+
+    @FunctionalInterface
+    public interface DiscoverableServiceResponseWriter {
+        void write(DiscoverableServiceDTO discoverableService);
     }
 }
