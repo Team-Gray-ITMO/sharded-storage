@@ -17,7 +17,7 @@ public interface FailpointClient extends Client {
 
     StatusResponseDTO awaitUnfreeze(Class<?> methodClass, String methodName);
 
-    StatusResponseDTO awaitFreeze(Class<?> methodClass, String methodName);
+    StatusResponseDTO awaitFreezeHit(Class<?> methodClass, String methodName);
 
     StatusResponseDTO freezeFor(Class<?> methodClass, String methodName, Duration duration);
 

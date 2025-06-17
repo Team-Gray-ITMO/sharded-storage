@@ -14,6 +14,7 @@ import vk.itmo.teamgray.sharded.storage.test.api.client.FailpointClient;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SimpleFailpointTest extends BaseIntegrationTest {
     @BeforeEach
@@ -35,28 +36,28 @@ public class SimpleFailpointTest extends BaseIntegrationTest {
 
         clientService.addServer(serverId, false);
 
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
         var testClient = getTestClient(serverId);
 
-        FailpointClient failpointClient = testClient.getFailpointClient();
+        try (var executor = Executors.newFixedThreadPool(1)) {
+            FailpointClient failpointClient = testClient.getFailpointClient();
 
-        failpointClient.freezeFor(NodeStorageService.class, "stageShards", Duration.of(3, ChronoUnit.SECONDS));
-        failpointClient.addFailpoint(NodeStorageService.class, "replaceBothMaps", NodeException.class);
+            failpointClient.freezeFor(NodeStorageService.class, "stageShards", Duration.of(3, ChronoUnit.SECONDS));
+            failpointClient.addFailpoint(NodeStorageService.class, "replaceBothMaps", NodeException.class);
 
-        Executors.newFixedThreadPool(1).submit(() -> {
-            var result = clientService.changeShardCount(2);
+            var future = executor.submit(() -> {
+                var result = clientService.changeShardCount(2);
 
-            assertFalse(result.isSuccess());
-            //assertTrue(result.getMessage().contains("Failed to stage shards"));
-        });
+                assertFalse(result.isSuccess());
+                assertTrue(result.getMessage().contains("Failed to stage shards"));
+            });
 
-        failpointClient.awaitFreeze(NodeStorageService.class, "stageShards");
+            failpointClient.awaitFreezeHit(NodeStorageService.class, "stageShards");
 
-        assertSame(NodeState.REARRANGE_SHARDS_PREPARING, testClient.getNodeClient().getNodeStatus().getState());
+            assertSame(NodeState.REARRANGE_SHARDS_PREPARING, testClient.getNodeClient().getNodeStatus().getState());
+
+            future.get();
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
     }
 }

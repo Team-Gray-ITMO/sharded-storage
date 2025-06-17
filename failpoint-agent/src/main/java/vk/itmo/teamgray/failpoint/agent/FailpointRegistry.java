@@ -19,11 +19,15 @@ public class FailpointRegistry {
         }
     }
 
+    private record Freeze(CountDownLatch hitLatch, CountDownLatch unfreezeLatch) {
+        // No-op.
+    }
+
     private static final Logger log = LoggerFactory.getLogger(FailpointRegistry.class);
 
     private static final Map<Method, Class<? extends Exception>> failpoints = new ConcurrentHashMap<>();
 
-    private static final Map<Method, CountDownLatch> freezes = new ConcurrentHashMap<>();
+    private static final Map<Method, Freeze> freezes = new ConcurrentHashMap<>();
 
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
@@ -82,7 +86,10 @@ public class FailpointRegistry {
         try {
             log.info("Freezing method {}#{}", methodClass, methodName);
 
-            freezes.computeIfAbsent(new Method(methodClass, methodName), m -> new CountDownLatch(1));
+            freezes.computeIfAbsent(
+                new Method(methodClass, methodName),
+                m -> new Freeze(new CountDownLatch(1), new CountDownLatch(1))
+            );
 
             responseWriter.writeResponse(true, "Method frozen successfully");
 
@@ -96,15 +103,15 @@ public class FailpointRegistry {
         try {
             log.info("Unfreezing method {}#{}", methodClass, methodName);
 
-            CountDownLatch latch = freezes.remove(new Method(methodClass, methodName));
+            Freeze freeze = freezes.remove(new Method(methodClass, methodName));
 
-            if (latch == null) {
+            if (freeze == null) {
                 responseWriter.writeResponse(false, "Method is not frozen");
 
                 return;
             }
 
-            latch.countDown();
+            freeze.unfreezeLatch().countDown();
 
             responseWriter.writeResponse(true, "Method unfrozen successfully");
 
@@ -118,17 +125,18 @@ public class FailpointRegistry {
         try {
             log.info("Freezing method {}#{} for duration {}", methodClass, methodName, duration);
 
-            CountDownLatch latch = new CountDownLatch(1);
+            CountDownLatch unfreezeLatch = new CountDownLatch(1);
 
             var failPoint = new Method(methodClass, methodName);
 
-            freezes.put(failPoint, latch);
+            freezes.put(failPoint, new Freeze(new CountDownLatch(1), unfreezeLatch));
 
             scheduler.schedule(
                 () -> {
-                    CountDownLatch removed = freezes.remove(failPoint);
+                    Freeze removed = freezes.remove(failPoint);
+
                     if (removed != null) {
-                        removed.countDown();
+                        removed.unfreezeLatch().countDown();
                     }
                 },
                 duration.toMillis(),
@@ -143,26 +151,29 @@ public class FailpointRegistry {
         }
     }
 
-    public static void awaitFreeze(String methodClass, String methodName, StatusResponseWriter responseWriter) {
+    public static void awaitFreezeHit(String methodClass, String methodName, StatusResponseWriter responseWriter) {
         try {
-            log.info("Awaiting freeze for method {}#{}", methodClass, methodName);
+            log.info("Awaiting freeze to be hit for method {}#{}", methodClass, methodName);
 
-            Method method = new Method(methodClass, methodName);
+            Freeze freeze = freezes.get(new Method(methodClass, methodName));
 
-            while (!freezes.containsKey(method)) {
-                try {
-                    //TODO Rewrite to latches, for now okay
-                    Thread.sleep(10);
-                } catch (InterruptedException ignored) {
-                    // No-op.
-                }
+            if (freeze == null) {
+                responseWriter.writeResponse(false, "Method is not frozen");
+
+                return;
             }
 
-            responseWriter.writeResponse(true, "Await freeze completed successfully");
+            try {
+                freeze.hitLatch().await();
+            } catch (InterruptedException ignored) {
+                // No-op.
+            }
 
-            log.info("Awaited freeze for method {}#{}", methodClass, methodName);
+            responseWriter.writeResponse(true, "Freeze was hit successfully");
+
+            log.info("Awaited freeze to be hit for method {}#{}", methodClass, methodName);
         } catch (Exception e) {
-            responseWriter.writeResponse(false, "Could not await freeze: " + e.getMessage());
+            responseWriter.writeResponse(false, "Could not await freeze to be hit: " + e.getMessage());
         }
     }
 
@@ -170,16 +181,16 @@ public class FailpointRegistry {
         try {
             log.info("Awaiting unfreeze for method {}#{}", methodClass, methodName);
 
-            CountDownLatch latch = freezes.get(new Method(methodClass, methodName));
+            Freeze freeze = freezes.get(new Method(methodClass, methodName));
 
-            if (latch == null) {
+            if (freeze == null) {
                 responseWriter.writeResponse(false, "Method is not frozen");
 
                 return;
             }
 
             try {
-                latch.await();
+                freeze.unfreezeLatch().await();
             } catch (InterruptedException ignored) {
                 // No-op.
             }
@@ -192,24 +203,32 @@ public class FailpointRegistry {
         }
     }
 
-    public static void awaitUnfreezeNoStatus(String methodClass, String methodName) {
+    public static void awaitUnfreezeForThreads(String methodClass, String methodName) {
         Method method = new Method(methodClass, methodName);
 
-        if (freezes.containsKey(method)) {
+        if (!freezes.containsKey(method)) {
             return;
         }
 
-        CountDownLatch latch = freezes.get(method);
+        log.info("Frozen method {}#{} awaiting unfreeze", methodClass, methodName);
 
-        if (latch == null) {
+        Freeze freeze = freezes.get(method);
+
+        if (freeze == null) {
             return;
         }
 
+        // Signaling that any thread reached freeze.
+        freeze.hitLatch().countDown();
+
+        // Waiting for unfreeze.
         try {
-            latch.await();
+            freeze.unfreezeLatch().await();
         } catch (InterruptedException ignored) {
             // No-op.
         }
+
+        log.info("Frozen method {}#{} unfrozen", methodClass, methodName);
     }
 
     public static boolean isFrozen(String methodClass, String methodName) {

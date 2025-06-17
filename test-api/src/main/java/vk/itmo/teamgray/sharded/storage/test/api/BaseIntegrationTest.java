@@ -1,5 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.test.api;
 
+import io.grpc.StatusRuntimeException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,6 +15,7 @@ import vk.itmo.teamgray.sharded.storage.client.proto.NodeGrpcClient;
 import vk.itmo.teamgray.sharded.storage.client.service.ClientService;
 import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.discovery.proto.DiscoveryGrpcClient;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.test.api.client.FailpointClient;
@@ -77,7 +79,19 @@ public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
      */
     protected TestClient getTestClient(int serverId) {
         return testClientCache.computeIfAbsent(serverId, key -> {
-            var server = discoveryClient.getNode(serverId);
+            DiscoverableServiceDTO server;
+
+            try {
+                server = discoveryClient.getNode(serverId);
+            } catch (StatusRuntimeException ignored) {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                server = discoveryClient.getNode(serverId);
+            }
 
             if (server == null) {
                 throw new IllegalStateException("Server with id " + serverId + " not found.");

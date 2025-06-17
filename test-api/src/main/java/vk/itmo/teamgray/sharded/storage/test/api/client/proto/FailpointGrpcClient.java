@@ -84,13 +84,13 @@ public class FailpointGrpcClient extends AbstractGrpcClient<FailpointServiceGrpc
     }
 
     @Override
-    public StatusResponseDTO awaitFreeze(Class<?> methodClass, String methodName) {
+    public StatusResponseDTO awaitFreezeHit(Class<?> methodClass, String methodName) {
         MethodRequest request = MethodRequest.newBuilder()
             .setMethodClass(methodClass.getCanonicalName())
             .setMethodName(methodName)
             .build();
 
-        return new StatusResponseDTO(blockingStub.awaitFreeze(request));
+        return new StatusResponseDTO(blockingStub.awaitFreezeHit(request));
     }
 
     @Override

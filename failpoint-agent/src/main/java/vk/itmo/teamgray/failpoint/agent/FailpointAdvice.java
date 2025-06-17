@@ -2,8 +2,12 @@ package vk.itmo.teamgray.failpoint.agent;
 
 import java.lang.reflect.Constructor;
 import net.bytebuddy.asm.Advice;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FailpointAdvice {
+    private static final Logger log = LoggerFactory.getLogger(FailpointRegistry.class);
+
     private FailpointAdvice() {
         // No-op.
     }
@@ -13,10 +17,14 @@ public class FailpointAdvice {
         var exClass = FailpointRegistry.getFailpoint(methodClass, method);
 
         if (exClass != null) {
-            throw getExceptionToThrow(methodClass, method, exClass);
+            var exception = getExceptionToThrow(methodClass, method, exClass);
+
+            log.info("Throwing exception: {}", exception.getClass().getSimpleName());
+
+            throw exception;
         }
 
-        FailpointRegistry.awaitUnfreezeNoStatus(methodClass, method);
+        FailpointRegistry.awaitUnfreezeForThreads(methodClass, method);
     }
 
     private static Exception getExceptionToThrow(String methodClass, String method, Class<? extends Exception> exClass) {
