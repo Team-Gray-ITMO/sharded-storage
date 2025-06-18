@@ -31,7 +31,7 @@ public class NodeNodeGrpcClient extends AbstractGrpcClient<NodeNodeServiceGrpc.N
 
         StatusResponse grpcResponse = blockingStub.sendShards(request);
 
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+        return new StatusResponseDTO(grpcResponse);
     }
 
     @Override
@@ -43,6 +43,6 @@ public class NodeNodeGrpcClient extends AbstractGrpcClient<NodeNodeServiceGrpc.N
 
         StatusResponse grpcResponse = blockingStub.sendShardFragment(request);
 
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+        return new StatusResponseDTO(grpcResponse);
     }
 }

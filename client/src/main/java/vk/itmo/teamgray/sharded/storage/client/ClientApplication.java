@@ -16,7 +16,7 @@ import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getSer
 public class ClientApplication {
 
     public static void main(String[] args) throws InterruptedException {
-        var clientCachingFactory = ClientCachingFactory
+        ClientCachingFactory clientCachingFactory = ClientCachingFactory
             .getInstance();
 
         clientCachingFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);

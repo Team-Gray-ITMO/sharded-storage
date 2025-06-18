@@ -40,7 +40,7 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
 
         StatusResponse response = blockingStub.prepareMove(request);
 
-        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
+        return new StatusResponseDTO(response);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
 
         StatusResponse response = blockingStub.processMove(request);
 
-        return new StatusResponseDTO(response.getSuccess(), response.getMessage());
+        return new StatusResponseDTO(response);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
             .prepareRearrange(request);
 
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+        return new StatusResponseDTO(grpcResponse);
     }
 
     @Override
@@ -79,7 +79,7 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
             .processRearrange(request);
 
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+        return new StatusResponseDTO(grpcResponse);
     }
 
     @Override
@@ -91,7 +91,7 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
                     .build()
             );
 
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+        return new StatusResponseDTO(grpcResponse);
     }
 
     @Override
@@ -103,6 +103,6 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
                     .build()
             );
 
-        return new StatusResponseDTO(grpcResponse.getSuccess(), grpcResponse.getMessage());
+        return new StatusResponseDTO(grpcResponse);
     }
 }

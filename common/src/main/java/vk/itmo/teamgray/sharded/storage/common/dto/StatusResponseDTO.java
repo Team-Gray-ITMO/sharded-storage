@@ -1,6 +1,7 @@
 package vk.itmo.teamgray.sharded.storage.common.dto;
 
 import java.util.Objects;
+import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 
 public final class StatusResponseDTO {
     private boolean success;
@@ -17,6 +18,10 @@ public final class StatusResponseDTO {
     ) {
         this.success = success;
         this.message = message;
+    }
+
+    public StatusResponseDTO(StatusResponse grpc) {
+        this(grpc.getSuccess(), grpc.getMessage());
     }
 
     public boolean isSuccess() {

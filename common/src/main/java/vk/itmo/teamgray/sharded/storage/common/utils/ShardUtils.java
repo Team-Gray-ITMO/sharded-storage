@@ -1,14 +1,13 @@
 package vk.itmo.teamgray.sharded.storage.common.utils;
 
 import java.math.BigInteger;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ShardUtils {
     private static final Logger log = LoggerFactory.getLogger(ShardUtils.class);
 
-    public static Integer getShardIdForKey(@NotNull String key, int shardsCount) {
+    public static Integer getShardIdForKey(String key, int shardsCount) {
         if (shardsCount <= 0) {
             return null;
         }
