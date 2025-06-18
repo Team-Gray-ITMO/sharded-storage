@@ -9,24 +9,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.Action;
+import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class NodeManagementServiceTest {
     private NodeStorageService nodeStorageService;
@@ -34,11 +31,13 @@ public class NodeManagementServiceTest {
     private NodeManagementService service;
 
     private DiscoveryClient discoveryClient = mock();
+    
+    private ClientCachingFactory clientCachingFactory = mock();
 
     @BeforeEach
     public void setUp() {
         nodeStorageService = new NodeStorageService();
-        service = new NodeManagementService(nodeStorageService, discoveryClient, null);
+        service = new NodeManagementService(nodeStorageService, discoveryClient, clientCachingFactory);
     }
 
     @Test
@@ -202,89 +201,97 @@ public class NodeManagementServiceTest {
         assertTrue(response.isSuccess());
     }
 
-    //TODO Rewrite
-    @Disabled
     @Test
-    public void testRollbackDuringPrepare() throws InterruptedException {
-        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
-            AtomicBoolean rollbackTriggered = new AtomicBoolean(false);
-
-            executor.submit(() -> {
-                try {
-                    service.prepareRearrange(
-                        List.of(),
-                        Collections.emptyMap(),
-                        Map.of(1, 1000L),
-                        1,
-                        (success, message) -> {
-                            if (!success) {
-                                rollbackTriggered.set(true);
-                            }
-                        });
-                } catch (Exception e) {
-                    fail("Unexpected exception");
-                }
+    public void testRollbackAction() {
+        // prepare
+        service.prepareRearrange(
+            List.of(),
+            Collections.emptyMap(),
+            Map.of(1, 1000L),
+            1,
+            (success, message) -> {
+                // No-op
             });
 
-            Thread.sleep(100);
+        // test rollback
+        StatusResponseDTO rollbackResponse = new StatusResponseDTO();
+        service.rollbackAction(
+            Action.REARRANGE_SHARDS,
+            (success, message) -> {
+                rollbackResponse.setSuccess(success);
+                rollbackResponse.setMessage(message);
+            }
+        );
 
-            StatusResponseDTO rollbackResponse = new StatusResponseDTO();
-            service.rollbackAction(
-                Action.REARRANGE_SHARDS,
-                (success, message) -> {
-                    rollbackResponse.setSuccess(success);
-                    rollbackResponse.setMessage(message);
-                }
-            );
-
-            assertTrue(rollbackTriggered.get());
-            assertTrue(rollbackResponse.isSuccess());
-            executor.shutdown();
-        }
+        assertTrue(rollbackResponse.isSuccess());
     }
 
-    //TODO Rewrite
-    @Disabled
+
     @Test
     public void testConcurrentPrepareAndRollback() throws InterruptedException {
-        int threadCount = 5;
-        try (ExecutorService executor = Executors.newFixedThreadPool(threadCount)) {
-            CountDownLatch latch = new CountDownLatch(threadCount);
-            Map<Boolean, Integer> results = new ConcurrentHashMap<>();
+        // Start both operations simultaneously
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch endLatch = new CountDownLatch(2);
+        
+        AtomicBoolean prepareSuccess = new AtomicBoolean(false);
+        AtomicBoolean rollbackSuccess = new AtomicBoolean(false);
 
-            for (int i = 0; i < threadCount; i++) {
-                executor.submit(() -> {
-                    try {
-                        StatusResponseDTO response = new StatusResponseDTO();
-                        if (Thread.currentThread().threadId() % 2 == 0) {
-                            service.prepareRearrange(
-                                List.of(),
-                                Collections.emptyMap(),
-                                Map.of(1, 1000L),
-                                1,
-                                (success, message) -> {
-                                    response.setSuccess(success);
-                                    response.setMessage(message);
-                                });
-                        } else {
-                            service.rollbackAction(
-                                Action.REARRANGE_SHARDS,
-                                (success, message) -> {
-                                    response.setSuccess(success);
-                                    response.setMessage(message);
-                                });
-                        }
-                        results.merge(response.isSuccess(), 1, Integer::sum);
-                    } finally {
-                        latch.countDown();
-                    }
-                });
+        // Prepare thread
+        Thread prepareThread = new Thread(() -> {
+            try {
+                startLatch.await();
+                StatusResponseDTO response = new StatusResponseDTO();
+                service.prepareRearrange(
+                    List.of(),
+                    Collections.emptyMap(),
+                    Map.of(1, 1000L),
+                    1,
+                    (success, message) -> {
+                        response.setSuccess(success);
+                        response.setMessage(message);
+                    });
+                prepareSuccess.set(response.isSuccess());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                endLatch.countDown();
             }
+        });
 
-            assertTrue(latch.await(5, TimeUnit.SECONDS));
-            assertTrue(results.getOrDefault(true, 0) > 0);
-            executor.shutdown();
-        }
+        // Rollback thread
+        Thread rollbackThread = new Thread(() -> {
+            try {
+                startLatch.await();
+                StatusResponseDTO response = new StatusResponseDTO();
+                service.rollbackAction(
+                    Action.REARRANGE_SHARDS,
+                    (success, message) -> {
+                        response.setSuccess(success);
+                        response.setMessage(message);
+                    });
+                rollbackSuccess.set(response.isSuccess());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                endLatch.countDown();
+            }
+        });
+
+        prepareThread.start();
+        rollbackThread.start();
+        
+        // Start both threads simultaneously
+        startLatch.countDown();
+        
+        // Wait for both to complete
+        endLatch.await(10, TimeUnit.SECONDS);
+        
+        // At least one should succeed
+        assertTrue(prepareSuccess.get() || rollbackSuccess.get(), 
+            "At least one operation should succeed");
+        
+        prepareThread.join(1000);
+        rollbackThread.join(1000);
     }
 
     @Test
@@ -324,31 +331,62 @@ public class NodeManagementServiceTest {
         }
     }
 
-    @Disabled
     @Test
-    public void testMoveShardToNonExistentNode() {
+    public void testProcessMoveFailsIfTargetNodeDoesNotExist() {
+        // target not exists
         when(discoveryClient.getNode(anyInt())).thenReturn(null);
 
-        StatusResponseDTO response = new StatusResponseDTO();
-        //service.moveShards(List.of(new SendShardTaskDTO(1, 99)), (success, message) -> {
-        //    response.setSuccess(success);
-        //    response.setMessage(message);
-        //});
-//
-        //assertFalse(response.isSuccess());
-        //assertNotNull(response.getMessage());
+        // add node for moving
+        nodeStorageService.getShards().getShardMap().put(1, new ShardData());
+
+        StatusResponseDTO prepareResponse = new StatusResponseDTO();
+        StatusResponseDTO processResponse = new StatusResponseDTO();
+
+        service.prepareMove(
+            List.of(), 
+            List.of(new SendShardTaskDTO(1, 99)),
+            1, 
+            (success, message) -> {
+                prepareResponse.setSuccess(success);
+                prepareResponse.setMessage(message);
+            }
+        );
+
+        service.processMove((success, message) -> {
+            processResponse.setSuccess(success);
+            processResponse.setMessage(message);
+        });
+            
+        assertFalse(processResponse.isSuccess());
+        assertEquals("No server with id 99 found", processResponse.getMessage());
     }
 
-    @Disabled
     @Test
-    public void testMoveNonExistentShard() {
-        StatusResponseDTO response = new StatusResponseDTO();
-        //service.moveShards(List.of(new SendShardTaskDTO(99, 1)), (success, message) -> {
-        //    response.setSuccess(success);
-        //    response.setMessage(message);
-        //});
-//
-        //assertFalse(response.isSuccess());
-        //assertNotNull(response.getMessage());
+    public void testProcessMoveDoNothingIfShardDoesNotExist() {
+        // some target node exists
+        when(discoveryClient.getNode(anyInt())).thenReturn(mock());
+
+        StatusResponseDTO prepareResponse = new StatusResponseDTO();
+        StatusResponseDTO processResponse = new StatusResponseDTO();
+
+        // shard 99 not in nodeStorageService, so does not exist
+        service.prepareMove(
+            List.of(),
+            List.of(new SendShardTaskDTO(99, 1)),
+            1,
+            (success, message) -> {
+                prepareResponse.setSuccess(success);
+                prepareResponse.setMessage(message);
+            }
+        );
+
+        service.processMove((success, message) -> {
+            processResponse.setSuccess(success);
+            processResponse.setMessage(message);
+        });
+
+        // no interactions with clientCachingFactory for sending shards
+        verifyNoInteractions(clientCachingFactory);
+        assertTrue(processResponse.isSuccess());
     }
 }

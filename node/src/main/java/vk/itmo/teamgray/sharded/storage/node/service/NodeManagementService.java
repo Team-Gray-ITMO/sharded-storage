@@ -271,6 +271,9 @@ public class NodeManagementService {
 
             shardsByTargetServers.forEach((targetServerId, shardIds) -> {
                 DiscoverableServiceDTO targetServer = discoveryClient.getNode(targetServerId);
+                if (targetServer == null) {
+                    throw new IllegalStateException("No server with id " + targetServerId + " found");
+                }
 
                 log.info("Request to move shards {} to {}", shardIds, targetServer);
 

@@ -1,13 +1,14 @@
 package vk.itmo.teamgray.sharded.storage.node.service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
@@ -38,38 +39,60 @@ public class NodeNodeServiceTest {
         nodeNodeService = new NodeNodeService(nodeStorageService);
     }
 
-    //TODO Rewrite tests
-    @Disabled
     @Test
-    public void sendShardFragment_forExistentShard_shouldReturnSuccessAndSaveFragments() {
-        Map<String, String> fragments = new HashMap<>();
+    public void sendShardFragment_forStageShard_shouldReturnSuccessAndSaveFragments() {
+        // create staged shards
+        Map<Integer, ShardData> stagedShards = IntStream.range(0, shardCount)
+            .boxed()
+            .collect(Collectors.toMap(
+                it -> it,
+                it -> new ShardData()
+            ));
+        nodeStorageService.stageShards(stagedShards, shardCount);
+
+        // key for stage shards
         String key = "key6";
-
-        fragments.put(key, "bar");
-
+        String value = "bar";
         int shardId = Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount));
 
+        Map<String, String> fragments = new HashMap<>();
+        fragments.put(key, value);
         var response = toDto(rw -> nodeNodeService.sendShardFragment(shardId, fragments, rw));
 
         assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        assertEquals(shardCount, nodeStorageService.getShards().getShardMap().size());
+        // Data must be in staged shard
+        assertEquals(value, nodeStorageService.getStagedShards().getShardMap().get(shardId).getValue(key));
     }
 
-    //TODO Rewrite tests
-    @Disabled
     @Test
-    public void sendShardFragment_forNewShard_shouldReturnSuccessAndSaveFragments() {
-        Map<String, String> fragments = new HashMap<>();
-        String key = "key12";
-        fragments.put(key, "bar");
+    public void sendShards_shouldReturnSuccessAndSaveAllShards() {
+        // create staged shards
+        Map<Integer, ShardData> stagedShards = IntStream.range(0, shardCount)
+            .boxed()
+            .collect(Collectors.toMap(
+                it -> it,
+                it -> new ShardData()
+            ));
+        nodeStorageService.stageShards(stagedShards, shardCount);
 
-        int shardId = Objects.requireNonNull(ShardUtils.getShardIdForKey(key, shardCount));
+        // prepare data for multiple shards
+        Map<String, String> data1 = Map.of("keyA", "valA");
+        Map<String, String> data2 = Map.of("keyB", "valB");
+        int shardId1 = 0;
+        int shardId2 = 1;
 
-        var response = toDto(rw -> nodeNodeService.sendShardFragment(shardId, fragments, rw));
+        var sendShards = List.of(
+            new SendShardDTO(shardId1, data1),
+            new SendShardDTO(shardId2, data2)
+        );
+
+        var response = toDto(rw -> nodeNodeService.sendShards(sendShards, rw));
 
         assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        assertEquals(shardCount, nodeStorageService.getShards().getShardMap().size());
+        // data must be in the correct staged shards
+        assertEquals("valA", nodeStorageService.getStagedShards().getShardMap().get(shardId1).getValue("keyA"));
+        assertEquals("valB", nodeStorageService.getStagedShards().getShardMap().get(shardId2).getValue("keyB"));
     }
 }

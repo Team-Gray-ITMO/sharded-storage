@@ -20,8 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static vk.itmo.teamgray.sharded.storage.common.responsewriter.MapResponseWriter.Helper.toMap;
 import static vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter.Helper.toDto;
 import static vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter.Helper.voidRw;
@@ -91,10 +90,8 @@ class TopologyServiceTest {
         assertFalse(toDto(rw -> topologyService.deleteServer(1, rw)).isSuccess());
     }
 
-    // TODO Double-check test logic
-    @Disabled
     @Test
-    void testFragments() {
+    void testChangeShardActions() {
         var serverCount = 2;
 
         IntStream.range(0, serverCount)
@@ -103,43 +100,24 @@ class TopologyServiceTest {
         var shardCount = 10;
         topologyService.changeShardCount(shardCount, voidRw());
 
-        //The default shard count is 1, so 10 fragments come from 1 server to the second
-        //verify(nodeManagementClient, times(1))
-        //    .rearrangeShards(
-        //        argThat(shards -> shards.size() == shardCount / serverCount),
-        //        argThat(fragments -> fragments.size() == shardCount),
-        //        argThat(nodes -> nodes.size() == shardCount),
-        //        anyInt()
-        //    );
-//
-        ////No fragments here, this server was not populated.
-        //verify(nodeManagementClient, times(1))
-        //    .rearrangeShards(
-        //        argThat(shards -> shards.size() == shardCount / serverCount),
-        //        argThat(List::isEmpty),
-        //        argThat(List::isEmpty),
-        //        anyInt()
-        //    );
+        Map<Integer, List<Integer>> serverToShards = toMap(topologyService::fillServerToShardsInSync);
+        assertEquals(serverCount, serverToShards.size());
+        assertEquals(shardCount, serverToShards.values().stream().mapToInt(List::size).sum());
+
+        verify(nodeManagementClient, times(serverCount)).prepareRearrange(any(), any(), any(), anyInt());
+        verify(nodeManagementClient, times(serverCount)).processRearrange();
+        verify(nodeManagementClient, times(serverCount)).applyOperation(any());
 
         var newShardCount = 5;
-
         topologyService.changeShardCount(newShardCount, voidRw());
 
-        //verify(nodeManagementClient, times(1))
-        //    .rearrangeShards(
-        //        argThat(shards -> shards.size() == newShardCount / serverCount + 1),
-        //        argThat(fragments -> fragments.size() == 9),
-        //        any(),
-        //        anyInt()
-        //    );
-//
-        //verify(nodeManagementClient, times(1))
-        //    .rearrangeShards(
-        //        argThat(shards -> shards.size() == newShardCount / serverCount),
-        //        argThat(fragments -> fragments.size() == 5),
-        //        any(),
-        //        anyInt()
-        //    );
+        Map<Integer, List<Integer>> newServerToShards = toMap(topologyService::fillServerToShardsInSync);
+        assertEquals(serverCount, newServerToShards.size());
+        assertEquals(newShardCount, newServerToShards.values().stream().mapToInt(List::size).sum());
+
+        verify(nodeManagementClient, times(serverCount * 2)).prepareRearrange(any(), any(), any(), anyInt());
+        verify(nodeManagementClient, times(serverCount * 2)).processRearrange();
+        verify(nodeManagementClient, times(serverCount * 2)).applyOperation(any());
     }
 
     @Test
@@ -158,8 +136,6 @@ class TopologyServiceTest {
         assertTrue(shardToHash.isEmpty());
     }
 
-    // TODO Rewrite test
-    @Disabled
     @Test
     void redistributeShardsEvenlyHandlesUnevenShardDistribution() {
         topologyService.addServer(1, voidRw());
@@ -167,7 +143,14 @@ class TopologyServiceTest {
         topologyService.changeShardCount(7, voidRw());
 
         Map<Integer, List<Integer>> serverToShards = toMap(topologyService::fillServerToShardsInSync);
+
         assertEquals(7, serverToShards.values().stream().mapToInt(List::size).sum());
+
+        int min = serverToShards.values().stream().mapToInt(List::size).min().orElse(0);
+        int max = serverToShards.values().stream().mapToInt(List::size).max().orElse(0);
+        assertTrue(max - min <= 1, "Shard distribution is not even enough: " + serverToShards);
+
+        assertTrue(serverToShards.values().stream().allMatch(list -> !list.isEmpty()));
     }
 
     @Test
