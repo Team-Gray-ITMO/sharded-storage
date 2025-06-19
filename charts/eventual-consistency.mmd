@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant Client
+    participant OldNode
+    participant NewNode
+    Client ->> OldNode: set(key, value)
+
+    alt NodeState == PREPARING
+        note right of OldNode: write to storage (will be resharded as usual)
+        note right of OldNode: re-check NodeState
+
+    else NodeState in PROCESSING or APPLYING
+        note right of OldNode: is NewNode == OldNode?
+        alt Same Node
+            note right of OldNode: put to rollbackQueue and applyQueue
+            OldNode -->> Client: QUEUED
+        else Different Node
+            note right of OldNode: put to rollbackQueue
+            OldNode -->> Client: TRANSFER(newNodeId)
+        end
+    end
+
+
+    alt Client receives TRANSFER
+        Client ->> NewNode: set(key, value)
+        note right of NewNode: put to applyQueue
+        NewNode -->> Client: QUEUED
+    end
