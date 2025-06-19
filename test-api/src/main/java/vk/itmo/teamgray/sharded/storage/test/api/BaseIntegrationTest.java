@@ -6,7 +6,10 @@ import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,19 +37,17 @@ public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
      * Provides an instance of {@link ClientService} used for managing client interactions in integration tests.
      * Can be used to test correct flow of things, as this includes all the caching steps and client logic.
      */
-    protected ClientService clientService;
+    protected static ClientService clientService;
 
-    protected DiscoveryClient discoveryClient;
+    protected static DiscoveryClient discoveryClient;
 
-    protected ClientCachingFactory clientCachingFactory = ClientCachingFactory.getInstance();
+    protected static ClientCachingFactory clientCachingFactory = ClientCachingFactory.getInstance();
 
-    private Map<Integer, TestClient> testClientCache = new HashMap<>();
+    private static Map<Integer, TestClient> testClientCache = new HashMap<>();
 
-    @BeforeEach
-    @Override
-    public void setUp() {
-        super.setUp();
-
+    @BeforeAll
+    public static void setUpBeforeAll() {
+        orchestrationApi.purge();
         orchestrationApi.runDiscovery();
         orchestrationApi.runMaster();
 
@@ -56,19 +57,19 @@ public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
         clientCachingFactory.registerClientCreator(FailpointClient.class, FailpointGrpcClient::new);
 
         discoveryClient = clientCachingFactory.getClient(
-            getServerHost("discovery"),
-            getServerPort("discovery"),
-            DiscoveryClient.class
+                getServerHost("discovery"),
+                getServerPort("discovery"),
+                DiscoveryClient.class
         );
 
         //TODO Later register individual clients
         discoveryClient.register(getDiscoverableService());
 
         MasterClient masterClient = clientCachingFactory
-            .getClient(
-                discoveryClient.getMasterWithRetries(),
-                MasterClient.class
-            );
+                .getClient(
+                        discoveryClient.getMasterWithRetries(),
+                        MasterClient.class
+                );
 
         clientService = new ClientService(
             masterClient,
@@ -76,6 +77,12 @@ public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
             clientCachingFactory,
             fileName -> new BufferedReader(new FileReader(fileName))
         );
+    }
+
+    @BeforeEach
+    @Override
+    public void setUp() {
+        // Do nothing
     }
 
     /**
@@ -123,26 +130,29 @@ public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
     @AfterEach
     @Override
     public void tearDown() {
+        // Do nothing
+    }
+
+    @AfterAll
+    public static void tearDownAfterAll() {
         log.info("Cleaning up test data and failpoints.");
 
         var clearErrors = testClientCache.values().stream()
-            .map(TestClient::getFailpointClient)
-            .map(FailpointClient::clear)
-            .filter(it -> !it.isSuccess())
-            .toList();
+                .map(TestClient::getFailpointClient)
+                .map(FailpointClient::clear)
+                .filter(it -> !it.isSuccess())
+                .toList();
 
         if (!clearErrors.isEmpty()) {
             throw new AssertionError(
-                "Failed to clear failpoints." +
-                    clearErrors.stream()
-                        .map(StatusResponseDTO::getMessage)
-                        .collect(Collectors.joining(System.lineSeparator(), System.lineSeparator(), ""))
+                    "Failed to clear failpoints." +
+                            clearErrors.stream()
+                                    .map(StatusResponseDTO::getMessage)
+                                    .collect(Collectors.joining(System.lineSeparator(), System.lineSeparator(), ""))
             );
         }
 
         clientCachingFactory.clear();
         testClientCache.clear();
-
-        super.tearDown();
     }
 }
