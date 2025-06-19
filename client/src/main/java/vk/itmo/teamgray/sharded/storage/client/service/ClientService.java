@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.client.service;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.time.Duration;
@@ -39,16 +38,20 @@ public class ClientService {
 
     private final ClientCachingFactory clientCachingFactory;
 
+    private final FileReaderProvider fileReaderProvider;
+
     private TopologyCache topologyCache;
 
     public ClientService(
         MasterClient masterClient,
         DiscoveryClient discoveryClient,
-        ClientCachingFactory clientCachingFactory
+        ClientCachingFactory clientCachingFactory,
+        FileReaderProvider fileReaderProvider
     ) {
         this.masterClient = masterClient;
         this.discoveryClient = discoveryClient;
         this.clientCachingFactory = clientCachingFactory;
+        this.fileReaderProvider = fileReaderProvider;
 
         updateCaches();
     }
@@ -138,7 +141,7 @@ public class ClientService {
      * @return result of set operation
      */
     public StatusResponseDTO setFromFile(String filePath) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+        try (BufferedReader reader = fileReaderProvider.getReader(filePath)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
@@ -273,14 +276,5 @@ public class ClientService {
     // Getting uncached to get always transparent values.
     public Map<Integer, NodeState> getServerStates() {
         return masterClient.getServerToState();
-    }
-
-    /**
-     * Get the total shard count
-     *
-     * @return the total number of shards
-     */
-    public long getTotalShardCount() {
-        return topologyCache.getShardCount();
     }
 }

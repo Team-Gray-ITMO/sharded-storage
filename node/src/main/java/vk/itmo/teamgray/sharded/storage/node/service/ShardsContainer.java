@@ -61,18 +61,6 @@ public class ShardsContainer {
         return returnValue;
     }
 
-    public void createShard(int shardId) {
-        shardMap.put(shardId, new ShardData());
-
-        log.info("Shard {} created", shardId);
-    }
-
-    public void clearShard(int shardId) {
-        shardMap.get(shardId).clearStorage();
-
-        log.info("Shard {} cleared", shardId);
-    }
-
     public boolean containsShard(int shardId) {
         return shardMap.containsKey(shardId);
     }

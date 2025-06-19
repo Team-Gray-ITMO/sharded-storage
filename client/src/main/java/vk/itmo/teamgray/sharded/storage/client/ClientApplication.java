@@ -1,5 +1,7 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
 import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
 import vk.itmo.teamgray.sharded.storage.client.proto.MasterGrpcClient;
@@ -38,7 +40,12 @@ public class ClientApplication {
                 MasterClient.class
             );
 
-        ClientService clientService = new ClientService(masterClient, discoveryClient, clientCachingFactory);
+        ClientService clientService = new ClientService(
+            masterClient,
+            discoveryClient,
+            clientCachingFactory,
+            fileName -> new BufferedReader(new FileReader(fileName))
+        );
 
         CLI cli = new CLI(clientService);
         cli.start();

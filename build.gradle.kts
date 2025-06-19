@@ -13,6 +13,31 @@ allprojects {
     repositories {
         mavenCentral()
     }
+
+    allprojects {
+        ext {
+            set(
+                "coverageIncludes", listOf(
+                    "**/*service*/**",
+                    "**/service/**",
+                    "**/*Service*/**",
+                    "**/*Service*"
+                )
+            )
+            set(
+                "coverageExcludes", listOf(
+                    "**/*Test*",
+                    "**/config/**",
+                    "**/exception/**",
+                    "**/dto/**",
+                    "**/proto/**",
+                    "**/model/**",
+                    "**/*Application*"
+                )
+            )
+            set("coverageMinimum", "0.80".toBigDecimal())
+        }
+    }
 }
 
 subprojects {
