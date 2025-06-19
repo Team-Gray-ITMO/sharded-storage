@@ -1,16 +1,13 @@
 package vk.itmo.teamgray.sharded.storage.common.proto;
 
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.utils.MemoryUtils;
 
 public class CachedGrpcStubCreator {
-    private static final Logger log = LoggerFactory.getLogger(CachedGrpcStubCreator.class);
-
     private static final CachedGrpcStubCreator INSTANCE = new CachedGrpcStubCreator();
 
     private final Map<String, ManagedChannel> channelMap = new ConcurrentHashMap<>();
@@ -28,7 +25,10 @@ public class CachedGrpcStubCreator {
 
         ManagedChannel channel = channelMap.computeIfAbsent(
             key,
-            k -> ManagedChannelBuilder.forAddress(host, port)
+            k -> NettyChannelBuilder.forAddress(host, port)
+                .maxInboundMessageSize(4 * MemoryUtils.MEBIBYTE)
+                .flowControlWindow(65535)
+                .keepAliveWithoutCalls(true)
                 .usePlaintext()
                 .build()
         );
