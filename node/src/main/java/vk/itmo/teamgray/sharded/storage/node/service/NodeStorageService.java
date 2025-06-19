@@ -256,7 +256,7 @@ public class NodeStorageService {
                 )
         );
 
-        dto.setShardStats(
+        dto.setStagedShardStats(
             stagedShards == null
                 ? Collections.emptyMap()
                 : stagedShards.getShardMap().entrySet().stream()
@@ -358,10 +358,6 @@ public class NodeStorageService {
 
         public Action getAction() {
             return action;
-        }
-
-        public void setAction(Action action) {
-            this.action = action;
         }
 
         public List<FragmentDTO> getPreparedFragments() {

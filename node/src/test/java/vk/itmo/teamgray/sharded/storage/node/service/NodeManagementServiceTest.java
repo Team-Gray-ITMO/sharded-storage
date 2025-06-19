@@ -3,27 +3,37 @@ package vk.itmo.teamgray.sharded.storage.node.service;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType;
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.Action;
-import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
+import vk.itmo.teamgray.sharded.storage.node.client.NodeNodeClient;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 public class NodeManagementServiceTest {
     private NodeStorageService nodeStorageService;
@@ -31,7 +41,7 @@ public class NodeManagementServiceTest {
     private NodeManagementService service;
 
     private DiscoveryClient discoveryClient = mock();
-    
+
     private ClientCachingFactory clientCachingFactory = mock();
 
     @BeforeEach
@@ -226,13 +236,12 @@ public class NodeManagementServiceTest {
         assertTrue(rollbackResponse.isSuccess());
     }
 
-
     @Test
     public void testConcurrentPrepareAndRollback() throws InterruptedException {
         // Start both operations simultaneously
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch endLatch = new CountDownLatch(2);
-        
+
         AtomicBoolean prepareSuccess = new AtomicBoolean(false);
         AtomicBoolean rollbackSuccess = new AtomicBoolean(false);
 
@@ -279,17 +288,17 @@ public class NodeManagementServiceTest {
 
         prepareThread.start();
         rollbackThread.start();
-        
+
         // Start both threads simultaneously
         startLatch.countDown();
-        
+
         // Wait for both to complete
         endLatch.await(10, TimeUnit.SECONDS);
-        
+
         // At least one should succeed
-        assertTrue(prepareSuccess.get() || rollbackSuccess.get(), 
+        assertTrue(prepareSuccess.get() || rollbackSuccess.get(),
             "At least one operation should succeed");
-        
+
         prepareThread.join(1000);
         rollbackThread.join(1000);
     }
@@ -343,9 +352,9 @@ public class NodeManagementServiceTest {
         StatusResponseDTO processResponse = new StatusResponseDTO();
 
         service.prepareMove(
-            List.of(), 
+            List.of(),
             List.of(new SendShardTaskDTO(1, 99)),
-            1, 
+            1,
             (success, message) -> {
                 prepareResponse.setSuccess(success);
                 prepareResponse.setMessage(message);
@@ -356,7 +365,7 @@ public class NodeManagementServiceTest {
             processResponse.setSuccess(success);
             processResponse.setMessage(message);
         });
-            
+
         assertFalse(processResponse.isSuccess());
         assertEquals("No server with id 99 found", processResponse.getMessage());
     }
@@ -388,5 +397,56 @@ public class NodeManagementServiceTest {
         // no interactions with clientCachingFactory for sending shards
         verifyNoInteractions(clientCachingFactory);
         assertTrue(processResponse.isSuccess());
+    }
+
+    @Test
+    void processRearrangeWithExternalFragments() {
+        FragmentDTO externalFragment = new FragmentDTO(1, 2, 0L, Long.MAX_VALUE);
+        int externalNodeId = 99;
+
+        Map<Integer, Integer> serverByShard = Map.of(2, externalNodeId); // shard 2 -> node 99
+        Map<Integer, Long> shardToHash = Map.of(1, 1000L);
+
+        when(discoveryClient.getNodeMapWithRetries(argThat(it -> it.contains(99))))
+            .thenReturn(
+                Map.of(
+                    externalNodeId,
+                    new DiscoverableServiceDTO(externalNodeId, DiscoverableServiceType.NODE, "test", "test")
+                )
+            );
+
+        NodeNodeClient nodeClient = mock();
+        when(clientCachingFactory.getClient(argThat(it -> it.id() == externalNodeId), eq(NodeNodeClient.class)))
+            .thenReturn(nodeClient);
+        when(nodeClient.sendShardFragment(anyInt(), anyMap())).thenReturn(new StatusResponseDTO(true, ""));
+
+        StatusResponseDTO prepareResponse = new StatusResponseDTO();
+        service.prepareRearrange(
+            List.of(externalFragment),
+            serverByShard,
+            shardToHash,
+            2,
+            (success, message) -> {
+                prepareResponse.setSuccess(success);
+                prepareResponse.setMessage(message);
+            });
+        assertTrue(prepareResponse.isSuccess());
+
+        nodeStorageService.getShards().getShardMap().put(1, new ShardData());
+        nodeStorageService.getShards().getShardMap().get(1).addToStorage("key1", "value1");
+        nodeStorageService.getShards().getShardMap().get(1).addToStorage("key2", "value2");
+
+        StatusResponseDTO processResponse = new StatusResponseDTO();
+        service.processRearrange(
+            (success, message) -> {
+                processResponse.setSuccess(success);
+                processResponse.setMessage(message);
+            });
+
+        assertTrue(processResponse.isSuccess());
+        verify(nodeClient).sendShardFragment(
+            eq(2),
+            argThat(map -> map.size() == 2)
+        );
     }
 }

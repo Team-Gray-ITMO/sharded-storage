@@ -50,6 +50,64 @@ tasks.build {
     dependsOn(tasks.named("shadowJar"))
 }
 
+val serviceClassDirectories: ConfigurableFileCollection = files(
+    fileTree(project.layout.buildDirectory.dir("classes/java/main")).matching {
+        include(project.ext["coverageIncludes"] as List<String>)
+        exclude(project.ext["coverageExcludes"] as List<String>)
+    }
+)
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(serviceClassDirectories)
+
+    doLast {
+        val report = file("${reports.html.outputLocation.get()}/index.html")
+        println("JaCoCo report: ${report.toURI()}")
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    violationRules {
+        rule {
+            limit {
+                minimum = project.ext["coverageMinimum"] as BigDecimal
+                counter = "LINE"
+                value = "COVEREDRATIO"
+            }
+            includes = (project.ext["coverageIncludes"] as List<String>).map {
+                it.replace("**/", "*..")
+                    .replace("**", "*")
+                    .replace("/*/", ".*.")
+            }
+        }
+    }
+
+    classDirectories.setFrom(serviceClassDirectories)
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+    finalizedBy(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.jacocoTestReport {
+    mustRunAfter(tasks.test)
+}
+
+tasks.jacocoTestCoverageVerification {
+    mustRunAfter(tasks.jacocoTestReport)
+}
+
 repositories {
     mavenCentral()
 }

@@ -1,7 +1,12 @@
 package vk.itmo.teamgray.sharded.storage.client.service;
 
+import java.io.BufferedReader;
+import java.io.StringReader;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +31,8 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static vk.itmo.teamgray.sharded.storage.client.service.ClientService.RETRIES;
 
@@ -37,6 +44,8 @@ class ClientServiceTest {
     private NodeClient nodeClient2 = mock();
 
     private MasterClient masterClient = mock();
+
+    private Map<String, String> fakeFileMap = new HashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -62,7 +71,8 @@ class ClientServiceTest {
         clientService = new ClientService(
             masterClient,
             discoveryClient,
-            clientCachingFactory
+            clientCachingFactory,
+            fileName -> new BufferedReader(new StringReader(fakeFileMap.get(fileName)))
         );
     }
 
@@ -156,5 +166,96 @@ class ClientServiceTest {
             .thenReturn(new SetResponseDTO(SetStatus.SUCCESS, "Success", 0));
 
         assertTrue(clientService.setValue(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
+    }
+
+    @Test
+    void testSetFromFile() {
+        var entryCount = 10;
+
+        String fileName = "filename.txt";
+
+        fakeFileMap.put(
+            fileName,
+            IntStream.range(0, entryCount)
+                .mapToObj(i -> "testKey" + i + ",testValue" + i)
+                .collect(Collectors.joining(System.lineSeparator()))
+        );
+
+        clientService.setFromFile(fileName);
+
+        assertEquals(
+            entryCount,
+            (int)Stream.concat(
+                    mockingDetails(nodeClient1).getInvocations().stream(),
+                    mockingDetails(nodeClient2).getInvocations().stream()
+                )
+                .filter(i -> i.getMethod().getName().equals("setKey"))
+                .count()
+        );
+    }
+
+    @Test
+    void testAddServer() {
+        clientService.addServer(1, false);
+
+        verify(masterClient, times(1)).addServer(eq(1), eq(false));
+
+        // Cache updated twice, once on init, second time on add
+        verify(masterClient, times(2)).getShardToServerMap();
+        verify(masterClient, times(2)).getHashToShardMap();
+    }
+
+    @Test
+    void testDeleteServer() {
+        clientService.deleteServer(1);
+
+        verify(masterClient, times(1)).deleteServer(eq(1));
+
+        // Cache updated twice, once on init, second time on delete
+        verify(masterClient, times(2)).getShardToServerMap();
+        verify(masterClient, times(2)).getHashToShardMap();
+    }
+
+    @Test
+    void testChangeShardCount() {
+        clientService.changeShardCount(1);
+        verify(masterClient, times(1)).changeShardCount(eq(1));
+
+        // Cache updated twice, once on init, second time on chg
+        verify(masterClient, times(2)).getShardToServerMap();
+        verify(masterClient, times(2)).getHashToShardMap();
+    }
+
+    @Test
+    void testCaches() {
+        when(masterClient.getShardToServerMap()).thenReturn(Map.of(0, 1, 1, 2));
+        when(masterClient.getHashToShardMap()).thenReturn(Map.of(0L, 0, Long.MAX_VALUE, 1));
+
+        clientService.updateCaches();
+
+        assertEquals(2, clientService.getShardServerMapping().size());
+        assertEquals(2, clientService.getHashToShardMapping().size());
+    }
+
+    @Test
+    void testEmptyTopology() {
+        when(masterClient.getHashToShardMap())
+            .thenReturn(Map.of());
+
+        clientService.updateCaches();
+
+        assertThrows(IllegalStateException.class, () -> clientService.setValue("key", "value"));
+        assertThrows(IllegalStateException.class, () -> clientService.getValue("key"));
+    }
+
+    @Test
+    void testEmptyTopology2() {
+        when(masterClient.getShardToServerMap())
+            .thenReturn(Map.of());
+
+        clientService.updateCaches();
+
+        assertThrows(IllegalStateException.class, () -> clientService.setValue("key", "value"));
+        assertThrows(IllegalStateException.class, () -> clientService.getValue("key"));
     }
 }
