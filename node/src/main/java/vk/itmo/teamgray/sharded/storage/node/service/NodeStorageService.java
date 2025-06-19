@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +61,14 @@ public class NodeStorageService {
                 if (newState.getActionPhase() == ActionPhase.PREPARE) {
                     return new SetResponseDTO(SetStatus.SUCCESS, "Added entry to storage.");
                 }
+            }
+
+            if (queues == null) {
+                throw new IllegalStateException("Queues are not prepared");
+            }
+
+            if (stagedShards == null) {
+                throw new IllegalStateException("Staged shards are not prepared");
             }
 
             // If target is this node, we queue it for later.
@@ -151,10 +160,15 @@ public class NodeStorageService {
         return preparedData.getPreparedServerByShardNumber();
     }
 
-    public void prepareDataForResharding(List<FragmentDTO> fragments, Map<Integer, Integer> serverByShardNumber) {
-        this.preparedData = new PreparedData();
-
-        preparedData.setAction(Action.REARRANGE_SHARDS);
+    public void prepareDataForResharding(
+        List<FragmentDTO> fragments,
+        Map<Integer, Integer> serverByShardNumber,
+        ConcurrentHashMap<Integer, ShardData> stagedShards,
+        int fullShardCount
+    ) {
+        if (preparedData == null) {
+            this.preparedData = new PreparedData(Action.REARRANGE_SHARDS);
+        }
 
         // Sorting for future searches.
         preparedData.setPreparedFragments(
@@ -162,13 +176,18 @@ public class NodeStorageService {
                 .sorted(Comparator.comparing(FragmentDTO::rangeTo))
                 .toList()
         );
+
         preparedData.setPreparedServerByShardNumber(serverByShardNumber);
+
+        stageShards(stagedShards, fullShardCount);
     }
 
-    public void prepareDataForMoving(List<SendShardTaskDTO> sendShards) {
-        this.preparedData = new PreparedData();
-
-        preparedData.setAction(Action.MOVE_SHARDS);
+    public void prepareDataForMoving(
+        List<SendShardTaskDTO> sendShards,
+        ConcurrentHashMap<Integer, ShardData> stagedShards,
+        int fullShardCount
+    ) {
+        this.preparedData = new PreparedData(Action.MOVE_SHARDS);
 
         preparedData.setPreparedServerByShardNumber(
             sendShards.stream()
@@ -177,12 +196,16 @@ public class NodeStorageService {
                     SendShardTaskDTO::targetServer
                 ))
         );
+
+        stageShards(stagedShards, fullShardCount);
     }
 
     public void changeState(NodeState expectedState, NodeState newState) {
         if (!state.compareAndSet(expectedState, newState)) {
             throw new NodeException("Could not change node state " + expectedState + "->" + newState + ". Actual state was " + state.get());
         }
+
+        initNewState(newState);
     }
 
     public void changeState(List<NodeState> expectedStates, NodeState newState) {
@@ -203,6 +226,18 @@ public class NodeStorageService {
         if (!success) {
             throw new NodeException(
                 "Could not change node state " + expectedStates + "->" + newState + ". Actual state was " + state.get());
+        }
+
+        initNewState(newState);
+    }
+
+    private void initNewState(NodeState newState) {
+        if (newState.getActionPhase() == ActionPhase.PREPARE) {
+            if (!newState.getPhaseFinalized()) {
+                //Empty defaults to be later updated
+                this.queues = new Queues();
+                this.preparedData = new PreparedData(newState.getAction());
+            }
         }
     }
 
@@ -260,7 +295,7 @@ public class NodeStorageService {
                     preparedShard = fragment.newShardId();
                 }
             }
-        } else if (action != Action.MOVE_SHARDS) {
+        } else if (action == Action.MOVE_SHARDS) {
             preparedShard = ShardUtils.getShardIdForKey(key, shards.getFullShardCount());
         }
 
@@ -314,6 +349,12 @@ public class NodeStorageService {
         private List<FragmentDTO> preparedFragments;
 
         private Map<Integer, Integer> preparedServerByShardNumber;
+
+        public PreparedData(Action action) {
+            this.action = action;
+            this.preparedFragments = Collections.emptyList();
+            this.preparedServerByShardNumber = Collections.emptyMap();
+        }
 
         public Action getAction() {
             return action;

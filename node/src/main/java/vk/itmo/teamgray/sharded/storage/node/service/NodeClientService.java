@@ -2,8 +2,11 @@ package vk.itmo.teamgray.sharded.storage.node.service;
 
 import java.text.MessageFormat;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import vk.itmo.teamgray.sharded.storage.common.dto.GetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.NodeStatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.enums.GetStatus;
@@ -59,5 +62,15 @@ public class NodeClientService {
     @FunctionalInterface
     public interface GetResponseWriter {
         void writeResponse(GetStatus status, String value);
+
+        static GetResponseDTO toDto(Consumer<GetResponseWriter> rwConsumer) {
+            var ref = new AtomicReference<GetResponseDTO>();
+
+            rwConsumer.accept(
+                (status, message) -> ref.set(new GetResponseDTO(status, message))
+            );
+
+            return ref.get();
+        }
     }
 }
