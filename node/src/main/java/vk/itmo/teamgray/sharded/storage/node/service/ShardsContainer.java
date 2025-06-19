@@ -86,7 +86,13 @@ public class ShardsContainer {
     }
 
     public boolean hasShardForKey(String key) {
-        return shardMap.containsKey(ShardUtils.getShardIdForKey(key, fullShardCount));
+        var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
+
+        if (shardId == null) {
+            throw new NodeException("No shard found for key: " + key);
+        }
+
+        return shardMap.containsKey(shardId);
     }
 
     private Integer getAndValidateShardId(String key, boolean checkShardExists) {
