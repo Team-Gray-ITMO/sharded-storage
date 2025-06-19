@@ -74,8 +74,6 @@ public class NodeManagementService {
 
             nodeStorageService.changeState(NodeState.RUNNING, REARRANGE_SHARDS_PREPARING);
 
-            nodeStorageService.prepareDataForResharding(fragments, serverByShardNumber);
-
             ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
 
             shardToHash.entrySet().stream()
@@ -84,7 +82,7 @@ public class NodeManagementService {
                     stagedShards.put(shard.getKey(), new ShardData())
                 );
 
-            nodeStorageService.stageShards(stagedShards, fullShardCount);
+            nodeStorageService.prepareDataForResharding(fragments, serverByShardNumber, stagedShards, fullShardCount);
 
             if (failActionOnRollback()) {
                 responseWriter.writeResponse(false, "Rolled back.");
@@ -216,8 +214,6 @@ public class NodeManagementService {
 
             nodeStorageService.changeState(NodeState.RUNNING, MOVE_SHARDS_PREPARING);
 
-            nodeStorageService.prepareDataForMoving(sendShards);
-
             ConcurrentHashMap<Integer, ShardData> stagedShards = new ConcurrentHashMap<>();
 
             Set<Integer> removeShardIdsSet = new HashSet<>(receiveShardIds);
@@ -231,7 +227,7 @@ public class NodeManagementService {
             // Add missing shards to get data
             receiveShardIds.forEach(newShardId -> stagedShards.put(newShardId, new ShardData()));
 
-            nodeStorageService.stageShards(stagedShards, fullShardCount);
+            nodeStorageService.prepareDataForMoving(sendShards, stagedShards, fullShardCount);
 
             if (failActionOnRollback()) {
                 responseWriter.writeResponse(false, "Rolled back.");
