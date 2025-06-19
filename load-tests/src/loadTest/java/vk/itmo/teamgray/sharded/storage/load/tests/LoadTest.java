@@ -1,18 +1,16 @@
-package vk.itmo.teamgray.sharded.storage.integration.tests;
+package vk.itmo.teamgray.sharded.storage.load.tests;
 
 import org.junit.jupiter.api.Test;
 import vk.itmo.teamgray.sharded.storage.test.api.BaseIntegrationTest;
 
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class SimpleOrchestrationTest extends BaseIntegrationTest {
+public class LoadTest extends BaseIntegrationTest {
     @Test
     public void test_ChangeShardCnt_10000() {
         orchestrationApi.runDiscovery();
