@@ -73,7 +73,10 @@ public class NodeStorageService {
 
             // If target is this node, we queue it for later.
             if (stagedShards.hasShardForKey(key)) {
-                queues.add(ActionPhase.APPLY, new QueueEntry(timestamp, key, value));
+                var entry = new QueueEntry(timestamp, key, value);
+
+                queues.add(ActionPhase.APPLY, entry);
+                queues.add(ActionPhase.ROLLBACK, entry);
 
                 return new SetResponseDTO(SetStatus.QUEUED, "Entry queued and will be applied later.");
             } else {
