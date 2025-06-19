@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Scanner;
 import vk.itmo.teamgray.sharded.storage.client.service.ClientService;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.ShardStatsDTO;
 import vk.itmo.teamgray.sharded.storage.common.proto.CachedGrpcStubCreator;
 
 public class CLI {
@@ -35,6 +36,7 @@ public class CLI {
                 case "topology" -> handleGetTopology();
                 case "heartbeat" -> handleHeartbeat();
                 case "serverstates" -> handleServerStates();
+                case "serverstate" -> handleServerState();
                 case "refreshcaches" -> handleRefreshCaches();
                 case "exit" -> running = false;
                 default -> println("Unknown command. Type 'help' for available commands.");
@@ -64,6 +66,7 @@ public class CLI {
         println("  topology       - Show current topology");
         println("  heartbeat      - Send heartbeat to master");
         println("  serverstates   - Get current states of all servers");
+        println("  serverstate    - Get state of a server");
         println("  refreshcaches  - Manually refresh caches");
         println("  exit           - Exit the program");
     }
@@ -200,6 +203,47 @@ public class CLI {
 
         } catch (Exception e) {
             errPrintln("Error getting server states: " + e.getMessage());
+        }
+    }
+
+    private void handleServerState() {
+        print("Enter server ID: ");
+        Integer id = parseIntSafely(scanner.nextLine().trim());
+
+        if (id == null) {
+            return;
+        }
+
+        try {
+            var dto = clientService.getServerState(id);
+            println(System.lineSeparator() + "Server Status");
+            println("State: " + dto.getState());
+
+            println(System.lineSeparator() + "Shard Statistics:");
+            if (dto.getShardStats() != null && !dto.getShardStats().isEmpty()) {
+                for (Map.Entry<Integer, ShardStatsDTO> entry : dto.getShardStats().entrySet()) {
+                    println("  Shard " + entry.getKey() + ":");
+                    println("    - Size: " + entry.getValue().getSize());
+                }
+            } else {
+                println("  No shard statistics available");
+            }
+
+            println(System.lineSeparator() + "Staged Shard Statistics:");
+            if (dto.getStagedShardStats() != null && !dto.getStagedShardStats().isEmpty()) {
+                for (Map.Entry<Integer, ShardStatsDTO> entry : dto.getStagedShardStats().entrySet()) {
+                    println("  Shard " + entry.getKey() + ":");
+                    println("    - Size: " + entry.getValue().getSize());
+                }
+            } else {
+                println("  No staged shard statistics available");
+            }
+
+            println(System.lineSeparator() + "Queue Sizes:");
+            println("  Apply Queue: " + dto.getApplyQueueSize() + " operations");
+            println("  Rollback Queue: " + dto.getRollbackQueueSize() + " operations");
+        } catch (Exception e) {
+            errPrintln("Error fetching server state: " + e.getMessage());
         }
     }
 

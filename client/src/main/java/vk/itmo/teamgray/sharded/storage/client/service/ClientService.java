@@ -18,6 +18,7 @@ import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.GetResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.NodeStatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SetResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
@@ -59,7 +60,7 @@ public class ClientService {
      * @return value by key
      */
     public String getValue(String key) {
-        NodeClient nodeClient = getNodeClient(key);
+        NodeClient nodeClient = getNodeClientByKey(key);
 
         for (int i = 0; i < RETRIES; i++) {
             GetResponseDTO result = nodeClient.getKey(key);
@@ -71,7 +72,7 @@ public class ClientService {
 
                     updateCaches();
 
-                    nodeClient = getNodeClient(key);
+                    nodeClient = getNodeClientByKey(key);
                 }
                 case SUCCESS -> {
                     return result.value();
@@ -89,7 +90,7 @@ public class ClientService {
      * @return Returns success of operation
      */
     public boolean setValue(String key, String value) {
-        NodeClient nodeClient = getNodeClient(key);
+        NodeClient nodeClient = getNodeClientByKey(key);
 
         for (int i = 0; i < RETRIES; i++) {
             Instant timestamp = Instant.now();
@@ -147,7 +148,7 @@ public class ClientService {
                 String value = parts[1].trim();
 
                 try {
-                    var nodeClient = getNodeClient(key);
+                    var nodeClient = getNodeClientByKey(key);
 
                     //TODO Think about applying retry logic here also somehow.
                     nodeClient.setKey(key, value, Instant.now());
@@ -206,7 +207,7 @@ public class ClientService {
         return masterClient.getPort();
     }
 
-    private NodeClient getNodeClient(String key) {
+    private NodeClient getNodeClientByKey(String key) {
         if (topologyCache == null || topologyCache.getLastUpdate().isBefore(Instant.now().minus(CACHE_EXPIRATION))) {
             updateCaches();
         }
@@ -282,5 +283,21 @@ public class ClientService {
      */
     public long getTotalShardCount() {
         return topologyCache.getShardCount();
+    }
+
+    //TODO Optimize
+    public NodeStatusResponseDTO getServerState(int  serverId) {
+        var server = getShardServerMapping().values().stream()
+            .filter(it -> it.id() == serverId)
+            .findFirst()
+            .orElseThrow(() -> new ClientException("No server found for id: " + serverId));
+
+        var client = clientCachingFactory
+            .getClient(
+                server,
+                NodeClient.class
+            );
+
+        return client.getNodeStatus();
     }
 }
