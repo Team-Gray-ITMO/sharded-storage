@@ -50,7 +50,7 @@ public class ShardChangeFailureTest extends BaseIntegrationTest {
 
         // Set 2 shards
         var shardResult = clientService.changeShardCount(2);
-        assertTrue(shardResult.isSuccess(), "Failed to set initial entries count: " + shardResult.getMessage());
+        assertTrue(shardResult.isSuccess(), "Failed to set initial shard count: " + shardResult.getMessage());
 
         // 2. Add test data
         String key1 = "failure_test_key_1";
@@ -76,7 +76,7 @@ public class ShardChangeFailureTest extends BaseIntegrationTest {
         var failpointClient = testClient.getFailpointClient();
         failpointClient.addFailpoint(NodeStorageService.class, "swapWithStaged", NodeException.class);
 
-        // 5. Start entries change in separate thread
+        // 5. Start shard change in separate thread
         try (var executor = Executors.newFixedThreadPool(1)) {
             CompletableFuture<Boolean> shardChangeFuture = CompletableFuture.supplyAsync(() -> {
                 try {
@@ -104,11 +104,11 @@ public class ShardChangeFailureTest extends BaseIntegrationTest {
         // TODO: fail here
         /*
         
-        // 9. Check that we can successfully change entries count after failure
+        // 9. Check that we can successfully change shard count after failure
         shardResult = clientService.changeShardCount(3);
         assertTrue(shardResult.isSuccess());
         
-        // 10. Check that data is available after successful entries change
+        // 10. Check that data is available after successful shard change
         getResult1 = clientService.getValue(key1);
         assertEquals(value1, getResult1);
         

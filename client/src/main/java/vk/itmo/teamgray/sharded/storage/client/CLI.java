@@ -142,7 +142,7 @@ public class CLI {
     }
 
     private void handleChangeShardCount() {
-        print("Enter new entries count: ");
+        print("Enter new shard count: ");
         Integer newCount = parseIntSafely(scanner.nextLine().trim());
 
         if (newCount == null) {
@@ -154,7 +154,7 @@ public class CLI {
             println(response.getMessage());
             println(response.isSuccess() ? "Success" : "Failed");
         } catch (Exception e) {
-            errPrintln("Error changing entries count: " + e.getMessage());
+            errPrintln("Error changing shard count: " + e.getMessage());
         }
     }
 

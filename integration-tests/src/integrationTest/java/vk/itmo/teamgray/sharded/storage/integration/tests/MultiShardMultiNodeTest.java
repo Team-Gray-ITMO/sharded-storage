@@ -40,7 +40,7 @@ public class MultiShardMultiNodeTest extends BaseIntegrationTest {
 
         // 2. Change shards count to 1
         var shardResult = clientService.changeShardCount(1);
-        assertTrue(shardResult.isSuccess(), "Failed to add entries: " + shardResult.getMessage());
+        assertTrue(shardResult.isSuccess(), "Failed to add shard: " + shardResult.getMessage());
 
         // 3. Create second server
         int serverId2 = 2;
@@ -55,7 +55,7 @@ public class MultiShardMultiNodeTest extends BaseIntegrationTest {
 
         // 4. Change shards count to 2
         shardResult = clientService.changeShardCount(2);
-        assertTrue(shardResult.isSuccess(), "Failed to increase entries count: " + shardResult.getMessage());
+        assertTrue(shardResult.isSuccess(), "Failed to increase shard count: " + shardResult.getMessage());
 
         // 5. Create third server
         int serverId3 = 3;
@@ -70,7 +70,7 @@ public class MultiShardMultiNodeTest extends BaseIntegrationTest {
 
         // 6. Change shards count to 3
         shardResult = clientService.changeShardCount(3);
-        assertTrue(shardResult.isSuccess(), "Failed to increase entries count to 3: " + shardResult.getMessage());
+        assertTrue(shardResult.isSuccess(), "Failed to increase shard count to 3: " + shardResult.getMessage());
 
         // 7. Test set/get
         String key1 = "test_key_1";
@@ -110,7 +110,7 @@ public class MultiShardMultiNodeTest extends BaseIntegrationTest {
 
         // 9. Change shards count to 4
         shardResult = clientService.changeShardCount(4);
-        assertTrue(shardResult.isSuccess(), "Failed to increase entries count to 4: " + shardResult.getMessage());
+        assertTrue(shardResult.isSuccess(), "Failed to increase shard count to 4: " + shardResult.getMessage());
 
         // 10. Add new data
         String key4 = "test_key_4";

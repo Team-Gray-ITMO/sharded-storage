@@ -63,7 +63,7 @@ public class NodeNodeServiceTest {
 
         assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        // Data must be in staged entries
+        // Data must be in staged shard
         assertEquals(value, nodeStorageService.getStagedShards().getShardMap().get(shardId).getValue(key));
     }
 

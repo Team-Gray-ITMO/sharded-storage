@@ -115,11 +115,11 @@ public class NodeStorageService {
     }
 
     public void swapWithStaged() {
-        log.info("Replacing entries scheme {}", stagedShards);
+        log.info("Replacing shard scheme {}", stagedShards);
 
         shards = stagedShards;
 
-        log.info("Replaced entries scheme.");
+        log.info("Replaced shard scheme.");
     }
 
     public void processQueue(ActionPhase phase) {
@@ -157,7 +157,7 @@ public class NodeStorageService {
 
     public Map<Integer, Integer> getPreparedServerByShardNumber(Action action) {
         if (preparedData == null || preparedData.getAction() != action) {
-            throw new IllegalStateException("Server and entries data was not prepared");
+            throw new IllegalStateException("Server and shard data was not prepared");
         }
 
         return preparedData.getPreparedServerByShardNumber();

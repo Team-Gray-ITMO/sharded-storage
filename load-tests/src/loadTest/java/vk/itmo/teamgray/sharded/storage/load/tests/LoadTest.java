@@ -1,11 +1,12 @@
 package vk.itmo.teamgray.sharded.storage.load.tests;
 
+import org.junit.jupiter.api.Test;
+import vk.itmo.teamgray.sharded.storage.test.api.BaseIntegrationTest;
+
 import java.text.MessageFormat;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import org.junit.jupiter.api.Test;
-import vk.itmo.teamgray.sharded.storage.test.api.BaseIntegrationTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -19,7 +20,7 @@ public class LoadTest extends BaseIntegrationTest {
         orchestrationApi.runNode(2);
         orchestrationApi.runNode(3);
 
-        // Change entries count multiple times
+        // Change shard count multiple times
         Random random = new Random();
         for (int i = 0; i < 10_000; i++) {
             int newCount = random.nextInt(3, 100);
@@ -47,7 +48,7 @@ public class LoadTest extends BaseIntegrationTest {
         orchestrationApi.runNode(2);
         orchestrationApi.runNode(3);
 
-        // Change entries count multiple times
+        // Change shard count multiple times
         clientService.changeShardCount(24);
         for (int i = 0; i < 100_000; i++) {
             clientService.setValue(MessageFormat.format("key{0,number,#}", i), MessageFormat.format("value{0,number,#}", i));
@@ -73,7 +74,7 @@ public class LoadTest extends BaseIntegrationTest {
         orchestrationApi.runNode(2);
         orchestrationApi.runNode(3);
 
-        // Change entries count multiple times
+        // Change shard count multiple times
         clientService.changeShardCount(24);
         var setFuture = CompletableFuture.runAsync(() -> {
             for (int i = 0; i < 100_000; i++) {

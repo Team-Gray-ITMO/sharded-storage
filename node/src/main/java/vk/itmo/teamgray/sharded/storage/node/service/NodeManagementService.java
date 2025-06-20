@@ -165,7 +165,7 @@ public class NodeManagementService {
 
                             if (!moveResponse.isSuccess()) {
                                 throw new IllegalStateException(
-                                    "Failed to move entries fragment: "
+                                    "Failed to move shard fragment: "
                                         + System.lineSeparator()
                                         + node.getIdForLogging() + ": "
                                         + moveResponse.getMessage()
@@ -181,7 +181,7 @@ public class NodeManagementService {
                             Map<String, String> fragmentStorage = existingShards.get(oldShardId).getStorage();
 
                             log.debug(
-                                "Moving fragment [{}]-[{}] from entries {} to entries {}",
+                                "Moving fragment [{}]-[{}] from shard {} to shard {}",
                                 fragment.rangeFrom(),
                                 fragment.rangeTo(),
                                 oldShardId,
@@ -297,7 +297,7 @@ public class NodeManagementService {
 
                         if (!sendResponse.isSuccess()) {
                             throw new IllegalStateException(
-                                "Failed to move entries: "
+                                "Failed to move shard: "
                                     + System.lineSeparator()
                                     + targetServer.getIdForLogging() + ": "
                                     + sendResponse.getMessage()

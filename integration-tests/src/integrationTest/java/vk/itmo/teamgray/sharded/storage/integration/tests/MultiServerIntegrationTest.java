@@ -51,7 +51,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertTrue(clientService.addServer(i, false).isSuccess());
             addedServers.add(i);
         }
-        // Set initial entries count
+        // Set initial shard count
         assertTrue(clientService.changeShardCount(addedServers.size()).isSuccess());
         shardsCount = addedServers.size();
     }
@@ -80,7 +80,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
     @Test
     @Order(2)
     public void testChangeShardCountAndCheckData() {
-        // Change entries count to 2
+        // Change shard count to 2
         int newShardsCount = 2;
         assertTrue(clientService.changeShardCount(newShardsCount).isSuccess());
         shardsCount = newShardsCount;
@@ -93,7 +93,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
         // Shards-to-server map is actual by size
         assertEquals(shardsCount, shardServerMap.size());
 
-        // Every entries inside different server because shards count < server count
+        // Every shard inside different server because shards count < server count
         assertEquals(
             (long)shardServerMap.values().size(),
             new HashSet<>(shardServerMap.values()).size()
@@ -134,11 +134,11 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertEquals(value, clientService.getValue(key));
         });
 
-        // Verify entries distribution
+        // Verify shard distribution
         Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
-        // Every entries inside different server because shards count < server count
+        // Every shard inside different server because shards count < server count
         assertEquals(
             (long)shardServerMap.values().size(),
             new HashSet<>(shardServerMap.values()).size()
@@ -165,7 +165,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertEquals(value, clientService.getValue(key));
         });
 
-        // Verify entries distribution
+        // Verify shard distribution
         Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
@@ -191,7 +191,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
         assertTrue(clientService.setValue(migKey, migValue));
         storage.put(migKey, migValue);
 
-        // Change entries count
+        // Change shard count
         int newShardsCount = 3;
         assertTrue(clientService.changeShardCount(newShardsCount).isSuccess());
         shardsCount = newShardsCount;
@@ -201,11 +201,11 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertEquals(value, clientService.getValue(key));
         });
 
-        // Verify entries distribution
+        // Verify shard distribution
         Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
-        // Every entries inside different server because shards count = server count = 3
+        // Every shard inside different server because shards count = server count = 3
         assertEquals(
             (long)shardServerMap.values().size(),
             new HashSet<>(shardServerMap.values()).size()
@@ -240,11 +240,11 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertEquals(parValue1, g1.get());
             assertEquals(parValue2, g2.get());
 
-            // Verify entries distribution
+            // Verify shard distribution
             Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
             assertEquals(shardsCount, shardServerMap.size());
 
-            // Every entries inside different server because shards count = server count = 3
+            // Every shard inside different server because shards count = server count = 3
             assertEquals(
                 (long)shardServerMap.values().size(),
                 new HashSet<>(shardServerMap.values()).size()
@@ -267,7 +267,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
         Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
-        // Every entries inside different server because shards count = server count = 3
+        // Every shard inside different server because shards count = server count = 3
         assertEquals(
             (long)shardServerMap.values().size(),
             new HashSet<>(shardServerMap.values()).size()
@@ -296,7 +296,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertTrue(shardServerMap.values().stream().anyMatch(s -> s.id() == ad));
         });
 
-        // Every entries inside different server because shards count = server count = 3
+        // Every shard inside different server because shards count = server count = 3
         assertEquals(
             (long)shardServerMap.values().size(),
             new HashSet<>(shardServerMap.values()).size()
@@ -320,7 +320,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
         var shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
-        // Every entries inside different server because shards count = server count = 3
+        // Every shard inside different server because shards count = server count = 3
         assertEquals(
             (long)shardServerMap.values().size(),
             new HashSet<>(shardServerMap.values()).size()
@@ -364,7 +364,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertEquals(value, clientService.getValue(key));
         });
 
-        // Verify entries distribution
+        // Verify shard distribution
         Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
@@ -392,7 +392,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
             assertEquals(value, clientService.getValue(key));
         });
 
-        // Verify entries distribution
+        // Verify shard distribution
         Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
         assertEquals(shardsCount, shardServerMap.size());
 
@@ -439,7 +439,7 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
         assertTrue(clientService.setValue(firstKey, firstValue));
         storage.put(firstKey, firstValue);
 
-        // Test multiple entries count changes
+        // Test multiple shard count changes
         List<Integer> shardCounts = List.of(2, 1, 2);
         for (int count : shardCounts) {
             assertTrue(clientService.changeShardCount(count).isSuccess());
@@ -450,11 +450,11 @@ public class MultiServerIntegrationTest extends BaseIntegrationTest {
                 assertEquals(value, clientService.getValue(key));
             });
 
-            // Verify entries distribution
+            // Verify shard distribution
             Map<Integer, DiscoverableServiceDTO> shardServerMap = clientService.getShardServerMapping();
             assertEquals(shardsCount, shardServerMap.size());
 
-            // Every entries inside different server because shards count = server count = 2
+            // Every shard inside different server because shards count = server count = 2
             assertEquals(
                 (long)shardServerMap.values().size(),
                 new HashSet<>(shardServerMap.values()).size()

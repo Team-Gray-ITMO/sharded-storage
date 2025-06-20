@@ -50,7 +50,7 @@ public class ShardChangeAvailabilityTest extends BaseIntegrationTest {
 
         // Set two shards
         var shardResult = clientService.changeShardCount(2);
-        assertTrue(shardResult.isSuccess(), "Failed to set initial entries count: " + shardResult.getMessage());
+        assertTrue(shardResult.isSuccess(), "Failed to set initial shard count: " + shardResult.getMessage());
 
         // 2. Add initial data
         String key1 = "initial_key_1";
@@ -78,7 +78,7 @@ public class ShardChangeAvailabilityTest extends BaseIntegrationTest {
         // Freeze stageShards for 10 seconds to have time to test operations
         failpointClient.freezeFor(NodeStorageService.class, "stageShards", Duration.of(10, ChronoUnit.SECONDS));
 
-        // 5. Start entries count change in separate thread
+        // 5. Start shard count change in separate thread
         try (var executor = Executors.newFixedThreadPool(1)) {
             CompletableFuture<Boolean> shardChangeFuture = CompletableFuture.supplyAsync(() -> {
                 try {
@@ -96,7 +96,7 @@ public class ShardChangeAvailabilityTest extends BaseIntegrationTest {
             var nodeStatus = testClient.getNodeClient().getNodeStatus();
             assertEquals(NodeState.REARRANGE_SHARDS_PREPARING, nodeStatus.getState());
 
-            // 8. Perform get/set operations during entries change freeze
+            // 8. Perform get/set operations during shard change freeze
             String key3 = "during_freeze_key_1";
             String value3 = "during_freeze_value_1";
             String key4 = "during_freeze_key_2";
@@ -134,11 +134,11 @@ public class ShardChangeAvailabilityTest extends BaseIntegrationTest {
             // Check that state is frozen
             assertEquals(NodeState.REARRANGE_SHARDS_PREPARING, nodeStatus.getState());
 
-            // 9. Wait for entries change completion
+            // 9. Wait for shard change completion
             boolean shardChangeSuccess = shardChangeFuture.get(30, TimeUnit.SECONDS);
             assertTrue(shardChangeSuccess, "Shard change operation failed");
 
-            // 10. Check that all data is available after entries change
+            // 10. Check that all data is available after shard change
             getResult1 = clientService.getValue(key1);
             assertEquals(value1, getResult1);
 
@@ -154,7 +154,7 @@ public class ShardChangeAvailabilityTest extends BaseIntegrationTest {
             getResult5 = clientService.getValue(key5);
             assertEquals(value5, getResult5);
 
-            // 11. Add new data after entries change
+            // 11. Add new data after shard change
             String key6 = "after_change_key_1";
             String value6 = "after_change_value_1";
             String key7 = "after_change_key_2";

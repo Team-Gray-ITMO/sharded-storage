@@ -27,7 +27,7 @@ public class NodeNodeService {
         List<SendShardDTO> sendShardEntries,
         StatusResponseWriter responseWriter
     ) {
-        log.debug("Received entries entries for action {}: {}. Processing", action, sendShardEntries);
+        log.debug("Received shard entries for action {}: {}. Processing", action, sendShardEntries);
 
         List<String> errorMessages = sendShardEntries.stream()
             .map(sendShard -> {
@@ -38,7 +38,7 @@ public class NodeNodeService {
                     var stagedShards = nodeStorageService.getStagedShards();
 
                     if (!stagedShards.containsShard(shardId)) {
-                        throw new NodeException("Staged entries " + shardId + " does not exist");
+                        throw new NodeException("Staged shard " + shardId + " does not exist");
                     }
 
                     shard

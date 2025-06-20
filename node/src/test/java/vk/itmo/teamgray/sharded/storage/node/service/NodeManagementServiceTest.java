@@ -386,7 +386,7 @@ public class NodeManagementServiceTest {
         StatusResponseDTO prepareResponse = new StatusResponseDTO();
         StatusResponseDTO processResponse = new StatusResponseDTO();
 
-        // entries 99 not in nodeStorageService, so does not exist
+        // shard 99 not in nodeStorageService, so does not exist
         service.prepareMove(
             List.of(),
             List.of(new SendShardTaskDTO(99, 1)),
@@ -414,7 +414,7 @@ public class NodeManagementServiceTest {
         FragmentDTO externalFragment = new FragmentDTO(1, 2, 0L, Long.MAX_VALUE);
         int externalNodeId = 99;
 
-        Map<Integer, Integer> serverByShard = Map.of(2, externalNodeId); // entries 2 -> node 99
+        Map<Integer, Integer> serverByShard = Map.of(2, externalNodeId); // shard 2 -> node 99
         Map<Integer, Long> shardToHash = Map.of(1, 1000L);
 
         when(discoveryClient.getNodeMapWithRetries(argThat(it -> it.contains(99))))

@@ -13,7 +13,7 @@ public class ShardUtils {
         }
 
         if (shardsCount == 1) {
-            //Shard calculation does not work well for 1 entries. Returning first (0) entries
+            //Shard calculation does not work well for 1 shard. Returning first (0) shard
             return 0;
         }
 
@@ -28,11 +28,11 @@ public class ShardUtils {
         }
 
         if (shardCount == 1) {
-            //Shard calculation does not work well for 1 entries. Returning first (0) entries
+            //Shard calculation does not work well for 1 shard. Returning first (0) shard
             return 0;
         }
 
-        log.debug("Finding entries for hash: {}", hash);
+        log.debug("Finding shard for hash: {}", hash);
 
         BigInteger range = BigInteger
             .valueOf(Long.MAX_VALUE)
@@ -58,14 +58,14 @@ public class ShardUtils {
             previousBoundary = hashBoundary;
         }
 
-        //Due to truncation on division, loop on top may not reach the end, so we are putting last entries here also.
+        //Due to truncation on division, loop on top may not reach the end, so we are putting last shard here also.
         return shardCount - 1;
 
         //TODO Dividing is not working properly, find more efficient approach than checking one-by-one later
         //long shardId = hash / step;
 
         //if (shardId < 0 || shardId > shardCount) {
-        //    throw new NodeException("Invalid entries id: " + shardId);
+        //    throw new NodeException("Invalid shard id: " + shardId);
         //}
 
         //return (int) shardId;
