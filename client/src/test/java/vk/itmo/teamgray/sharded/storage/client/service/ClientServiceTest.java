@@ -140,7 +140,7 @@ class ClientServiceTest {
     void testGetValueEventuallySuccessful() {
         clientService.updateCaches();
 
-        //Flip shard map, but old one is already cached
+        //Flip entries map, but old one is already cached
         when(masterClient.getShardToServerMap())
             .thenReturn(Map.of(0, 2, 1, 1));
 

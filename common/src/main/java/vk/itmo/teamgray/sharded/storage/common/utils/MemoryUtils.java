@@ -9,7 +9,11 @@ public class MemoryUtils {
 
     public static final int GIBIBYTE = MEBIBYTE << 10;         // 1024^4
 
-    public static long parseMemSize(String sizeStr) {
+    public static Long parseMemSize(String sizeStr) {
+        if (sizeStr == null || sizeStr.isBlank()) {
+            return null;
+        }
+
         String s = sizeStr.trim().toLowerCase(Locale.ROOT);
         long multiplier = 1;
 
@@ -24,7 +28,11 @@ public class MemoryUtils {
             s = s.substring(0, s.length() - 1);
         }
 
-        return Long.parseLong(s) * multiplier;
+        try {
+            return Long.parseLong(s) * multiplier;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public static int utf8Size(String s) {
@@ -37,7 +45,7 @@ public class MemoryUtils {
                 count += 1;
             } else if (c <= 0x7FF) {
                 count += 2;
-            } else if (Character.isHighSurrogate((char) c)) {
+            } else if (Character.isHighSurrogate((char)c)) {
                 count += 4;
                 i++;
             } else {

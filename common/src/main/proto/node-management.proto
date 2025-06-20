@@ -16,13 +16,12 @@ message PrepareRearrangeRequest {
 
 service NodeManagementService {
   rpc PrepareRearrange (PrepareRearrangeRequest) returns (StatusResponse);
-  rpc ProcessRearrange (Empty) returns (StatusResponse);
 
   rpc PrepareMove (PrepareMoveRequest) returns (StatusResponse);
-  rpc ProcessMove (Empty) returns (StatusResponse);
 
-  rpc ApplyOperation (ActionRequest) returns (StatusResponse);
-  rpc RollbackOperation (ActionRequest) returns (StatusResponse);
+  rpc ProcessAction (ActionRequest) returns (StatusResponse);
+  rpc ApplyAction (ActionRequest) returns (StatusResponse);
+  rpc RollbackAction (ActionRequest) returns (StatusResponse);
 }
 
 message PrepareMoveRequest {

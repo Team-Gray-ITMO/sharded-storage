@@ -49,6 +49,7 @@ tasks.build {
     dependsOn(tasks.named("shadowJar"))
 }
 
+@Suppress("UNCHECKED_CAST")
 val serviceClassDirectories: ConfigurableFileCollection = files(
     fileTree(project.layout.buildDirectory.dir("classes/java/main")).matching {
         include(project.ext["coverageIncludes"] as List<String>)
@@ -73,6 +74,7 @@ tasks.jacocoTestReport {
     }
 }
 
+@Suppress("UNCHECKED_CAST")
 tasks.jacocoTestCoverageVerification {
     dependsOn(tasks.jacocoTestReport)
 

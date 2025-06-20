@@ -9,6 +9,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
+import vk.itmo.teamgray.sharded.storage.common.node.Action;
 import vk.itmo.teamgray.sharded.storage.common.utils.ShardUtils;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
@@ -57,11 +58,12 @@ public class NodeNodeServiceTest {
 
         Map<String, String> fragments = new HashMap<>();
         fragments.put(key, value);
-        var response = toDto(rw -> nodeNodeService.sendShardFragment(shardId, fragments, rw));
+        var response =
+            toDto(rw -> nodeNodeService.sendShardEntries(Action.REARRANGE_SHARDS, List.of(new SendShardDTO(shardId, fragments)), rw));
 
         assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));
-        // Data must be in staged shard
+        // Data must be in staged entries
         assertEquals(value, nodeStorageService.getStagedShards().getShardMap().get(shardId).getValue(key));
     }
 
@@ -87,7 +89,7 @@ public class NodeNodeServiceTest {
             new SendShardDTO(shardId2, data2)
         );
 
-        var response = toDto(rw -> nodeNodeService.sendShards(sendShards, rw));
+        var response = toDto(rw -> nodeNodeService.sendShardEntries(Action.MOVE_SHARDS, sendShards, rw));
 
         assertTrue(response.isSuccess());
         assertTrue(response.getMessage().startsWith("SUCCESS"));

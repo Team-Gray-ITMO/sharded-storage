@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import vk.itmo.teamgray.sharded.storage.common.utils.MemoryUtils;
+import vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils;
 
 public class GrpcServerRunner {
     private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
@@ -55,7 +55,7 @@ public class GrpcServerRunner {
 
         var serverBuilder = NettyServerBuilder
             .forPort(port)
-            .maxInboundMessageSize(4 * MemoryUtils.MEBIBYTE);
+            .maxInboundMessageSize(PropertyUtils.getMessageMaxSize());
 
         if (services.isEmpty()) {
             throw new IllegalStateException("No gRPC services registered. Please register at least one service.");

@@ -119,7 +119,7 @@ public class ClientService {
                             NodeClient.class
                         );
                 }
-                // QUEUED means that node has added a pair to the queue, that will be applied at the end of successful resharding/shard moving.
+                // QUEUED means that node has added a pair to the queue, that will be applied at the end of successful resharding/entries moving.
                 case QUEUED, SUCCESS -> {
                     return true;
                 }
@@ -229,10 +229,10 @@ public class ClientService {
         }
 
         if (server == null) {
-            throw new IllegalStateException("Could not find server for key: " + key + " in shard " + shardId);
+            throw new IllegalStateException("Could not find server for key: " + key + " in entries " + shardId);
         }
 
-        log.debug("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
+        log.debug("Found entries {} for key '{}' in server {} ", shardId, key, server.id());
 
         return clientCachingFactory
             .getClient(
@@ -256,16 +256,16 @@ public class ClientService {
     }
 
     /**
-     * Get the current shard-to-server mapping as a Map
+     * Get the current entries-to-server mapping as a Map
      *
-     * @return Map from shard ID to server address (ip:port)
+     * @return Map from entries ID to server address (ip:port)
      */
     public Map<Integer, DiscoverableServiceDTO> getShardServerMapping() {
         return topologyCache.getShardToServer();
     }
 
     /**
-     * Get cached hash-to-shard mapping as a Map
+     * Get cached hash-to-entries mapping as a Map
      *
      * @return Map of pairs (Max available hash value -> Shard number)
      */
@@ -276,5 +276,14 @@ public class ClientService {
     // Getting uncached to get always transparent values.
     public Map<Integer, NodeState> getServerStates() {
         return masterClient.getServerToState();
+    }
+
+    /**
+     * Get the total shard count
+     *
+     * @return the total number of shards
+     */
+    public long getTotalShardCount() {
+        return topologyCache.getShardCount();
     }
 }

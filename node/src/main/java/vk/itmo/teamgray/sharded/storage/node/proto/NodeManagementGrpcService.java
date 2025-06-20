@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.node.proto;
 
 import io.grpc.stub.StreamObserver;
-import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
@@ -38,17 +37,17 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
     }
 
     @Override
-    public void processRearrange(Empty request, StreamObserver<StatusResponse> responseObserver) {
+    public void processAction(ActionRequest request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
-        nodeManagementService.processRearrange(fromGrpcBuilder(builder));
+        nodeManagementService.processAction(Action.valueOf(request.getAction()), fromGrpcBuilder(builder));
 
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void applyOperation(ActionRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void applyAction(ActionRequest request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
         nodeManagementService.applyAction(
@@ -61,7 +60,7 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
     }
 
     @Override
-    public void rollbackOperation(ActionRequest request, StreamObserver<StatusResponse> responseObserver) {
+    public void rollbackAction(ActionRequest request, StreamObserver<StatusResponse> responseObserver) {
         var builder = StatusResponse.newBuilder();
 
         nodeManagementService.rollbackAction(
@@ -83,16 +82,6 @@ public class NodeManagementGrpcService extends NodeManagementServiceGrpc.NodeMan
             request.getFullShardCount(),
             fromGrpcBuilder(builder)
         );
-
-        responseObserver.onNext(builder.build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void processMove(Empty request, StreamObserver<StatusResponse> responseObserver) {
-        var builder = StatusResponse.newBuilder();
-
-        nodeManagementService.processMove(fromGrpcBuilder(builder));
 
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();

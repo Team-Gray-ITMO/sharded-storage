@@ -5,7 +5,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import vk.itmo.teamgray.sharded.storage.common.utils.MemoryUtils;
+import vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils;
 
 public class CachedGrpcStubCreator {
     private static final CachedGrpcStubCreator INSTANCE = new CachedGrpcStubCreator();
@@ -26,7 +26,7 @@ public class CachedGrpcStubCreator {
         ManagedChannel channel = channelMap.computeIfAbsent(
             key,
             k -> NettyChannelBuilder.forAddress(host, port)
-                .maxInboundMessageSize(4 * MemoryUtils.MEBIBYTE)
+                .maxInboundMessageSize(PropertyUtils.getMessageMaxSize())
                 .flowControlWindow(65535)
                 .keepAliveWithoutCalls(true)
                 .usePlaintext()

@@ -69,7 +69,7 @@ public class ShardsContainer {
         Integer shardIdForKey = ShardUtils.getShardIdForKey(key, fullShardCount);
 
         if (shardIdForKey == null || shardIdForKey.compareTo(shardId) != 0) {
-            throw new NodeException("Incorrect shard for key: " + key);
+            throw new NodeException("Incorrect entries for key: " + key);
         }
     }
 
@@ -77,7 +77,7 @@ public class ShardsContainer {
         var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
 
         if (shardId == null) {
-            throw new NodeException("No shard found for key: " + key);
+            throw new NodeException("No entries found for key: " + key);
         }
 
         return shardMap.containsKey(shardId);
@@ -87,7 +87,7 @@ public class ShardsContainer {
         var shardId = ShardUtils.getShardIdForKey(key, fullShardCount);
 
         if (shardId == null) {
-            throw new NodeException("No shard found for key: " + key);
+            throw new NodeException("No entries found for key: " + key);
         }
 
         if (checkShardExists && !shardMap.containsKey(shardId)) {

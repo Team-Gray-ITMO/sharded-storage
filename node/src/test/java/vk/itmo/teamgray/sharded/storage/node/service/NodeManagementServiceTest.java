@@ -15,6 +15,7 @@ import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
+import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
 import vk.itmo.teamgray.sharded.storage.common.node.Action;
@@ -26,8 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -111,7 +113,8 @@ public class NodeManagementServiceTest {
 
         StatusResponseDTO response = new StatusResponseDTO();
 
-        service.processRearrange(
+        service.processAction(
+            Action.REARRANGE_SHARDS,
             (success, message) -> {
                 response.setSuccess(success);
                 response.setMessage(message);
@@ -138,7 +141,8 @@ public class NodeManagementServiceTest {
         nodeStorageService.getShards().getShardMap().put(2, new ShardData());
         nodeStorageService.getShards().getShardMap().get(2).addToStorage("key1", "value1");
         nodeStorageService.getShards().getShardMap().get(2).addToStorage("key2", "value2");
-        service.processRearrange(
+        service.processAction(
+            Action.REARRANGE_SHARDS,
             (success, message) -> {
             });
 
@@ -180,7 +184,8 @@ public class NodeManagementServiceTest {
         FragmentDTO fragment = new FragmentDTO(1, 2, 0, Long.MAX_VALUE);
         StatusResponseDTO response = new StatusResponseDTO();
 
-        service.processRearrange(
+        service.processAction(
+            Action.REARRANGE_SHARDS,
             (success, message) -> {
                 response.setSuccess(success);
                 response.setMessage(message);
@@ -202,7 +207,8 @@ public class NodeManagementServiceTest {
             });
 
         StatusResponseDTO response = new StatusResponseDTO();
-        service.processRearrange(
+        service.processAction(
+            Action.REARRANGE_SHARDS,
             (success, message) -> {
                 response.setSuccess(success);
                 response.setMessage(message);
@@ -361,10 +367,12 @@ public class NodeManagementServiceTest {
             }
         );
 
-        service.processMove((success, message) -> {
-            processResponse.setSuccess(success);
-            processResponse.setMessage(message);
-        });
+        service.processAction(
+            Action.MOVE_SHARDS,
+            (success, message) -> {
+                processResponse.setSuccess(success);
+                processResponse.setMessage(message);
+            });
 
         assertFalse(processResponse.isSuccess());
         assertEquals("No server with id 99 found", processResponse.getMessage());
@@ -378,7 +386,7 @@ public class NodeManagementServiceTest {
         StatusResponseDTO prepareResponse = new StatusResponseDTO();
         StatusResponseDTO processResponse = new StatusResponseDTO();
 
-        // shard 99 not in nodeStorageService, so does not exist
+        // entries 99 not in nodeStorageService, so does not exist
         service.prepareMove(
             List.of(),
             List.of(new SendShardTaskDTO(99, 1)),
@@ -389,10 +397,12 @@ public class NodeManagementServiceTest {
             }
         );
 
-        service.processMove((success, message) -> {
-            processResponse.setSuccess(success);
-            processResponse.setMessage(message);
-        });
+        service.processAction(
+            Action.MOVE_SHARDS,
+            (success, message) -> {
+                processResponse.setSuccess(success);
+                processResponse.setMessage(message);
+            });
 
         // no interactions with clientCachingFactory for sending shards
         verifyNoInteractions(clientCachingFactory);
@@ -404,7 +414,7 @@ public class NodeManagementServiceTest {
         FragmentDTO externalFragment = new FragmentDTO(1, 2, 0L, Long.MAX_VALUE);
         int externalNodeId = 99;
 
-        Map<Integer, Integer> serverByShard = Map.of(2, externalNodeId); // shard 2 -> node 99
+        Map<Integer, Integer> serverByShard = Map.of(2, externalNodeId); // entries 2 -> node 99
         Map<Integer, Long> shardToHash = Map.of(1, 1000L);
 
         when(discoveryClient.getNodeMapWithRetries(argThat(it -> it.contains(99))))
@@ -418,7 +428,7 @@ public class NodeManagementServiceTest {
         NodeNodeClient nodeClient = mock();
         when(clientCachingFactory.getClient(argThat(it -> it.id() == externalNodeId), eq(NodeNodeClient.class)))
             .thenReturn(nodeClient);
-        when(nodeClient.sendShardFragment(anyInt(), anyMap())).thenReturn(new StatusResponseDTO(true, ""));
+        when(nodeClient.sendShardEntries(anyList(), any())).thenReturn(new StatusResponseDTO(true, ""));
 
         StatusResponseDTO prepareResponse = new StatusResponseDTO();
         service.prepareRearrange(
@@ -437,16 +447,21 @@ public class NodeManagementServiceTest {
         nodeStorageService.getShards().getShardMap().get(1).addToStorage("key2", "value2");
 
         StatusResponseDTO processResponse = new StatusResponseDTO();
-        service.processRearrange(
+        service.processAction(
+            Action.REARRANGE_SHARDS,
             (success, message) -> {
                 processResponse.setSuccess(success);
                 processResponse.setMessage(message);
             });
 
         assertTrue(processResponse.isSuccess());
-        verify(nodeClient).sendShardFragment(
-            eq(2),
-            argThat(map -> map.size() == 2)
+        verify(nodeClient).sendShardEntries(
+            argThat(list -> {
+                SendShardDTO first = list.getFirst();
+
+                return first.shardId() == 2 && first.entries().size() == 2;
+            }),
+            eq(Action.REARRANGE_SHARDS)
         );
     }
 }

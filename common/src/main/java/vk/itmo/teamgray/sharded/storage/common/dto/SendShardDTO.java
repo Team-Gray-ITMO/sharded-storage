@@ -5,19 +5,19 @@ import vk.itmo.teamgray.sharded.storage.node.node.SendShard;
 
 public record SendShardDTO(
     int shardId,
-    Map<String, String> shard
+    Map<String, String> entries
 ) {
     public SendShard toGrpc() {
         return SendShard.newBuilder()
             .setShardId(shardId)
-            .putAllShard(shard)
+            .putAllEntries(entries)
             .build();
     }
 
     public static SendShardDTO fromGrpc(SendShard grpc) {
         return new SendShardDTO(
             grpc.getShardId(),
-            grpc.getShardMap()
+            grpc.getEntriesMap()
         );
     }
 }

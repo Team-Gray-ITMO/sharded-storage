@@ -11,6 +11,7 @@ import vk.itmo.teamgray.sharded.storage.common.discovery.DiscoverableServiceType
 import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
 import vk.itmo.teamgray.sharded.storage.common.discovery.dto.DiscoverableServiceDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.StatusResponseDTO;
+import vk.itmo.teamgray.sharded.storage.common.node.Action;
 import vk.itmo.teamgray.sharded.storage.master.client.NodeManagementClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -53,10 +55,9 @@ class TopologyServiceTest {
             .thenReturn(nodeManagementClient);
 
         when(nodeManagementClient.prepareRearrange(any(), any(), any(), anyInt())).thenReturn(new StatusResponseDTO(true, ""));
-        when(nodeManagementClient.processRearrange()).thenReturn(new StatusResponseDTO(true, ""));
+        when(nodeManagementClient.processAction(any())).thenReturn(new StatusResponseDTO(true, ""));
         when(nodeManagementClient.prepareMove(anyList(), anyList(), anyInt())).thenReturn(new StatusResponseDTO(true, ""));
-        when(nodeManagementClient.processMove()).thenReturn(new StatusResponseDTO(true, ""));
-        when(nodeManagementClient.applyOperation(any())).thenReturn(new StatusResponseDTO(true, ""));
+        when(nodeManagementClient.applyAction(any())).thenReturn(new StatusResponseDTO(true, ""));
 
         topologyService = new TopologyService(discoveryClient, clientCachingFactory);
     }
@@ -111,8 +112,8 @@ class TopologyServiceTest {
         assertEquals(shardCount, serverToShards.values().stream().mapToInt(List::size).sum());
 
         verify(nodeManagementClient, times(serverCount)).prepareRearrange(any(), any(), any(), anyInt());
-        verify(nodeManagementClient, times(serverCount)).processRearrange();
-        verify(nodeManagementClient, times(serverCount)).applyOperation(any());
+        verify(nodeManagementClient, times(serverCount)).processAction(any());
+        verify(nodeManagementClient, times(serverCount)).applyAction(any());
 
         var newShardCount = 5;
         topologyService.changeShardCount(newShardCount, voidRw());
@@ -122,8 +123,8 @@ class TopologyServiceTest {
         assertEquals(newShardCount, newServerToShards.values().stream().mapToInt(List::size).sum());
 
         verify(nodeManagementClient, times(serverCount * 2)).prepareRearrange(any(), any(), any(), anyInt());
-        verify(nodeManagementClient, times(serverCount * 2)).processRearrange();
-        verify(nodeManagementClient, times(serverCount * 2)).applyOperation(any());
+        verify(nodeManagementClient, times(serverCount * 2)).processAction(any());
+        verify(nodeManagementClient, times(serverCount * 2)).applyAction(any());
     }
 
     @Test
@@ -212,7 +213,7 @@ class TopologyServiceTest {
         topologyService.changeShardCount(37, voidRw());
 
         verify(nodeManagementClient).prepareRearrange(any(), any(), any(), anyInt());
-        verify(nodeManagementClient).processRearrange();
+        verify(nodeManagementClient).processAction(any());
 
         Map<Integer, List<Integer>> map = toMap(rw -> topologyService.fillServerToShardsInSync(rw));
         assertEquals(1, map.size());
@@ -221,7 +222,7 @@ class TopologyServiceTest {
         topologyService.addServer(2, voidRw());
 
         verify(nodeManagementClient, times(2)).prepareMove(any(), any(), anyInt());
-        verify(nodeManagementClient, times(2)).processMove();
+        verify(nodeManagementClient, times(2)).processAction(eq(Action.MOVE_SHARDS));
 
         map = toMap(rw -> topologyService.fillServerToShardsInSync(rw));
         assertEquals(2, map.size());
@@ -230,7 +231,7 @@ class TopologyServiceTest {
         topologyService.changeShardCount(13, voidRw());
 
         verify(nodeManagementClient, times(3)).prepareRearrange(any(), any(), any(), anyInt());
-        verify(nodeManagementClient, times(3)).processRearrange();
+        verify(nodeManagementClient, times(3)).processAction(eq(Action.REARRANGE_SHARDS));
 
         map = toMap(rw -> topologyService.fillServerToShardsInSync(rw));
         assertEquals(2, map.size());
@@ -239,7 +240,7 @@ class TopologyServiceTest {
         topologyService.addServer(3, voidRw());
 
         verify(nodeManagementClient, times(5)).prepareMove(any(), any(), anyInt());
-        verify(nodeManagementClient, times(5)).processMove();
+        verify(nodeManagementClient, times(5)).processAction(eq(Action.MOVE_SHARDS));
 
         map = toMap(rw -> topologyService.fillServerToShardsInSync(rw));
         assertEquals(3, map.size());
@@ -248,7 +249,7 @@ class TopologyServiceTest {
         topologyService.deleteServer(1, voidRw());
 
         verify(nodeManagementClient, times(8)).prepareMove(any(), any(), anyInt());
-        verify(nodeManagementClient, times(8)).processMove();
+        verify(nodeManagementClient, times(8)).processAction(eq(Action.MOVE_SHARDS));
 
         map = toMap(rw -> topologyService.fillServerToShardsInSync(rw));
         assertEquals(2, map.size());

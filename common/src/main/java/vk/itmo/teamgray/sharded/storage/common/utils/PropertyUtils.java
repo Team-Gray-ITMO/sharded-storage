@@ -70,5 +70,17 @@ public class PropertyUtils {
     public static String getServerHost(String serverType) {
         return getNullableString(serverType + ".grpc.host", APP_PROPS);
     }
+
+    public static int getMessageMaxSize() {
+        Long value = MemoryUtils.parseMemSize(getNullableString("message.max.size", APP_PROPS));
+
+        if (value != null && value > Integer.MAX_VALUE) {
+            throw new UnsupportedOperationException("Message size > 2GB is not supported yet");
+        }
+
+        return Optional.ofNullable(value)
+            .map(Long::intValue)
+            .orElse(4 * MemoryUtils.MEBIBYTE);
+    }
 }
 
