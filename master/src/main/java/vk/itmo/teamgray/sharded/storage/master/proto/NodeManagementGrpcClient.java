@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import vk.itmo.teamgray.sharded.storage.common.Empty;
 import vk.itmo.teamgray.sharded.storage.common.StatusResponse;
 import vk.itmo.teamgray.sharded.storage.common.dto.FragmentDTO;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardTaskDTO;
@@ -44,15 +43,6 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO processMove() {
-        Empty request = Empty.newBuilder().build();
-
-        StatusResponse response = blockingStub.processMove(request);
-
-        return new StatusResponseDTO(response);
-    }
-
-    @Override
     public StatusResponseDTO prepareRearrange(
         Map<Integer, Long> shardToHash,
         List<FragmentDTO> fragments,
@@ -73,19 +63,9 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO processRearrange() {
-        Empty request = Empty.newBuilder().build();
-
+    public StatusResponseDTO processAction(Action action) {
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .processRearrange(request);
-
-        return new StatusResponseDTO(grpcResponse);
-    }
-
-    @Override
-    public StatusResponseDTO applyOperation(Action action) {
-        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .applyOperation(
+            .processAction(
                 ActionRequest.newBuilder()
                     .setAction(action.name())
                     .build()
@@ -95,9 +75,21 @@ public class NodeManagementGrpcClient extends AbstractGrpcClient<NodeManagementS
     }
 
     @Override
-    public StatusResponseDTO rollbackOperation(Action action) {
+    public StatusResponseDTO applyAction(Action action) {
         StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
-            .rollbackOperation(
+            .applyAction(
+                ActionRequest.newBuilder()
+                    .setAction(action.name())
+                    .build()
+            );
+
+        return new StatusResponseDTO(grpcResponse);
+    }
+
+    @Override
+    public StatusResponseDTO rollbackAction(Action action) {
+        StatusResponse grpcResponse = blockingStub.withDeadlineAfter(10, TimeUnit.SECONDS)
+            .rollbackAction(
                 ActionRequest.newBuilder()
                     .setAction(action.name())
                     .build()

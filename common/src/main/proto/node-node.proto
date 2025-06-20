@@ -8,21 +8,15 @@ package vk.itmo.teamgray.sharded.storage;
 import "common.proto";
 
 service NodeNodeService {
-  rpc SendShards (SendShardsRequest) returns (StatusResponse);
-
-  rpc SendShardFragment (SendShardFragmentRequest) returns (StatusResponse);
+  rpc SendShardEntries (SendShardsRequest) returns (StatusResponse);
 }
 
 message SendShardsRequest {
   repeated SendShard shards = 1;
+  string action = 2;
 }
 
 message SendShard {
   int32 shardId = 1;
-  map<string, string> shard = 2;
-}
-
-message SendShardFragmentRequest {
-  int32 shardId = 1;
-  map<string, string> shardFragments = 2;
+  map<string, string> entries = 2;
 }

@@ -1,7 +1,6 @@
 package vk.itmo.teamgray.sharded.storage.client.service;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.time.Duration;
@@ -39,16 +38,20 @@ public class ClientService {
 
     private final ClientCachingFactory clientCachingFactory;
 
+    private final FileReaderProvider fileReaderProvider;
+
     private TopologyCache topologyCache;
 
     public ClientService(
         MasterClient masterClient,
         DiscoveryClient discoveryClient,
-        ClientCachingFactory clientCachingFactory
+        ClientCachingFactory clientCachingFactory,
+        FileReaderProvider fileReaderProvider
     ) {
         this.masterClient = masterClient;
         this.discoveryClient = discoveryClient;
         this.clientCachingFactory = clientCachingFactory;
+        this.fileReaderProvider = fileReaderProvider;
 
         updateCaches();
     }
@@ -116,7 +119,7 @@ public class ClientService {
                             NodeClient.class
                         );
                 }
-                // QUEUED means that node has added a pair to the queue, that will be applied at the end of successful resharding/shard moving.
+                // QUEUED means that node has added a pair to the queue, that will be applied at the end of successful resharding/entries moving.
                 case QUEUED, SUCCESS -> {
                     return true;
                 }
@@ -138,7 +141,7 @@ public class ClientService {
      * @return result of set operation
      */
     public StatusResponseDTO setFromFile(String filePath) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+        try (BufferedReader reader = fileReaderProvider.getReader(filePath)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
@@ -226,10 +229,10 @@ public class ClientService {
         }
 
         if (server == null) {
-            throw new IllegalStateException("Could not find server for key: " + key + " in shard " + shardId);
+            throw new IllegalStateException("Could not find server for key: " + key + " in entries " + shardId);
         }
 
-        log.debug("Found shard {} for key '{}' in server {} ", shardId, key, server.id());
+        log.debug("Found entries {} for key '{}' in server {} ", shardId, key, server.id());
 
         return clientCachingFactory
             .getClient(
@@ -253,16 +256,16 @@ public class ClientService {
     }
 
     /**
-     * Get the current shard-to-server mapping as a Map
+     * Get the current entries-to-server mapping as a Map
      *
-     * @return Map from shard ID to server address (ip:port)
+     * @return Map from entries ID to server address (ip:port)
      */
     public Map<Integer, DiscoverableServiceDTO> getShardServerMapping() {
         return topologyCache.getShardToServer();
     }
 
     /**
-     * Get cached hash-to-shard mapping as a Map
+     * Get cached hash-to-entries mapping as a Map
      *
      * @return Map of pairs (Max available hash value -> Shard number)
      */

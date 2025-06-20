@@ -62,10 +62,10 @@ public class MasterClientService {
     }
 
     public void changeShardCount(int shardCount, StatusResponseWriter responseWriter) {
-        log.info("Changing shard count to {}", shardCount);
+        log.info("Changing entries count to {}", shardCount);
 
         topologyService.changeShardCount(shardCount, responseWriter);
 
-        log.info("Changed shard count successfully");
+        log.info("Changed entries count successfully");
     }
 }

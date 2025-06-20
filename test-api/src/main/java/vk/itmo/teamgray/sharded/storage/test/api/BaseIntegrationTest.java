@@ -1,6 +1,8 @@
 package vk.itmo.teamgray.sharded.storage.test.api;
 
 import io.grpc.StatusRuntimeException;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -69,7 +71,12 @@ public abstract class BaseIntegrationTest extends BaseOrchestratedTest {
                         MasterClient.class
                 );
 
-        clientService = new ClientService(masterClient, discoveryClient, clientCachingFactory);
+        clientService = new ClientService(
+            masterClient,
+            discoveryClient,
+            clientCachingFactory,
+            fileName -> new BufferedReader(new FileReader(fileName))
+        );
     }
 
     @BeforeEach

@@ -115,11 +115,11 @@ public class NodeStorageService {
     }
 
     public void swapWithStaged() {
-        log.info("Replacing shard scheme {}", stagedShards);
+        log.info("Replacing entries scheme {}", stagedShards);
 
         shards = stagedShards;
 
-        log.info("Replaced shard scheme.");
+        log.info("Replaced entries scheme.");
     }
 
     public void processQueue(ActionPhase phase) {
@@ -157,7 +157,7 @@ public class NodeStorageService {
 
     public Map<Integer, Integer> getPreparedServerByShardNumber(Action action) {
         if (preparedData == null || preparedData.getAction() != action) {
-            throw new IllegalStateException("Server and shard data was not prepared");
+            throw new IllegalStateException("Server and entries data was not prepared");
         }
 
         return preparedData.getPreparedServerByShardNumber();
@@ -259,7 +259,7 @@ public class NodeStorageService {
                 )
         );
 
-        dto.setShardStats(
+        dto.setStagedShardStats(
             stagedShards == null
                 ? Collections.emptyMap()
                 : stagedShards.getShardMap().entrySet().stream()
@@ -361,10 +361,6 @@ public class NodeStorageService {
 
         public Action getAction() {
             return action;
-        }
-
-        public void setAction(Action action) {
-            this.action = action;
         }
 
         public List<FragmentDTO> getPreparedFragments() {

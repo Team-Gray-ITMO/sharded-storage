@@ -15,6 +15,8 @@ import vk.itmo.teamgray.sharded.storage.common.node.NodeState;
 import vk.itmo.teamgray.sharded.storage.node.service.shards.ShardData;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class NodeStorageServiceTest {
@@ -146,5 +148,22 @@ class NodeStorageServiceTest {
         assertThrows(NodeException.class, () ->
             service.set(testKey, testValue, testTimestamp)
         );
+    }
+
+    @Test
+    void getNodeStatus() {
+        service.changeState(NodeState.INIT, NodeState.REARRANGE_SHARDS_PREPARING);
+        service.changeState(NodeState.REARRANGE_SHARDS_PREPARING, NodeState.REARRANGE_SHARDS_PREPARED);
+        service.changeState(NodeState.REARRANGE_SHARDS_PREPARED, NodeState.REARRANGE_SHARDS_PROCESSING);
+
+        service.stageShards(service.getShards().getShardMap(), 1);
+
+        var status = service.getNodeStatus();
+
+        assertSame(NodeState.REARRANGE_SHARDS_PROCESSING, status.getState());
+        assertEquals(1, status.getShardStats().size());
+        assertEquals(1, status.getStagedShardStats().size());
+        assertEquals(0, status.getApplyQueueSize());
+        assertEquals(0, status.getRollbackQueueSize());
     }
 }

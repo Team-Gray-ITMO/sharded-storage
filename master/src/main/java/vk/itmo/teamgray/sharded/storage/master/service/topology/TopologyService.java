@@ -188,7 +188,7 @@ public class TopologyService {
                 Integer targetServerId = findServerForShard(newMapping, shardId);
 
                 if (targetServerId != null && !targetServerId.equals(sourceServerId)) {
-                    log.debug("Preparing to move shard {} from {} to {}", shardId, sourceServerId, targetServerId);
+                    log.debug("Preparing to move entries {} from {} to {}", shardId, sourceServerId, targetServerId);
 
                     moveShards.add(new ShardFromTo(sourceServerId, targetServerId, shardId));
                 }
@@ -278,7 +278,7 @@ public class TopologyService {
 
             setServerState(serverId, NodeState.MOVE_SHARDS_PROCESSING);
 
-            var response = managementClient.processMove();
+            var response = managementClient.processAction(action);
 
             if (response.isSuccess()) {
                 setServerState(serverId, NodeState.MOVE_SHARDS_PROCESSED);
@@ -310,7 +310,7 @@ public class TopologyService {
 
             setServerState(serverIdToApply, NodeState.MOVE_SHARDS_APPLYING);
 
-            var response = managementClient.applyOperation(action);
+            var response = managementClient.applyAction(action);
 
             if (response.isSuccess()) {
                 // For removed server state needs to be removed, instead of set RUNNING again.
@@ -452,7 +452,7 @@ public class TopologyService {
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_PROCESSING);
 
-                StatusResponseDTO response = client.processRearrange();
+                StatusResponseDTO response = client.processAction(action);
 
                 if (response.isSuccess()) {
                     setServerState(serverId, NodeState.REARRANGE_SHARDS_PROCESSED);
@@ -475,7 +475,7 @@ public class TopologyService {
                 NodeManagementClient client = clientCachingFactory.getClient(server, NodeManagementClient.class);
 
                 setServerState(serverId, NodeState.REARRANGE_SHARDS_APPLYING);
-                StatusResponseDTO response = client.applyOperation(action);
+                StatusResponseDTO response = client.applyAction(action);
 
                 if (response.isSuccess()) {
                     setServerState(serverId, NodeState.RUNNING);
@@ -493,7 +493,7 @@ public class TopologyService {
             }
 
             replaceBothMaps(newShardToHash, newServerToShards);
-            responseWriter.writeResponse(true, "Changed shard count successfully");
+            responseWriter.writeResponse(true, "Changed entries count successfully");
 
             return true;
         } finally {
@@ -537,7 +537,7 @@ public class TopologyService {
 
             setServerState(node.id(), NodeState.resolve(action, ActionPhase.ROLLBACK));
 
-            StatusResponseDTO response = client.rollbackOperation(action);
+            StatusResponseDTO response = client.rollbackAction(action);
             if (response.isSuccess()) {
                 setServerState(node.id(), NodeState.RUNNING);
             } else {
@@ -602,17 +602,17 @@ public class TopologyService {
     private void replaceServerToShards(Map<Integer, List<Integer>> newServerToShards) {
         lock.writeLock().lock();
 
-        log.info("Replacing server to shard scheme {}", newServerToShards);
+        log.info("Replacing server to entries scheme {}", newServerToShards);
 
         try {
-            log.info("Replacing server to shard scheme {}", newServerToShards);
+            log.info("Replacing server to entries scheme {}", newServerToShards);
             var oldServerToShards = serverToShards;
 
             serverToShards = newServerToShards;
 
             oldServerToShards.clear();
 
-            log.info("Replaced server to shard scheme");
+            log.info("Replaced server to entries scheme");
         } finally {
             lock.writeLock().unlock();
         }
@@ -624,7 +624,7 @@ public class TopologyService {
     ) {
         lock.writeLock().lock();
 
-        log.info("Replacing server to shard and shard to hash schemes [sts={}, sth={}]", newServerToShards, newShardToHash);
+        log.info("Replacing server to entries and entries to hash schemes [sts={}, sth={}]", newServerToShards, newShardToHash);
 
         try {
             var oldShardToHash = shardToHash;
@@ -636,7 +636,7 @@ public class TopologyService {
             oldShardToHash.clear();
             oldServerToShards.clear();
 
-            log.info("Replaced server to shard and shard to hash schemes");
+            log.info("Replaced server to entries and entries to hash schemes");
         } finally {
             lock.writeLock().unlock();
         }

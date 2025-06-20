@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vk.itmo.teamgray.sharded.storage.common.dto.SendShardDTO;
 import vk.itmo.teamgray.sharded.storage.common.exception.NodeException;
+import vk.itmo.teamgray.sharded.storage.common.node.Action;
 import vk.itmo.teamgray.sharded.storage.common.responsewriter.StatusResponseWriter;
 
 public class NodeNodeService {
@@ -21,23 +22,23 @@ public class NodeNodeService {
         this.nodeStorageService = nodeStorageService;
     }
 
-    public void sendShards(
-        List<SendShardDTO> sendShards,
+    public void sendShardEntries(
+        Action action,
+        List<SendShardDTO> sendShardEntries,
         StatusResponseWriter responseWriter
     ) {
+        log.debug("Received entries entries for action {}: {}. Processing", action, sendShardEntries);
 
-        log.debug("Received shards {}. Processing", sendShards);
-
-        List<String> errorMessages = sendShards.stream()
+        List<String> errorMessages = sendShardEntries.stream()
             .map(sendShard -> {
                 int shardId = sendShard.shardId();
-                Map<String, String> shard = sendShard.shard();
+                Map<String, String> shard = sendShard.entries();
 
                 try {
                     var stagedShards = nodeStorageService.getStagedShards();
 
                     if (!stagedShards.containsShard(shardId)) {
-                        throw new NodeException("Staged shard " + shardId + " does not exist");
+                        throw new NodeException("Staged entries " + shardId + " does not exist");
                     }
 
                     shard
@@ -62,39 +63,5 @@ public class NodeNodeService {
                 ? SUCCESS_MESSAGE
                 : StringUtil.join(System.lineSeparator(), errorMessages).toString()
         );
-    }
-
-    public void sendShardFragment(
-        int shardId,
-        Map<String, String> shardFragments,
-        StatusResponseWriter responseWriter
-    ) {
-        boolean success = true;
-        String message = SUCCESS_MESSAGE;
-
-        log.debug("Received fragment for shard {}. Processing", shardId);
-
-        try {
-            var stagedShards = nodeStorageService.getStagedShards();
-
-            if (!stagedShards.containsShard(shardId)) {
-                throw new NodeException("Staged shard " + shardId + " does not exist");
-            }
-
-            shardFragments
-                .forEach((key, value) -> {
-                    stagedShards.checkKeyForShard(shardId, key);
-                    stagedShards.set(key, value);
-                });
-        } catch (Exception e) {
-            success = false;
-            message = "ERROR: " + e.getMessage();
-
-            log.error(message, e);
-
-            responseWriter.writeResponse(false, message);
-        }
-
-        responseWriter.writeResponse(success, message);
     }
 }
