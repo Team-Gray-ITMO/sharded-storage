@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.node.management";
+
+package vk.itmo.teamgray.sharded.storage;
+
+import "common.proto";
+
+message PrepareRearrangeRequest {
+  map<int32, int64> shardToHash = 1;
+  repeated MoveFragment fragments = 2;
+  map<int32, int32> serverByShardNumber = 3;
+  int32 fullShardCount = 4;
+}
+
+service NodeManagementService {
+  rpc PrepareRearrange (PrepareRearrangeRequest) returns (StatusResponse);
+
+  rpc PrepareMove (PrepareMoveRequest) returns (StatusResponse);
+
+  rpc ProcessAction (ActionRequest) returns (StatusResponse);
+  rpc ApplyAction (ActionRequest) returns (StatusResponse);
+  rpc RollbackAction (ActionRequest) returns (StatusResponse);
+}
+
+message PrepareMoveRequest {
+  repeated int32 receiveShardIds = 1;
+
+  repeated SendShardTask sendShards = 2;
+
+  int32 fullShardCount = 3;
+}
+
+message SendShardTask {
+  int32 shardId = 1;
+
+  int32 targetServer = 2;
+}
+
+message MoveFragment {
+  int32 shardFrom = 1;
+
+  int32 shardTo = 2;
+
+  int64 rangeFrom = 3;
+
+  int64 rangeTo = 4;
+}
+
+message ActionRequest {
+  string action = 1;
+}

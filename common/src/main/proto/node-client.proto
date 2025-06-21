@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.node.client";
+
+package vk.itmo.teamgray.sharded.storage;
+
+import "common.proto";
+
+service NodeClientService {
+  rpc GetKey (GetKeyRequest) returns (GetKeyResponse);
+
+  rpc SetKey (SetKeyRequest) returns (SetKeyResponse);
+
+  rpc GetNodeStatus (Empty) returns (NodeStatusResponse);
+}
+
+message GetKeyRequest {
+  string key = 1;
+}
+
+message GetKeyResponse {
+  string status = 1;
+  string value = 2;
+}
+
+message SetKeyRequest {
+  string key = 1;
+  string value = 2;
+  int64 timestamp = 3;
+}
+
+message SetKeyResponse {
+  string status = 1;
+  string message = 2;
+  int32 newNodeId = 3;
+}
+
+message NodeStatusResponse {
+  string state = 1;
+
+  map<int32, ShardStats> shardStats = 2;
+
+  map<int32, ShardStats> stagedShardStats = 3;
+
+  int32 applyQueueSize = 4;
+
+  int32 rollbackQueueSize = 5;
+}
+
+message ShardStats {
+  int32 size = 1;
+}

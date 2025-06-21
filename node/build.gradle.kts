@@ -1,5 +1,8 @@
 plugins {
     id("java")
+    id("jacoco")
+    alias(libs.plugins.qameta.allure)
+    alias(libs.plugins.shadow)
 }
 
 private val mainClassName = "vk.itmo.teamgray.sharded.storage.node.NodeApplication"
@@ -9,7 +12,18 @@ application {
 }
 
 dependencies {
-    implementation(project(":common"))
+    implementation(projects.common)
+
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.mockito)
+
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.jar {
@@ -18,23 +32,79 @@ tasks.jar {
     }
 }
 
-tasks.register<Jar>("fatJar") {
+tasks.shadowJar {
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    from(sourceSets.main.get().output)
-
-    dependsOn(configurations.runtimeClasspath)
-    from({
-        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
-    })
 
     manifest {
         attributes["Main-Class"] = mainClassName
     }
+
+    mergeServiceFiles()
+
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 
 tasks.build {
-    dependsOn(tasks.named("fatJar"))
+    dependsOn(tasks.named("shadowJar"))
 }
 
+@Suppress("UNCHECKED_CAST")
+val serviceClassDirectories: ConfigurableFileCollection = files(
+    fileTree(project.layout.buildDirectory.dir("classes/java/main")).matching {
+        include(project.ext["coverageIncludes"] as List<String>)
+        exclude(project.ext["coverageExcludes"] as List<String>)
+    }
+)
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(serviceClassDirectories)
+
+    doLast {
+        val report = file("${reports.html.outputLocation.get()}/index.html")
+        println("JaCoCo report: ${report.toURI()}")
+    }
+}
+
+@Suppress("UNCHECKED_CAST")
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    violationRules {
+        rule {
+            limit {
+                minimum = project.ext["coverageMinimum"] as BigDecimal
+                counter = "LINE"
+                value = "COVEREDRATIO"
+            }
+            includes = (project.ext["coverageIncludes"] as List<String>).map {
+                it.replace("**/", "*..")
+                    .replace("**", "*")
+                    .replace("/*/", ".*.")
+            }
+        }
+    }
+
+    classDirectories.setFrom(serviceClassDirectories)
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+    finalizedBy(tasks.jacocoTestCoverageVerification)
+}
+
+tasks.jacocoTestReport {
+    mustRunAfter(tasks.test)
+}
+
+tasks.jacocoTestCoverageVerification {
+    mustRunAfter(tasks.jacocoTestReport)
+}

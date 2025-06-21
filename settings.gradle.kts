@@ -1,3 +1,21 @@
+rootProject.name = "sharded-storage"
+
+include("node")
+include("master")
+include("client")
+include("common")
+include("discovery")
+include("test-api")
+include("integration-tests")
+include("load-tests")
+include("failpoint-agent")
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+
 pluginManagement {
     repositories {
         mavenCentral()
@@ -5,11 +23,4 @@ pluginManagement {
     }
 }
 
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.5.0"
-}
-
-rootProject.name = "sharded-storage"
-include("node")
-include("client")
-include("common")
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")

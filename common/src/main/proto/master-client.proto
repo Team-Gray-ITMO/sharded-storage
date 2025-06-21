@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "vk.itmo.teamgray.sharded.storage.master.client";
+
+package vk.itmo.teamgray.sharded.storage;
+
+import "common.proto";
+
+service MasterClientService {
+  rpc GetServerToShard (GetServerToShardRequest) returns (GetServerToShardResponse);
+
+  rpc GetServerToState (GetServerToStateRequest) returns (GetServerToStateResponse);
+
+  rpc GetShardToHash (GetShardToHashRequest) returns (GetShardToHashResponse);
+
+  rpc AddServer (AddServerRequest) returns (StatusResponse);
+
+  rpc DeleteServer (DeleteServerRequest) returns (StatusResponse);
+
+  rpc ChangeShardCount (ChangeShardCountRequest) returns (StatusResponse);
+}
+
+message GetServerToShardRequest {
+}
+
+message GetServerToShardResponse{
+  // Map of server IDs to shard IDs
+  map<int32, IntList> serverToShard = 1;
+}
+
+message GetServerToStateRequest {
+}
+
+message GetServerToStateResponse {
+  // Map of server IDs to server state
+  map<int32, string> serverToState = 1;
+}
+
+message GetShardToHashRequest {
+}
+
+message GetShardToHashResponse{
+  // Sorted map of upper bound hash (inclusive) by shard number, lower bound is defined by previous shard (exclusive)
+  map<int32, int64> shardToHash = 1;
+}
+
+message IntList {
+  repeated int32 values = 1;
+}
+
+message AddServerRequest {
+  int32 id = 1;
+  bool forkNewInstance = 3;
+}
+
+message DeleteServerRequest {
+  int32 id = 1;
+}
+
+message ChangeShardCountRequest {
+  int32 newShardCount = 1;
+}

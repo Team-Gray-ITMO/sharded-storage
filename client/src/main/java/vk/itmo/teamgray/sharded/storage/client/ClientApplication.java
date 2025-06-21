@@ -1,45 +1,53 @@
 package vk.itmo.teamgray.sharded.storage.client;
 
-import java.time.Instant;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import vk.itmo.teamgray.sharded.storage.client.client.MasterClient;
+import vk.itmo.teamgray.sharded.storage.client.client.NodeClient;
+import vk.itmo.teamgray.sharded.storage.client.proto.MasterGrpcClient;
+import vk.itmo.teamgray.sharded.storage.client.proto.NodeGrpcClient;
+import vk.itmo.teamgray.sharded.storage.client.service.ClientService;
+import vk.itmo.teamgray.sharded.storage.common.client.ClientCachingFactory;
+import vk.itmo.teamgray.sharded.storage.common.discovery.client.DiscoveryClient;
+import vk.itmo.teamgray.sharded.storage.common.discovery.proto.DiscoveryGrpcClient;
 
-import static vk.itmo.teamgray.sharded.storage.common.Utils.getServerHost;
-import static vk.itmo.teamgray.sharded.storage.common.Utils.getServerPort;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getDiscoverableService;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerHost;
+import static vk.itmo.teamgray.sharded.storage.common.utils.PropertyUtils.getServerPort;
 
 public class ClientApplication {
-    private static final Logger log = LoggerFactory.getLogger(ClientApplication.class);
 
     public static void main(String[] args) throws InterruptedException {
-        ShardedStorageClient client = new ShardedStorageClient(getServerHost(), getServerPort());
+        ClientCachingFactory clientCachingFactory = ClientCachingFactory
+            .getInstance();
 
-        //TODO: Test logic to check gRPC, later remove
-        scheduleHeartbeat(client);
-    }
+        clientCachingFactory.registerClientCreator(DiscoveryClient.class, DiscoveryGrpcClient::new);
+        clientCachingFactory.registerClientCreator(MasterClient.class, MasterGrpcClient::new);
+        clientCachingFactory.registerClientCreator(NodeClient.class, NodeGrpcClient::new);
 
-    private static void scheduleHeartbeat(ShardedStorageClient client) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(10);
+        DiscoveryClient discoveryClient = clientCachingFactory.getClient(
+            getServerHost("discovery"),
+            getServerPort("discovery"),
+            DiscoveryClient.class
+        );
 
-        try (ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor()) {
-            scheduler.scheduleAtFixedRate(() -> {
-                sendHeartbeat(client);
-                latch.countDown();
-            }, 0, 1, TimeUnit.SECONDS);
+        //TODO Later register individual clients
+        discoveryClient.register(getDiscoverableService());
 
-            latch.await();
-        }
-    }
+        MasterClient masterClient = clientCachingFactory
+            .getClient(
+                discoveryClient.getMasterWithRetries(),
+                MasterClient.class
+            );
 
-    private static void sendHeartbeat(ShardedStorageClient client) {
-        log.info("Heartbeat sent at {}", Instant.now());
+        ClientService clientService = new ClientService(
+            masterClient,
+            discoveryClient,
+            clientCachingFactory,
+            fileName -> new BufferedReader(new FileReader(fileName))
+        );
 
-        var response = client.sendHeartbeat();
-
-        log.info("Heartbeat Success. Healthy: {}, Timestamp: {} ", response.getHealthy(),
-            Instant.ofEpochMilli(response.getServerTimestamp()));
+        CLI cli = new CLI(clientService);
+        cli.start();
     }
 }

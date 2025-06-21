@@ -1,8 +1,26 @@
-version: "3.8"
 services:
-  node:
-    build:
-      context: ./node
-      dockerfile: ./Dockerfile
+  discovery:
+    image: sharded_storage_discovery:latest
     ports:
-      - "9001:9001"
+      - "9003:9003"
+    networks:
+      - sharded-storage
+
+  master:
+    image: sharded_storage_master:latest
+    ports:
+      - "9002:9002"
+    environment:
+      - DISCOVERY_GRPC_HOST=discovery
+      - SERVICE_TYPE=MASTER
+      - SERVICE_HOST=localhost
+      - SERVICE_CONTAINER_NAME=master
+    networks:
+      - sharded-storage
+    depends_on:
+      - discovery
+
+networks:
+  sharded-storage:
+    name: sharded-storage
+    driver: bridge
